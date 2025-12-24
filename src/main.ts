@@ -1,6 +1,6 @@
 import './style.css';
 import { GameSim } from './sim';
-import { MODE, Mode, NodeType } from './types';
+import { MODE, Mode, ComponentType } from './types';
 
 type UIRefs = {
   canvas: HTMLCanvasElement;
@@ -36,7 +36,7 @@ type UIRefs = {
 
   eventLog: HTMLElement;
 
-  nodeType: HTMLSelectElement;
+  componentType: HTMLSelectElement;
 
   btnStart: HTMLButtonElement;
   btnPause: HTMLButtonElement;
@@ -60,6 +60,15 @@ refs.buildInfo.textContent = `Build ${shortSha} • base ${import.meta.env.BASE_
 
 const TICK_MS = 1000;
 let tickHandle: number | null = null;
+
+function syncRunButtons() {
+  refs.btnStart.classList.toggle('is-active', sim.running);
+  refs.btnPause.classList.toggle('is-active', !sim.running);
+
+  // Optional UX: make the inactive action slightly less prominent
+  refs.btnStart.disabled = sim.running;
+  refs.btnPause.disabled = !sim.running;
+}
 
 function startTickLoop() {
   if (tickHandle !== null) return;
@@ -117,11 +126,11 @@ refs.btnLink.onclick = () => setMode(MODE.LINK);
 refs.btnUnlink.onclick = () => setMode(MODE.UNLINK);
 
 refs.btnAdd.onclick = () => {
-  const type = refs.nodeType.value as NodeType;
+  const type = refs.componentType.value as ComponentType;
   const r = refs.canvas.getBoundingClientRect();
   const x = r.width * (0.2 + Math.random() * 0.55);
   const y = r.height * (0.2 + Math.random() * 0.60);
-  const res = sim.addNode(type, x, y);
+  const res = sim.addComponent(type, x, y);
   if (!res.ok) {
     // light feedback via events panel
     // (sim logs major things; add a soft hint by toggling selection)
@@ -154,7 +163,7 @@ let dragOffY = 0;
 
 refs.canvas.addEventListener('mousedown', (e) => {
   const pt = screenToCanvas(e);
-  const hit = hitNode(pt.x, pt.y);
+  const hit = hitComponent(pt.x, pt.y);
 
   if (!hit) {
     sim.selectedId = null;
@@ -196,7 +205,7 @@ refs.canvas.addEventListener('mousedown', (e) => {
 window.addEventListener('mousemove', (e) => {
   if (!draggingId) return;
   const pt = screenToCanvas(e);
-  sim.moveNode(draggingId, pt.x - dragOffX, pt.y - dragOffY);
+  sim.moveComponent(draggingId, pt.x - dragOffX, pt.y - dragOffY);
 });
 
 window.addEventListener('mouseup', () => {
@@ -208,9 +217,9 @@ function screenToCanvas(e: MouseEvent) {
   return { x: e.clientX - r.left, y: e.clientY - r.top };
 }
 
-function hitNode(x: number, y: number) {
-  for (let i = sim.nodes.length - 1; i >= 0; i--) {
-    const n = sim.nodes[i];
+function hitComponent(x: number, y: number) {
+  for (let i = sim.components.length - 1; i >= 0; i--) {
+    const n = sim.components[i];
     const dx = x - n.x;
     const dy = y - n.y;
     if (dx * dx + dy * dy <= n.r * n.r) return n;
@@ -225,8 +234,8 @@ function draw() {
 
   // links
   for (const l of sim.links) {
-    const a = sim.nodes.find(n => n.id === l.from);
-    const b = sim.nodes.find(n => n.id === l.to);
+    const a = sim.components.find(n => n.id === l.from);
+    const b = sim.components.find(n => n.id === l.to);
     if (!a || !b) continue;
 
     const selectedPath =
@@ -259,8 +268,8 @@ function draw() {
     refs.ctx.fill();
   }
 
-  // nodes
-  for (const n of sim.nodes) {
+  // components
+  for (const n of sim.components) {
     const sel = (sim.selectedId === n.id);
     const lf = (sim.linkFromId === n.id);
     const glow = sel || lf;
@@ -307,7 +316,7 @@ function draw() {
       ? 'Link mode: click source → destination'
       : sim.mode === MODE.UNLINK
         ? 'Unlink mode: click source → destination'
-        : 'Select mode: drag nodes, click to select';
+        : 'Select mode: drag components, click to select';
   refs.ctx.fillText(hint, 16, 20);
 
   requestAnimationFrame(draw);
@@ -360,6 +369,7 @@ function syncUI() {
     refs.btnRepair.disabled = !s.selected.canRepair;
     refs.btnDelete.disabled = !s.selected.canDelete;
   }
+  syncRunButtons();
 }
 
 function bindUI(): UIRefs {
@@ -400,7 +410,7 @@ function bindUI(): UIRefs {
 
     eventLog: must('eventLog'),
 
-    nodeType: must<HTMLSelectElement>('nodeType'),
+    componentType: must<HTMLSelectElement>('componentType'),
 
     btnStart: must<HTMLButtonElement>('btnStart'),
     btnPause: must<HTMLButtonElement>('btnPause'),

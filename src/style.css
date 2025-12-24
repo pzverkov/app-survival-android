@@ -343,3 +343,24 @@ ol { margin: 8px 0 0; }
 @media (prefers-reduced-motion: reduce) {
   .btn, select { transition: none; }
 }
+
+/* Dropdown options (improves dark mode menus on some browsers) */
+select, option {
+  color-scheme: dark;
+}
+select option {
+  background: var(--md-sys-color-surface-container-highest);
+  color: var(--md-sys-color-on-surface);
+}
+select:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+/* Button state highlighting */
+.btn.is-active {
+  box-shadow: 0 0 0 2px var(--md-sys-color-primary) inset;
+}
+.btn.error.is-active {
+  box-shadow: 0 0 0 2px var(--md-sys-color-error) inset;
+}

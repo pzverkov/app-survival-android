@@ -1,6 +1,6 @@
-import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Node, NodeDef, NodeType, Request } from './types';
+import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request } from './types';
 
-export const NodeDefs: Record<NodeType, NodeDef> = {
+export const ComponentDefs: Record<ComponentType, ComponentDef> = {
   UI:       { baseCap: 14, baseLat: 10, baseFail: 0.004, cost: 40,  upgrade: [0, 60, 90, 0],   desc: 'Screens / Compose' },
   VM:       { baseCap: 12, baseLat:  8, baseFail: 0.003, cost: 45,  upgrade: [0, 70, 110, 0],  desc: 'State holder, throttling' },
   DOMAIN:   { baseCap: 11, baseLat:  9, baseFail: 0.003, cost: 55,  upgrade: [0, 80, 120, 0],  desc: 'UseCases / business rules' },
@@ -76,7 +76,7 @@ export class GameSim {
   anrPoints = 0;
   latSamples: number[] = [];
 
-  nodes: Node[] = [];
+  nodes: component[] = [];
   links: Link[] = [];
 
   selectedId: number | null = null;
@@ -135,16 +135,16 @@ export class GameSim {
     const cx = bounds.width * 0.40;
     const cy = bounds.height * 0.50;
 
-    const nUI = this.createNode('UI',     cx - 260, cy - 20);
-    const nVM = this.createNode('VM',     cx - 150, cy - 20);
-    const nD  = this.createNode('DOMAIN', cx -  40, cy - 20);
-    const nR  = this.createNode('REPO',   cx +  70, cy - 20);
-    const nC  = this.createNode('CACHE',  cx + 190, cy - 80);
-    const nDB = this.createNode('DB',     cx + 310, cy - 80);
-    const nN  = this.createNode('NET',    cx + 190, cy + 60);
-    const nW  = this.createNode('WORK',   cx -  40, cy + 110);
-    const nO  = this.createNode('OBS',    cx - 260, cy + 120);
-    const nF  = this.createNode('FLAGS',  cx + 310, cy + 60);
+    const nUI = this.createComponent('UI',     cx - 260, cy - 20);
+    const nVM = this.createComponent('VM',     cx - 150, cy - 20);
+    const nD  = this.createComponent('DOMAIN', cx -  40, cy - 20);
+    const nR  = this.createComponent('REPO',   cx +  70, cy - 20);
+    const nC  = this.createComponent('CACHE',  cx + 190, cy - 80);
+    const nDB = this.createComponent('DB',     cx + 310, cy - 80);
+    const nN  = this.createComponent('NET',    cx + 190, cy + 60);
+    const nW  = this.createComponent('WORK',   cx -  40, cy + 110);
+    const nO  = this.createComponent('OBS',    cx - 260, cy + 120);
+    const nF  = this.createComponent('FLAGS',  cx + 310, cy + 60);
 
     this.nodes.push(nUI, nVM, nD, nR, nC, nDB, nN, nW, nO, nF);
 
@@ -160,11 +160,11 @@ export class GameSim {
   }
 
   // --- public CRUD ----------------------------------------------------------
-  addNode(type: NodeType, x: number, y: number): { ok: boolean; reason?: string; id?: number } {
-    const def = NodeDefs[type];
+  addComponent(type: ComponentType, x: number, y: number): { ok: boolean; reason?: string; id?: number } {
+    const def = ComponentDefs[type];
     if (this.budget < def.cost) return { ok: false, reason: 'Not enough budget' };
     this.budget -= def.cost;
-    const n = this.createNode(type, x, y);
+    const n = this.createComponent(type, x, y);
     this.nodes.push(n);
     this.selectedId = n.id;
     return { ok: true, id: n.id };
@@ -177,7 +177,7 @@ export class GameSim {
     this.queues.delete(id);
     this.nodes = this.nodes.filter(n => n.id !== id);
     this.selectedId = null;
-    this.log(`Deleted node #${id}.`);
+    this.log(`Deleted component #${id}.`);
     return true;
   }
 
@@ -221,7 +221,7 @@ export class GameSim {
     return this.links.length !== before;
   }
 
-  moveNode(id: number, x: number, y: number) {
+  moveComponent(id: number, x: number, y: number) {
     const n = this.nodeById(id);
     if (!n) return;
     n.x = x; n.y = y;
@@ -233,9 +233,9 @@ export class GameSim {
 
     this.maybeIncident();
 
-    // compute node derived stats and sync queue lengths
+    // compute component derived stats and sync queue lengths
     for (const n of this.nodes) {
-      this.computeNodeStats(n);
+      this.computeComponentStats(n);
       n.load = 0;
       n.queue = this.getQueue(n.id).length;
     }
@@ -406,7 +406,7 @@ export class GameSim {
     const selected = sel ? {
       id: sel.id,
       name: `${sel.type}  #${sel.id} (Tier ${sel.tier})`,
-      stats: this.describeNode(sel),
+      stats: this.describeComponent(sel),
       canUpgrade: (sel.tier < 3) && (this.budget >= this.upgradeCost(sel)),
       canRepair: ((sel.health < 100) || sel.down) && (this.budget >= this.repairCost(sel)),
       canDelete: true
@@ -433,8 +433,8 @@ export class GameSim {
     };
   }
 
-  describeNode(n: Node): string {
-    const def = NodeDefs[n.type];
+  describeComponent(n: Component): string {
+    const def = ComponentDefs[n.type];
     return (
       `health=${n.health.toFixed(0)}  down=${n.down ? 'yes' : 'no'}\n` +
       `cap=${n.cap.toFixed(1)}  load=${n.load.toFixed(1)}  queue=${this.getQueue(n.id).length}\n` +
@@ -444,12 +444,12 @@ export class GameSim {
   }
 
   // --- internal helpers -----------------------------------------------------
-  private selected(): Node | undefined {
+  private selected(): Component | undefined {
     if (!this.selectedId) return undefined;
     return this.nodeById(this.selectedId) ?? undefined;
   }
 
-  private nodeById(id: number): Node | undefined {
+  private nodeById(id: number): Component | undefined {
     return this.nodes.find(n => n.id === id);
   }
 
@@ -465,7 +465,7 @@ export class GameSim {
     return fresh;
   }
 
-  private createNode(type: NodeType, x: number, y: number): Node {
+  private createComponent(type: ComponentType, x: number, y: number): Component {
     return {
       id: this.nextId++,
       type,
@@ -482,8 +482,8 @@ export class GameSim {
     };
   }
 
-  private computeNodeStats(n: Node) {
-    const def = NodeDefs[n.type];
+  private computeComponentStats(n: Component) {
+    const def = ComponentDefs[n.type];
     const tierMul = [0, 1.0, 1.45, 2.05][n.tier];
     n.cap = def.baseCap * tierMul;
     n.lat = def.baseLat * (n.type === 'DB' ? (1.0 / (1 + (n.tier - 1) * 0.15)) : 1.0);
@@ -496,21 +496,21 @@ export class GameSim {
 
   private hasFLAGS(): boolean { return this.has('FLAGS'); }
 
-  private tierOf(type: NodeType): 0 | 1 | 2 | 3 {
+  private tierOf(type: ComponentType): 0 | 1 | 2 | 3 {
     const n = this.nodes.find(n => n.type === type && !n.down);
     return (n ? n.tier : 0) as 0 | 1 | 2 | 3;
   }
 
-  private has(type: NodeType): boolean {
+  private has(type: ComponentType): boolean {
     return this.tierOf(type) > 0;
   }
 
-  private upgradeCost(n: Node): number {
-    const def = NodeDefs[n.type];
+  private upgradeCost(n: Component): number {
+    const def = ComponentDefs[n.type];
     return def.upgrade[n.tier] ?? 999;
   }
 
-  private repairCost(n: Node): number {
+  private repairCost(n: Component): number {
     const base = (100 - n.health) * 0.6 + (n.down ? 40 : 0);
     const obsMult = this.hasOBS() ? 0.85 : 1.0;
     const supportMult = clamp(1.0 + (this.supportLoad / 180), 1.0, 1.6);
@@ -530,9 +530,9 @@ export class GameSim {
       ['SYNC',   0.08]
     ];
 
-    const uiNode = this.nodes.find(n => n.type === 'UI');
-    const workNode = this.nodes.find(n => n.type === 'WORK');
-    if (!uiNode || uiNode.down) return;
+    const uiComponent = this.nodes.find(n => n.type === 'UI');
+    const workComponent = this.nodes.find(n => n.type === 'WORK');
+    if (!uiComponent || uiComponent.down) return;
 
     for (const [t, p] of mix) {
       const want = base * p;
@@ -541,21 +541,21 @@ export class GameSim {
       if (count <= 0) continue;
 
       for (let i = 0; i < count; i++) {
-        const origin = (t === 'SYNC' && workNode && !workNode.down) ? workNode : uiNode;
+        const origin = (t === 'SYNC' && workComponent && !workComponent.down) ? workComponent : uiComponent;
         this.getQueue(origin.id).push({ type: t, ttl: 20 });
       }
     }
   }
 
-  private routeFrom(node: Node, reqType: ActionKey): number[] {
-    const outs = this.outLinks(node.id)
+  private routeFrom(component: Component, reqType: ActionKey): number[] {
+    const outs = this.outLinks(component.id)
       .map(id => this.nodeById(id))
-      .filter((n): n is Node => Boolean(n))
+      .filter((n): n is Component => Boolean(n))
       .filter(n => !n.down);
 
     if (outs.length === 0) return [];
 
-    if (node.type !== 'REPO') {
+    if (component.type !== 'REPO') {
       return [outs[0].id];
     }
 

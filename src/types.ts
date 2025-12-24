@@ -5,11 +5,11 @@ export const MODE = {
 } as const;
 export type Mode = typeof MODE[keyof typeof MODE];
 
-export const NODE_TYPES = [
+export const COMPONENT_TYPES = [
   'UI','VM','DOMAIN','REPO','CACHE','DB','NET','WORK','OBS','FLAGS',
   'AUTH','PINNING','KEYSTORE','SANITIZER','ABUSE','A11Y'
 ] as const;
-export type NodeType = typeof NODE_TYPES[number];
+export type ComponentType = typeof COMPONENT_TYPES[number];
 
 export const ACTION_KEYS = [
   'READ','WRITE','SEARCH','UPLOAD','SCROLL','SYNC'
@@ -27,7 +27,7 @@ export type ActionDef = {
   label: string;
 };
 
-export type NodeDef = {
+export type ComponentDef = {
   baseCap: number;
   baseLat: number;
   baseFail: number;
@@ -36,9 +36,9 @@ export type NodeDef = {
   desc: string;
 };
 
-export type Node = {
+export type Component = {
   id: number;
-  type: NodeType;
+  type: ComponentType;
   x: number;
   y: number;
   r: number;
