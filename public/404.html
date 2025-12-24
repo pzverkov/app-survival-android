@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Redirecting</title>
+    <meta http-equiv="refresh" content="0; url=./" />
+  </head>
+  <body>
+    <p>Redirecting…</p>
+    <script>
+      // GitHub Pages 404 fallback: redirect to site root for single-page apps.
+      // Keeps relative path so it works under /<repo>/ as well.
+      window.location.replace('./');
+    </script>
+  </body>
+</html>

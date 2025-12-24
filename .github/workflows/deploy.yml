@@ -11,6 +11,12 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/**"
+      - "README.md"
+      - "LICENSE"
+      - "NOTICE"
+      - "SECURITY.md"
+      - "CONTRIBUTING.md"
+      - "CODE_OF_CONDUCT.md"
   workflow_dispatch:
 
 permissions:
@@ -26,7 +32,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -38,9 +45,20 @@ jobs:
       - name: Cache Vite
         uses: actions/cache@v4
         with:
-          path: node_modules/.vite
+          path: |
+            node_modules/.vite
           key: vite-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: vite-${{ runner.os }}-
+          restore-keys: |
+            vite-${{ runner.os }}-
+
+      - name: Compute Pages base
+        shell: bash
+        run: |
+          if [ -f public/CNAME ]; then
+            echo "VITE_BASE=/" >> "$GITHUB_ENV"
+          else
+            echo "VITE_BASE=/${{ github.event.repository.name }}/" >> "$GITHUB_ENV"
+          fi
 
       - name: Install
         run: npm ci --no-audit --fund=false
@@ -48,7 +66,7 @@ jobs:
       - name: Build
         env:
           VITE_COMMIT_SHA: ${{ github.sha }}
-          VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_BASE: ${{ env.VITE_BASE }}
         run: npm run build
 
       - name: Upload artifact
@@ -63,5 +81,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deployment
+      - name: Deploy
+        id: deployment
         uses: actions/deploy-pages@v4
