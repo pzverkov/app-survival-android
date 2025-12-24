@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
     paths:
       - "src/**"
       - "public/**"
@@ -11,6 +11,12 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/**"
+      - "README.md"
+      - "LICENSE"
+      - "NOTICE"
+      - "SECURITY.md"
+      - "CONTRIBUTING.md"
+      - "CODE_OF_CONDUCT.md"
   workflow_dispatch:
 
 permissions:
@@ -46,9 +52,20 @@ jobs:
       - name: Cache Vite
         uses: actions/cache@v4
         with:
-          path: node_modules/.vite
+          path: |
+            node_modules/.vite
           key: vite-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: vite-${{ runner.os }}-
+          restore-keys: |
+            vite-${{ runner.os }}-
+
+      - name: Compute Pages base
+        shell: bash
+        run: |
+          if [ -f public/CNAME ]; then
+            echo "VITE_BASE=/" >> "$GITHUB_ENV"
+          else
+            echo "VITE_BASE=/${{ github.event.repository.name }}/" >> "$GITHUB_ENV"
+          fi
 
       - name: Install
         run: npm ci --no-audit --fund=false
