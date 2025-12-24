@@ -1,16 +1,28 @@
 import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Node, NodeDef, NodeType, Request } from './types';
 
 export const NodeDefs: Record<NodeType, NodeDef> = {
-  UI:     { baseCap: 14, baseLat: 10, baseFail: 0.004, cost: 40,  upgrade: [0, 60, 90, 0],  desc: 'Screens / Compose' },
-  VM:     { baseCap: 12, baseLat:  8, baseFail: 0.003, cost: 45,  upgrade: [0, 70, 110, 0], desc: 'State holder, throttling' },
-  DOMAIN: { baseCap: 11, baseLat:  9, baseFail: 0.003, cost: 55,  upgrade: [0, 80, 120, 0], desc: 'UseCases / business rules' },
-  REPO:   { baseCap: 10, baseLat: 10, baseFail: 0.004, cost: 70,  upgrade: [0, 95, 140, 0], desc: 'Source of truth, routing' },
-  CACHE:  { baseCap: 16, baseLat:  3, baseFail: 0.002, cost: 90,  upgrade: [0, 120, 170, 0],desc: 'Memory/disk cache' },
-  DB:     { baseCap:  8, baseLat: 20, baseFail: 0.006, cost: 120, upgrade: [0, 160, 220, 0],desc: 'Room, indices matter' },
-  NET:    { baseCap:  9, baseLat: 25, baseFail: 0.010, cost: 110, upgrade: [0, 150, 210, 0],desc: 'OkHttp/Retrofit' },
-  WORK:   { baseCap:  6, baseLat: 18, baseFail: 0.008, cost: 80,  upgrade: [0, 120, 170, 0],desc: 'Sync jobs, battery risk' },
-  OBS:    { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 60,  upgrade: [0, 80, 110, 0], desc: 'Metrics reduce damage' },
-  FLAGS:  { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 60,  upgrade: [0, 80, 110, 0], desc: 'Kill switches reduce damage' }
+  UI:       { baseCap: 14, baseLat: 10, baseFail: 0.004, cost: 40,  upgrade: [0, 60, 90, 0],   desc: 'Screens / Compose' },
+  VM:       { baseCap: 12, baseLat:  8, baseFail: 0.003, cost: 45,  upgrade: [0, 70, 110, 0],  desc: 'State holder, throttling' },
+  DOMAIN:   { baseCap: 11, baseLat:  9, baseFail: 0.003, cost: 55,  upgrade: [0, 80, 120, 0],  desc: 'UseCases / business rules' },
+  REPO:     { baseCap: 10, baseLat: 10, baseFail: 0.004, cost: 70,  upgrade: [0, 95, 140, 0],  desc: 'Source of truth, routing' },
+  CACHE:    { baseCap: 16, baseLat:  3, baseFail: 0.002, cost: 90,  upgrade: [0, 120, 170, 0], desc: 'Memory/disk cache (hit rate upgrades)' },
+  DB:       { baseCap:  8, baseLat: 20, baseFail: 0.006, cost: 120, upgrade: [0, 160, 220, 0], desc: 'Room DB (indices matter)' },
+  NET:      { baseCap:  9, baseLat: 25, baseFail: 0.010, cost: 110, upgrade: [0, 150, 210, 0], desc: 'OkHttp/Retrofit (retries can bite)' },
+  WORK:     { baseCap:  6, baseLat: 18, baseFail: 0.008, cost: 80,  upgrade: [0, 120, 170, 0], desc: 'WorkManager (battery risk)' },
+
+  // Sidecars (mostly reduce incident impact)
+  OBS:      { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 60,  upgrade: [0, 80, 110, 0],  desc: 'Observability (lower failure impact, cheaper repairs)' },
+  FLAGS:    { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 60,  upgrade: [0, 80, 110, 0],  desc: 'Feature flags (reduce blast radius / rollback)' },
+
+  // Security + trust features
+  AUTH:     { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 75,  upgrade: [0, 110, 160, 0], desc: 'Auth & sessions (limits token/replay damage)' },
+  PINNING:  { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 85,  upgrade: [0, 120, 175, 0], desc: 'TLS pinning (blocks MITM; cert rotations hurt if weak)' },
+  KEYSTORE: { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 95,  upgrade: [0, 130, 190, 0], desc: 'Keystore/Crypto (protects data-at-rest)' },
+  SANITIZER:{ baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 70,  upgrade: [0, 105, 150, 0], desc: 'Input sanitizer (deep link/payload hardening)' },
+  ABUSE:    { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 80,  upgrade: [0, 115, 165, 0], desc: 'Abuse protection (rate limit / credential stuffing)' },
+
+  // Accessibility
+  A11Y:     { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 70,  upgrade: [0, 100, 145, 0], desc: 'Accessibility layer (labels, contrast, focus order)' }
 };
 
 export const ActionTypes: Record<ActionKey, ActionDef> = {
@@ -22,7 +34,17 @@ export const ActionTypes: Record<ActionKey, ActionDef> = {
   SYNC:   { cpu: 1.2, io: 1.3, net: 1.4, cacheable: false, heavyCPU: false, label: 'SYNC' }
 };
 
-type IncidentKind = 'TRAFFIC_SPIKE' | 'NET_WOBBLE' | 'OEM_RESTRICTION';
+type IncidentKind =
+  | 'TRAFFIC_SPIKE'
+  | 'NET_WOBBLE'
+  | 'OEM_RESTRICTION'
+  | 'MITM'
+  | 'CERT_ROTATION'
+  | 'TOKEN_THEFT'
+  | 'CRED_STUFFING'
+  | 'DEEP_LINK_ABUSE'
+  | 'A11Y_REGRESSION'
+  | 'SDK_SCANDAL';
 
 export type Bounds = { width: number; height: number };
 
@@ -36,6 +58,18 @@ export class GameSim {
   budget = 500;
   rating = 5.0;
   battery = 100;
+
+  // Perception metrics (0..100). These feed into user rating separately from pure tech metrics.
+  a11yScore = 100;
+  privacyTrust = 100;
+  securityPosture = 100;
+  supportLoad = 0;
+
+  // User votes + review snippets (running totals)
+  votes = { perf: 0, reliability: 0, privacy: 0, a11y: 0, battery: 0 };
+  recentReviews: string[] = [];
+  private nextReviewAt = 25;
+
 
   reqOk = 0;
   reqFail = 0;
@@ -66,6 +100,16 @@ export class GameSim {
     this.budget = 500;
     this.rating = 5.0;
     this.battery = 100;
+
+
+    this.a11yScore = 100;
+    this.privacyTrust = 100;
+    this.securityPosture = 100;
+    this.supportLoad = 0;
+
+    this.votes = { perf: 0, reliability: 0, privacy: 0, a11y: 0, battery: 0 };
+    this.recentReviews = [];
+    this.nextReviewAt = 25;
 
     this.reqOk = 0;
     this.reqFail = 0;
@@ -289,9 +333,54 @@ export class GameSim {
     const p95 = percentile(this.latSamples, 0.95);
     const slowPenalty = clamp((p95 - 120) / 500, 0, 1);
 
-    const ratingDrop = failureRate * 0.35 + anrRisk * 0.25 + slowPenalty * 0.18 + (this.battery < 20 ? 0.08 : 0);
-    const ratingGain = (failureRate < 0.03 && anrRisk < 0.10 && p95 < 160) ? 0.01 : 0.0;
+    // Support load: rises when the app hurts users; decays slowly when stable.
+    const supportUp = failureRate * 18 + anrRisk * 10 + slowPenalty * 6;
+    const supportDown = (failureRate < 0.05 && anrRisk < 0.15) ? 1.2 : 0.5;
+    this.supportLoad = clamp(this.supportLoad + supportUp - supportDown, 0, 100);
+
+    // Perception penalties (0..1)
+    const a11yPenalty = clamp((100 - this.a11yScore) / 100, 0, 1);
+    const privacyPenalty = clamp((100 - this.privacyTrust) / 100, 0, 1);
+    const securityPenalty = clamp((100 - this.securityPosture) / 100, 0, 1);
+    const supportPenalty = clamp(this.supportLoad / 100, 0, 1);
+
+    const ratingDrop =
+      failureRate * 0.35 +
+      anrRisk * 0.25 +
+      slowPenalty * 0.18 +
+      (this.battery < 20 ? 0.08 : 0) +
+      a11yPenalty * 0.10 +
+      privacyPenalty * 0.12 +
+      securityPenalty * 0.10 +
+      supportPenalty * 0.06;
+
+    const ratingGain =
+      (failureRate < 0.03 &&
+        anrRisk < 0.10 &&
+        p95 < 160 &&
+        this.a11yScore > 90 &&
+        this.privacyTrust > 90 &&
+        this.securityPosture > 90) ? 0.012 : 0.0;
+
     this.rating = clamp(this.rating - ratingDrop + ratingGain, 1.0, 5.0);
+
+    // Slow natural recovery of perception metrics when things are stable.
+    const stable = (failureRate < 0.05 && anrRisk < 0.15 && p95 < 220);
+
+    const a11yTier = this.tierOf('A11Y');
+    const authTier = this.tierOf('AUTH');
+    const pinTier = this.tierOf('PINNING');
+    const keyTier = this.tierOf('KEYSTORE');
+
+    const a11yBoost = (a11yTier > 0) ? (0.10 + 0.06 * (a11yTier - 1)) : 0.02;
+    const secBoost = (authTier > 0 ? 0.05 : 0) + (pinTier > 0 ? 0.04 : 0) + (keyTier > 0 ? 0.06 : 0);
+
+    this.a11yScore = clamp(this.a11yScore + (stable ? a11yBoost : -slowPenalty * 0.5), 0, 100);
+    this.securityPosture = clamp(this.securityPosture + (stable ? (0.06 + secBoost) : -failureRate * 3.5), 0, 100);
+    this.privacyTrust = clamp(this.privacyTrust + (stable ? (0.05 + (keyTier > 0 ? 0.05 : 0)) : -failureRate * 2.2), 0, 100);
+
+    // User reviews/votes happen periodically and tug rating in explainable ways.
+    this.maybeReviewWave(failureRate, anrRisk, p95);
 
     const opsCost = 0.6 + (this.timeSec / 180) * 0.35;
     const incidentCost = failureRate > 0.2 ? 1.0 : 0;
@@ -333,6 +422,12 @@ export class GameSim {
       failureRate,
       anrRisk,
       p95LatencyMs: p95,
+      a11yScore: this.a11yScore,
+      privacyTrust: this.privacyTrust,
+      securityPosture: this.securityPosture,
+      supportLoad: this.supportLoad,
+      votes: { ...this.votes },
+      recentReviews: [...this.recentReviews],
       selected,
       eventsText: this.eventLines.length ? this.eventLines.join('\n') : 'No incidents… yet.'
     };
@@ -397,12 +492,17 @@ export class GameSim {
     if (n.down) n.cap = 0;
   }
 
-  private hasOBS(): boolean {
-    return this.nodes.some(n => n.type === 'OBS' && !n.down);
+  private hasOBS(): boolean { return this.has('OBS'); }
+
+  private hasFLAGS(): boolean { return this.has('FLAGS'); }
+
+  private tierOf(type: NodeType): 0 | 1 | 2 | 3 {
+    const n = this.nodes.find(n => n.type === type && !n.down);
+    return (n ? n.tier : 0) as 0 | 1 | 2 | 3;
   }
 
-  private hasFLAGS(): boolean {
-    return this.nodes.some(n => n.type === 'FLAGS' && !n.down);
+  private has(type: NodeType): boolean {
+    return this.tierOf(type) > 0;
   }
 
   private upgradeCost(n: Node): number {
@@ -412,8 +512,9 @@ export class GameSim {
 
   private repairCost(n: Node): number {
     const base = (100 - n.health) * 0.6 + (n.down ? 40 : 0);
-    const mult = this.hasOBS() ? 0.85 : 1.0;
-    return Math.ceil(base * mult);
+    const obsMult = this.hasOBS() ? 0.85 : 1.0;
+    const supportMult = clamp(1.0 + (this.supportLoad / 180), 1.0, 1.6);
+    return Math.ceil(base * obsMult * supportMult);
   }
 
   private spawnRequests() {
@@ -496,35 +597,280 @@ export class GameSim {
     return targets.length ? targets : [outs[0].id];
   }
 
+
+  private maybeReviewWave(failureRate: number, anrRisk: number, p95: number) {
+    if (this.timeSec < this.nextReviewAt) return;
+
+    // schedule next wave (reviews are "bursty")
+    const nextIn = 22 + Math.floor(Math.random() * 16);
+    this.nextReviewAt = this.timeSec + nextIn;
+
+    const perfPenalty = clamp((p95 - 160) / 480, 0, 1) + anrRisk * 0.35;
+    const reliabilityPenalty = clamp(failureRate * 3.2 + anrRisk * 0.45, 0, 1);
+    const privacyPenalty = clamp((100 - this.privacyTrust) / 100, 0, 1);
+    const a11yPenalty = clamp((100 - this.a11yScore) / 100, 0, 1);
+    const batteryPenalty = clamp((100 - this.battery) / 100, 0, 1);
+
+    const penalties: Array<['perf'|'reliability'|'privacy'|'a11y'|'battery', number]> = [
+      ['perf', perfPenalty],
+      ['reliability', reliabilityPenalty],
+      ['privacy', privacyPenalty],
+      ['a11y', a11yPenalty],
+      ['battery', batteryPenalty]
+    ];
+
+    penalties.sort((a, b) => b[1] - a[1]);
+    const top = penalties[0];
+
+    // If everything is fine, you still get the occasional "love it" review.
+    if (top[1] < 0.12) {
+      const positives = [
+        'Smooth and stable lately. Nice.',
+        'Fast, reliable, no drama. Keep it up.',
+        'Works great on my device. Finally.',
+        'No crashes, no battery drain — chef’s kiss.'
+      ];
+      const snippet = positives[Math.floor(Math.random() * positives.length)];
+      this.recentReviews.unshift(snippet);
+      this.recentReviews = this.recentReviews.slice(0, 6);
+      this.rating = clamp(this.rating + 0.03, 1.0, 5.0);
+      return;
+    }
+
+    const [topKey, topVal] = top;
+
+    const sample = Math.round(30 + (this.timeSec / 30) + this.spawnMul * 15);
+    const votes = Math.max(1, Math.round(sample * topVal * 0.6));
+    this.votes[topKey] += votes;
+
+    // rating nudge (reviews are noisy, so keep it small per wave)
+    this.rating = clamp(this.rating - (0.10 * topVal), 1.0, 5.0);
+
+    const snippet = this.makeReviewSnippet(topKey, topVal, p95, failureRate, anrRisk);
+    this.recentReviews.unshift(snippet);
+    this.recentReviews = this.recentReviews.slice(0, 6);
+  }
+
+  private makeReviewSnippet(
+    kind: 'perf'|'reliability'|'privacy'|'a11y'|'battery',
+    severity01: number,
+    p95: number,
+    failureRate: number,
+    anrRisk: number
+  ): string {
+    const sev = severity01 < 0.35 ? 'meh' : severity01 < 0.70 ? 'bad' : 'awful';
+
+    switch (kind) {
+      case 'perf':
+        return `${sev}: Feels laggy/janky. p95 ~${Math.round(p95)}ms.`;
+      case 'reliability':
+        return `${sev}: Crashes/ANRs after the update (${(failureRate * 100).toFixed(1)}% failures, ${(anrRisk * 100).toFixed(1)}% ANR risk).`;
+      case 'privacy':
+        return `${sev}: Privacy vibes are off. Trust=${Math.round(this.privacyTrust)}/100.`;
+      case 'a11y':
+        return `${sev}: Accessibility issues (labels/contrast/focus). A11y=${Math.round(this.a11yScore)}/100.`;
+      case 'battery':
+        return `${sev}: Battery drain is wild. Battery=${Math.round(this.battery)}/100.`;
+    }
+  }
+
+
   private maybeIncident() {
     // decay modifiers slowly
     this.spawnMul *= 0.985;
     this.netBadness *= 0.988;
     this.workRestriction *= 0.989;
 
-    if (this.timeSec - this.lastEventAt < 28) return;
-    if (Math.random() > 0.45) return;
+    // reduce support load very slowly over time (support team is doing their best)
+    this.supportLoad = clamp(this.supportLoad - 0.08, 0, 100);
+
+    if (this.timeSec - this.lastEventAt < 26) return;
+
+    // security posture influences how often weird things happen
+    const incidentChance = clamp(0.44 + (1 - this.securityPosture / 100) * 0.10, 0.35, 0.60);
+    if (Math.random() > incidentChance) return;
 
     this.lastEventAt = this.timeSec;
-    const r = Math.random();
 
-    let kind: IncidentKind;
-    if (r < 0.33) {
-      kind = 'TRAFFIC_SPIKE';
-      this.spawnMul = clamp(this.spawnMul + 0.25, 1.0, 3.0);
-      this.log('Marketing spike: action load increased.');
-    } else if (r < 0.66) {
-      kind = 'NET_WOBBLE';
-      this.netBadness = clamp(this.netBadness + 0.25, 1.0, 3.0);
-      this.log('Backend wobbles: network failures increased.');
-    } else {
-      kind = 'OEM_RESTRICTION';
-      this.workRestriction = clamp(this.workRestriction + 0.35, 1.0, 3.0);
-      this.log('OEM restriction: background work drains more.');
+    const authTier = this.tierOf('AUTH');
+    const pinTier = this.tierOf('PINNING');
+    const keyTier = this.tierOf('KEYSTORE');
+    const sanTier = this.tierOf('SANITIZER');
+    const abuseTier = this.tierOf('ABUSE');
+    const a11yTier = this.tierOf('A11Y');
+    const flagsTier = this.tierOf('FLAGS');
+    const obsTier = this.tierOf('OBS');
+
+    // Weighted roll across incident types
+    const roll = Math.random();
+    const table: Array<[IncidentKind, number]> = [
+      ['TRAFFIC_SPIKE',    0.18],
+      ['NET_WOBBLE',       0.16],
+      ['OEM_RESTRICTION',  0.14],
+      ['CRED_STUFFING',    0.08],
+      ['TOKEN_THEFT',      0.10],
+      ['DEEP_LINK_ABUSE',  0.08],
+      ['MITM',             0.10],
+      ['CERT_ROTATION',    0.06],
+      ['A11Y_REGRESSION',  0.06],
+      ['SDK_SCANDAL',      0.04]
+    ];
+
+    let acc = 0;
+    let kind: IncidentKind = table[0]![0];
+    for (const [k, w] of table) {
+      acc += w;
+      if (roll <= acc) { kind = k; break; }
     }
 
-    // unused currently, but kept for future: switch (kind) { ... }
-    void kind;
+    // Helpers
+    const bumpSupport = (v: number) => { this.supportLoad = clamp(this.supportLoad + v, 0, 100); };
+    const hitTrust = (privacyDelta: number, securityDelta: number, a11yDelta = 0) => {
+      this.privacyTrust = clamp(this.privacyTrust + privacyDelta, 0, 100);
+      this.securityPosture = clamp(this.securityPosture + securityDelta, 0, 100);
+      this.a11yScore = clamp(this.a11yScore + a11yDelta, 0, 100);
+    };
+
+    switch (kind) {
+      case 'TRAFFIC_SPIKE': {
+        // Abuse protection reduces how bad the spike is.
+        const damp = (abuseTier > 0) ? (0.65 - 0.08 * (abuseTier - 1)) : 1.0;
+        this.spawnMul = clamp(this.spawnMul + 0.25 * damp, 1.0, 3.0);
+        bumpSupport(2 + (abuseTier === 0 ? 3 : 1));
+        this.log('Marketing spike: action load increased.');
+        break;
+      }
+
+      case 'NET_WOBBLE': {
+        const damp = (obsTier > 0) ? 0.85 : 1.0;
+        this.netBadness = clamp(this.netBadness + 0.25 * damp, 1.0, 3.0);
+        bumpSupport(3);
+        this.log('Backend wobbles: network failures increased.');
+        break;
+      }
+
+      case 'OEM_RESTRICTION': {
+        this.workRestriction = clamp(this.workRestriction + 0.35, 1.0, 3.0);
+        bumpSupport(2);
+        this.log('OEM restriction: background work drains more.');
+        break;
+      }
+
+      case 'MITM': {
+        if (pinTier === 0) {
+          const p = -(18 + Math.random() * 10);
+          const s = -(22 + Math.random() * 10);
+          hitTrust(p, s);
+          this.netBadness = clamp(this.netBadness + 0.15, 1.0, 3.0);
+          bumpSupport(10);
+          this.rating = clamp(this.rating - 0.22, 1.0, 5.0);
+          this.log('MITM attempt: user trust took a hit (add TLS pinning).');
+        } else {
+          // blocked, but strict pinning can increase fragility a bit
+          this.netBadness = clamp(this.netBadness + 0.05, 1.0, 3.0);
+          bumpSupport(2);
+          this.log('MITM attempt blocked by TLS pinning.');
+        }
+        break;
+      }
+
+      case 'CERT_ROTATION': {
+        if (pinTier === 0) {
+          this.netBadness = clamp(this.netBadness + 0.18, 1.0, 3.0);
+          bumpSupport(3);
+          this.log('Cert rotation upstream: brief network turbulence.');
+          break;
+        }
+
+        // Pinning exists: tier matters
+        if (pinTier === 1) {
+          this.netBadness = clamp(this.netBadness + 0.35, 1.0, 3.0);
+          bumpSupport(12);
+          this.rating = clamp(this.rating - 0.15, 1.0, 5.0);
+          this.log('Cert rotated: pinning broke requests (upgrade pinning or use flags).');
+        } else {
+          this.netBadness = clamp(this.netBadness + 0.12, 1.0, 3.0);
+          bumpSupport(4);
+          this.log('Cert rotated: pinning handled it (minor hiccup).');
+        }
+        break;
+      }
+
+      case 'TOKEN_THEFT': {
+        if (authTier === 0) {
+          hitTrust(-8, -22);
+          bumpSupport(15);
+          this.rating = clamp(this.rating - 0.18, 1.0, 5.0);
+          this.log('Session/token issue: account takeovers reported (add Auth hardening).');
+        } else {
+          bumpSupport(3);
+          this.log('Suspicious sessions detected and contained by Auth.');
+        }
+        break;
+      }
+
+      case 'CRED_STUFFING': {
+        if (abuseTier === 0) {
+          this.netBadness = clamp(this.netBadness + 0.22, 1.0, 3.0);
+          this.spawnMul = clamp(this.spawnMul + 0.12, 1.0, 3.0);
+          bumpSupport(14);
+          this.log('Credential stuffing: auth endpoints hammered (add Abuse protection).');
+        } else {
+          this.netBadness = clamp(this.netBadness + 0.10, 1.0, 3.0);
+          bumpSupport(5);
+          this.log('Credential stuffing mitigated by rate limiting.');
+        }
+        break;
+      }
+
+      case 'DEEP_LINK_ABUSE': {
+        if (sanTier === 0) {
+          // Damage "main thread-ish" nodes a bit and add support pain.
+          for (const t of ['UI','VM','DOMAIN'] as const) {
+            const n = this.nodes.find(n => n.type === t && !n.down);
+            if (n) n.health = clamp(n.health - (12 + Math.random() * 10), 0, 100);
+          }
+          bumpSupport(10);
+          this.rating = clamp(this.rating - 0.12, 1.0, 5.0);
+          this.log('Deep link abuse: malformed inputs causing crashes (add Sanitizer).');
+        } else {
+          bumpSupport(3);
+          this.log('Deep link abuse attempt sanitized.');
+        }
+        break;
+      }
+
+      case 'A11Y_REGRESSION': {
+        if (a11yTier === 0) {
+          hitTrust(0, 0, -(22 + Math.random() * 10));
+          bumpSupport(8);
+          this.rating = clamp(this.rating - 0.10, 1.0, 5.0);
+          this.log('A11y regression shipped: labels/contrast complaints (add A11y layer).');
+        } else {
+          hitTrust(0, 0, -(6 + Math.random() * 6));
+          bumpSupport(3);
+          this.log('Minor accessibility regression caught (A11y layer helps).');
+        }
+        break;
+      }
+
+      case 'SDK_SCANDAL': {
+        // Feature flags reduce blast radius of third-party scandals.
+        const blast = flagsTier >= 2 ? 0.55 : 1.0;
+        if (keyTier === 0) {
+          hitTrust(-25 * blast, -10 * blast);
+          bumpSupport(12);
+          this.rating = clamp(this.rating - 0.18 * blast, 1.0, 5.0);
+          this.log('3rd-party SDK scandal: privacy trust tanking (add Keystore/Crypto + flags).');
+        } else {
+          hitTrust(-10 * blast, -4 * blast);
+          bumpSupport(6);
+          this.rating = clamp(this.rating - 0.08 * blast, 1.0, 5.0);
+          this.log('3rd-party SDK issue: reduced impact due to crypto hardening.');
+        }
+        break;
+      }
+    }
   }
 
   private log(msg: string) {

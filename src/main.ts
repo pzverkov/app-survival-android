@@ -14,6 +14,18 @@ type UIRefs = {
   lat: HTMLElement;
   bat: HTMLElement;
 
+  a11yScore: HTMLElement;
+  privacyTrust: HTMLElement;
+  securityPosture: HTMLElement;
+  supportLoad: HTMLElement;
+
+  votesPerf: HTMLElement;
+  votesReliability: HTMLElement;
+  votesPrivacy: HTMLElement;
+  votesA11y: HTMLElement;
+  votesBattery: HTMLElement;
+  reviewLog: HTMLElement;
+
   buildInfo: HTMLElement;
 
   selName: HTMLElement;
@@ -61,11 +73,6 @@ function startTickLoop() {
   }, TICK_MS);
 }
 
-function stopTickLoop() {
-  if (tickHandle === null) return;
-  window.clearInterval(tickHandle);
-  tickHandle = null;
-}
 
 // canvas sizing
 function resize() {
@@ -311,6 +318,11 @@ requestAnimationFrame(draw);
 function syncUI() {
   const s = sim.getUIState();
 
+  // Segmented mode buttons (Material 3-ish)
+  refs.btnSelect.classList.toggle('is-selected', s.mode === MODE.SELECT);
+  refs.btnLink.classList.toggle('is-selected', s.mode === MODE.LINK);
+  refs.btnUnlink.classList.toggle('is-selected', s.mode === MODE.UNLINK);
+
   refs.modePill.innerHTML = `Mode: <b>${s.mode === MODE.SELECT ? 'Select' : s.mode === MODE.LINK ? 'Link' : 'Unlink'}</b>`;
   refs.budget.textContent = `$${s.budget.toFixed(0)}`;
   refs.rating.textContent = `${s.rating.toFixed(1)} ★`;
@@ -318,6 +330,19 @@ function syncUI() {
   refs.anr.textContent = `${(s.anrRisk * 100).toFixed(1)}%`;
   refs.lat.textContent = `${Math.round(s.p95LatencyMs)} ms`;
   refs.bat.textContent = `${Math.round(s.battery)}`;
+
+  refs.a11yScore.textContent = `${Math.round(s.a11yScore)}`;
+  refs.privacyTrust.textContent = `${Math.round(s.privacyTrust)}`;
+  refs.securityPosture.textContent = `${Math.round(s.securityPosture)}`;
+  refs.supportLoad.textContent = `${Math.round(s.supportLoad)}`;
+
+  refs.votesPerf.textContent = `${s.votes.perf}`;
+  refs.votesReliability.textContent = `${s.votes.reliability}`;
+  refs.votesPrivacy.textContent = `${s.votes.privacy}`;
+  refs.votesA11y.textContent = `${s.votes.a11y}`;
+  refs.votesBattery.textContent = `${s.votes.battery}`;
+
+  refs.reviewLog.textContent = s.recentReviews.length ? s.recentReviews.join('\n') : 'No reviews yet.';
 
   refs.eventLog.textContent = s.eventsText;
   refs.eventLog.classList.add('mono');
@@ -354,6 +379,17 @@ function bindUI(): UIRefs {
     lat: must('lat'),
     bat: must('bat'),
 
+    a11yScore: must('a11yScore'),
+    privacyTrust: must('privacyTrust'),
+    securityPosture: must('securityPosture'),
+    supportLoad: must('supportLoad'),
+
+    votesPerf: must('votesPerf'),
+    votesReliability: must('votesReliability'),
+    votesPrivacy: must('votesPrivacy'),
+    votesA11y: must('votesA11y'),
+    votesBattery: must('votesBattery'),
+    reviewLog: must('reviewLog'),
 
     buildInfo: must('buildInfo'),
     selName: must('selName'),

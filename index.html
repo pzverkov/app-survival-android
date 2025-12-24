@@ -10,21 +10,22 @@
       <canvas id="c"></canvas>
 
       <aside class="side">
-        <h1>App Survival: Android Release Night <span class="badge">TS + Vite</span></h1>
+        <h1>App Survival: Android Release Night <span class="badge">Material 3 • TS + Vite</span></h1>
 
         <div class="row">
-          <button id="btnStart" class="primary">Start</button>
-          <button id="btnPause">Pause</button>
-          <button id="btnReset" class="danger">Reset</button>
+          <button id="btnStart" class="btn filled">▶ Start</button>
+          <button id="btnPause" class="btn tonal">⏸ Pause</button>
+          <button id="btnReset" class="btn error">↺ Reset</button>
         </div>
 
         <div class="hr"></div>
 
         <div class="row">
           <span class="pill" id="modePill">Mode: <b>Select</b></span>
-          <button id="btnSelect">Select</button>
-          <button id="btnLink">Link</button>
           <button id="btnUnlink">Unlink</button>
+            <button id="btnSelect" class="btn text is-selected">Select</button>
+            <button id="btnLink" class="btn text">Link</button>
+            <button id="btnUnlink" class="btn text">Unlink</button>
         </div>
 
         <div class="hr"></div>
@@ -43,8 +44,14 @@
               <option value="WORK">WorkManager</option>
               <option value="OBS">Observability</option>
               <option value="FLAGS">Feature Flags</option>
+              <option value="AUTH">Auth / Sessions</option>
+              <option value="PINNING">TLS Pinning</option>
+              <option value="KEYSTORE">Keystore / Crypto</option>
+              <option value="SANITIZER">Input Sanitizer</option>
+              <option value="ABUSE">Abuse Protection</option>
+              <option value="A11Y">Accessibility Layer</option>
             </select>
-            <button id="btnAdd">+ Add</button>
+            <button id="btnAdd" class="btn tonal">+ Add</button>
           </div>
           <div class="small" style="margin-top:8px;">
             Drag nodes to rearrange. Link mode: click <span class="mono">source</span> → click <span class="mono">destination</span>.
@@ -57,11 +64,11 @@
           <div class="card">
             <div class="k">Budget</div>
             <div class="v mono" id="budget">$500</div>
-            <div class="small">Run dies at $0 or rating 1.0*.</div>
+            <div class="small">Run dies at $0 or rating 1.0★.</div>
           </div>
           <div class="card">
             <div class="k">Rating</div>
-            <div class="v mono" id="rating">5.0 *</div>
+            <div class="v mono" id="rating">5.0 ★</div>
             <div class="small">Drops from failures / ANRs / slow.</div>
           </div>
           <div class="card">
@@ -86,6 +93,16 @@
           </div>
         </section>
 
+        <section class="card">
+          <div class="k">Trust &amp; accessibility</div>
+          <div class="small" style="margin-top:8px;">
+            A11y: <span class="mono" id="a11yScore">100</span>/100 •
+            Privacy: <span class="mono" id="privacyTrust">100</span>/100 •
+            Security: <span class="mono" id="securityPosture">100</span>/100 •
+            Support load: <span class="mono" id="supportLoad">0</span>/100
+          </div>
+        </section>
+
         <div class="hr"></div>
 
         <section class="card" id="selCard">
@@ -93,13 +110,28 @@
           <div class="v mono" id="selName">None</div>
           <pre class="small mono" id="selStats">—</pre>
           <div class="row" style="margin-top:10px;">
-            <button id="btnUpgrade" class="primary" disabled>Upgrade</button>
-            <button id="btnRepair" disabled>Repair</button>
-            <button id="btnDelete" class="danger" disabled>Delete</button>
+            <button id="btnUpgrade" class="btn filled" disabled>Upgrade</button>
+            <button id="btnRepair" class="btn outlined" disabled>Repair</button>
+            <button id="btnDelete" class="btn error" disabled>Delete</button>
           </div>
           <div class="small" style="margin-top:8px;">
             Upgrades raise capacity & reliability. Repairs restore health. Both cost budget.
           </div>
+        </section>
+
+        
+        <div class="hr"></div>
+
+        <section class="card">
+          <div class="k">User votes (live sentiment)</div>
+          <div class="small" style="margin-top:8px;">
+            Perf: <span class="mono" id="votesPerf">0</span> •
+            Reliability: <span class="mono" id="votesReliability">0</span> •
+            Privacy: <span class="mono" id="votesPrivacy">0</span> •
+            A11y: <span class="mono" id="votesA11y">0</span> •
+            Battery: <span class="mono" id="votesBattery">0</span>
+          </div>
+          <pre class="small" id="reviewLog" style="margin-top:8px;">No reviews yet.</pre>
         </section>
 
         <div class="hr"></div>

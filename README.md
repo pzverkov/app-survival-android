@@ -19,7 +19,7 @@ Then open the printed local URL.
 
 ## Gameplay
 
-Keep **Budget** above $0 and **Rating** above 1.0* while incidents and rising load try to melt your app.
+Keep **Budget** above $0 and **Rating** above 1.0★ while incidents and rising load try to melt your app.
 
 Recommended starter graph:
 

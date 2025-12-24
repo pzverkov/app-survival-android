@@ -1,15 +1,91 @@
-:root { color-scheme: dark; }
-html, body { height: 100%; }
-body {
-  margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-  background: #0b0e14;
-  color: #e7eaf0;
+:root {
+  /* Material 3-ish design tokens (dark). Not official M3 CSS—this is a faithful vibe. */
+  color-scheme: dark;
+
+  /* Typography */
+  --md-sys-typescale-title-medium-size: 16px;
+  --md-sys-typescale-title-medium-line: 24px;
+  --md-sys-typescale-body-small-size: 12px;
+  --md-sys-typescale-body-small-line: 18px;
+  --md-sys-typescale-label-small-size: 11px;
+  --md-sys-typescale-label-small-line: 16px;
+
+  /* Shape */
+  --md-sys-shape-corner-extra-small: 8px;
+  --md-sys-shape-corner-small: 12px;
+  --md-sys-shape-corner-medium: 16px;
+  --md-sys-shape-corner-large: 20px;
+
+  /* Core colors (tuned for “Android enterprise tooling” feel) */
+  --md-sys-color-primary: #8ab4f8;
+  --md-sys-color-on-primary: #061021;
+  --md-sys-color-primary-container: #1a2a44;
+  --md-sys-color-on-primary-container: #d7e3ff;
+
+  --md-sys-color-secondary: #c2c6dc;
+  --md-sys-color-on-secondary: #1b1e2a;
+  --md-sys-color-secondary-container: #2a2f40;
+  --md-sys-color-on-secondary-container: #e2e5f7;
+
+  --md-sys-color-tertiary-container: #26324a;
+  --md-sys-color-on-tertiary-container: #dbe7ff;
+
+  --md-sys-color-error: #ffb4ab;
+  --md-sys-color-on-error: #310001;
+  --md-sys-color-error-container: #601410;
+  --md-sys-color-on-error-container: #ffdad6;
+
+  --md-sys-color-background: #0b0e14;
+  --md-sys-color-on-background: rgba(255,255,255,0.92);
+
+  --md-sys-color-surface: #0f131c;
+  --md-sys-color-on-surface: rgba(255,255,255,0.92);
+  --md-sys-color-surface-variant: #1a1f2b;
+  --md-sys-color-on-surface-variant: rgba(255,255,255,0.74);
+
+  --md-sys-color-outline: rgba(255,255,255,0.16);
+  --md-sys-color-outline-variant: rgba(255,255,255,0.10);
+
+  /* Surface containers (M3 concept) */
+  --md-sys-color-surface-container-low: rgba(255,255,255,0.03);
+  --md-sys-color-surface-container: rgba(255,255,255,0.045);
+  --md-sys-color-surface-container-high: rgba(255,255,255,0.06);
+  --md-sys-color-surface-container-highest: rgba(255,255,255,0.075);
+
+  /* State layers */
+  --md-state-hover: rgba(255,255,255,0.06);
+  --md-state-press: rgba(255,255,255,0.10);
+  --md-state-focus: rgba(138,180,248,0.30);
+
+  /* Elevation */
+  --md-elevation-1: 0 1px 2px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.30);
+  --md-elevation-2: 0 2px 6px rgba(0,0,0,0.55), 0 6px 18px rgba(0,0,0,0.30);
+  --md-elevation-3: 0 8px 28px rgba(0,0,0,0.55);
+
+  /* Spacing */
+  --md-pad-1: 8px;
+  --md-pad-2: 12px;
+  --md-pad-3: 16px;
+  --md-pad-4: 20px;
 }
 
+html, body {
+  height: 100%;
+  background: var(--md-sys-color-background);
+}
+
+body {
+  margin: 0;
+  color: var(--md-sys-color-on-background);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Layout */
 .wrap {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: 1fr 372px;
   height: 100vh;
 }
 
@@ -17,72 +93,253 @@ canvas {
   display: block;
   width: 100%;
   height: 100%;
-  background: radial-gradient(1200px 700px at 30% 20%, #121a2b, #070a10);
   cursor: crosshair;
+  background:
+    radial-gradient(1200px 700px at 30% 20%, #18223a, #070a10);
 }
 
+/* Right panel (like a persistent “details” sheet) */
 .side {
-  border-left: 1px solid rgba(255,255,255,.08);
-  padding: 14px 14px 18px;
+  border-left: 1px solid var(--md-sys-color-outline-variant);
+  padding: var(--md-pad-3) var(--md-pad-3) var(--md-pad-4);
   overflow: auto;
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,0.025) 0%,
+      rgba(255,255,255,0.020) 100%);
 }
 
+.side::before {
+  content: "";
+  position: sticky;
+  top: 0;
+  display: block;
+  height: 0;
+  box-shadow:
+    0 -1px 0 var(--md-sys-color-outline-variant),
+    0 14px 70px rgba(138,180,248,0.10);
+}
+
+/* Typography */
 h1 {
-  font-size: 16px;
-  margin: 0 0 10px;
-  letter-spacing: .2px;
+  margin: 0 0 12px;
+  font-size: var(--md-sys-typescale-title-medium-size);
+  line-height: var(--md-sys-typescale-title-medium-line);
+  letter-spacing: 0.2px;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border: 1px solid rgba(255,255,255,.14);
-  border-radius: 999px;
-  color: rgba(255,255,255,.75);
+.k {
+  font-size: var(--md-sys-typescale-label-small-size);
+  line-height: var(--md-sys-typescale-label-small-line);
+  color: var(--md-sys-color-on-surface-variant);
 }
 
-.row { display: flex; gap: 8px; flex-wrap: wrap; }
-
-button, select {
-  background: #131a2a;
-  color: #e7eaf0;
-  border: 1px solid rgba(255,255,255,.10);
-  padding: 8px 10px;
-  border-radius: 10px;
-  cursor: pointer;
+.v {
+  font-size: 14px;
 }
-button:hover { border-color: rgba(255,255,255,.25); }
-button:disabled { opacity: .45; cursor: not-allowed; }
-button.primary { background: #1a2550; }
-button.danger { background: #3a1520; }
 
+.small {
+  font-size: var(--md-sys-typescale-body-small-size);
+  line-height: var(--md-sys-typescale-body-small-line);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New";
+}
+
+/* Structure */
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.hr {
+  height: 1px;
+  background: var(--md-sys-color-outline-variant);
+  margin: 12px 0;
+}
+
+/* Surfaces (cards) */
+.card {
+  background: var(--md-sys-color-surface-container);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-large);
+  padding: 12px;
+  box-shadow: var(--md-elevation-1);
+}
+
+/* Badges / chips */
+.badge,
 .pill {
   display: inline-flex;
-  gap: 6px;
   align-items: center;
-  padding: 6px 10px;
-  border: 1px solid rgba(255,255,255,.10);
+  gap: 6px;
   border-radius: 999px;
-  font-size: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  background: var(--md-sys-color-surface-container-low);
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-label-small-size);
+  line-height: var(--md-sys-typescale-label-small-line);
 }
 
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* Inputs */
+select {
+  appearance: none;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  padding: 10px 12px;
+  border-radius: var(--md-sys-shape-corner-small);
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
 
-.card {
-  background: rgba(255,255,255,.03);
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 14px;
+select:hover {
+  border-color: var(--md-sys-color-outline);
+  background: var(--md-sys-color-surface-container-highest);
+}
+
+/* Buttons (Material 3-ish variants) */
+.btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: var(--md-sys-shape-corner-small);
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--md-sys-color-on-surface);
+  background: transparent;
+  transition: transform 120ms ease, filter 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.btn:active { transform: translateY(1px); }
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn.filled {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  box-shadow: var(--md-elevation-1);
+}
+
+.btn.filled:hover { filter: brightness(1.05); }
+
+.btn.tonal {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  box-shadow: var(--md-elevation-1);
+}
+
+.btn.tonal:hover { filter: brightness(1.04); }
+
+.btn.outlined {
+  border-color: var(--md-sys-color-outline);
+  background: transparent;
+}
+
+.btn.outlined:hover {
+  background: var(--md-state-hover);
+}
+
+.btn.text {
+  border-color: transparent;
+}
+
+.btn.text:hover {
+  background: var(--md-state-hover);
+}
+
+.btn.error {
+  background: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
+  box-shadow: var(--md-elevation-1);
+}
+
+.btn.error:hover { filter: brightness(1.03); }
+
+/* Segmented buttons (for Mode) */
+.segmented {
+  background: var(--md-sys-color-surface-container-low);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.segmented .btn {
+  border-radius: 999px;
+  padding: 8px 12px;
+}
+
+.segmented .btn:hover { background: var(--md-state-hover); }
+
+.segmented .btn.is-selected {
+  background: var(--md-sys-color-tertiary-container);
+  color: var(--md-sys-color-on-tertiary-container);
+}
+
+/* Focus ring (keyboard accessibility) */
+.btn:focus-visible, select:focus-visible, a:focus-visible {
+  outline: 2px solid rgba(138,180,248,0.75);
+  outline-offset: 2px;
+}
+
+/* Logs / blocks */
+pre {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  background: var(--md-sys-color-surface-container-low);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-medium);
   padding: 10px;
 }
 
-.k { color: #aab3c5; font-size: 12px; }
-.v { font-size: 14px; }
-.small { font-size: 12px; color: #aab3c5; line-height: 1.35; }
+ol { margin: 8px 0 0; }
 
-.hr { height: 1px; background: rgba(255,255,255,.08); margin: 12px 0; }
+/* Scrollbar polish */
+.side {
+  scrollbar-color: rgba(255,255,255,0.22) rgba(255,255,255,0.05);
+  scrollbar-width: thin;
+}
 
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New"; }
-pre { margin: 6px 0 0; white-space: pre-wrap; }
+.side::-webkit-scrollbar { width: 10px; }
+
+.side::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.18);
+  border-radius: 999px;
+  border: 2px solid rgba(0,0,0,0.0);
+  background-clip: padding-box;
+}
+
+.side::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); }
+
+/* Responsive: on narrow screens, side becomes a bottom sheet */
+@media (max-width: 980px) {
+  .wrap {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 460px;
+  }
+
+  .side {
+    border-left: none;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    box-shadow: var(--md-elevation-3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, select { transition: none; }
+}

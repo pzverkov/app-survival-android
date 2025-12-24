@@ -6,7 +6,8 @@ export const MODE = {
 export type Mode = typeof MODE[keyof typeof MODE];
 
 export const NODE_TYPES = [
-  'UI','VM','DOMAIN','REPO','CACHE','DB','NET','WORK','OBS','FLAGS'
+  'UI','VM','DOMAIN','REPO','CACHE','DB','NET','WORK','OBS','FLAGS',
+  'AUTH','PINNING','KEYSTORE','SANITIZER','ABUSE','A11Y'
 ] as const;
 export type NodeType = typeof NODE_TYPES[number];
 
@@ -59,12 +60,32 @@ export type UIState = {
   mode: Mode;
   running: boolean;
   timeSec: number;
+
   budget: number;
   rating: number;
+
+  // Tech metrics
   battery: number;
   failureRate: number; // 0..1
   anrRisk: number; // 0..1
   p95LatencyMs: number;
+
+  // Perception metrics (0..100)
+  a11yScore: number;
+  privacyTrust: number;
+  securityPosture: number;
+  supportLoad: number;
+
+  // User votes (running totals)
+  votes: {
+    perf: number;
+    reliability: number;
+    privacy: number;
+    a11y: number;
+    battery: number;
+  };
+  recentReviews: string[];
+
   selected?: {
     id: number;
     name: string;
@@ -73,5 +94,7 @@ export type UIState = {
     canRepair: boolean;
     canDelete: boolean;
   };
+
   eventsText: string;
 };
+
