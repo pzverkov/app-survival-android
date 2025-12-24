@@ -1,18 +1,18 @@
 # app-survival-android (web game, TS + Vite)
 
-# PROJECT
+# Project
 
 App Survival Android Release Night is a web based simulation game inspired by real Android production incidents. It compresses common production concerns into a playable system where you place components, link data paths, upgrade defenses, and respond to incidents while user sentiment changes in real time.
 
 Inspired by Server Survival by pshenok at https://pshenok.github.io/server-survival/ This project is an original implementation and is not affiliated with the original author. No code or assets were copied from the original project.
 
-# PURPOSE
+# Purpose
 
 This project is intended to be usable as an Android developer skill evaluation exercise. It targets production stage expertise across performance, reliability, architecture, background work, security and privacy, accessibility, observability, and incident response trade offs under constraints.
 
 The simulation core is written in TypeScript and kept separate from rendering and UI so it can be ported to a Kotlin and Android implementation later.
 
-# KEY CONCEPTS
+# Key concepts
 
 Nodes represent Android subsystems and architecture layers such as UI, ViewModel, Domain, Repository, Cache, DB, Network, WorkManager, Observability, Feature Flags, and security and accessibility controls.
 
@@ -22,7 +22,7 @@ Incidents simulate real production pain such as traffic spikes, backend failures
 
 Review waves simulate user sentiment and voting. Even a fast and stable app can lose rating if privacy trust or accessibility drops.
 
-# HOW TO RUN LOCALLY
+# How to run locally
 
 Prerequisites
 Node.js 20 or newer is recommended.
@@ -39,7 +39,7 @@ npm run build
 Preview
 npm run preview
 
-# GITHUB PAGES DEPLOYMENT
+# Github Pages Deployment
 
 This repository includes a GitHub Actions workflow that builds and publishes the dist folder to GitHub Pages.
 
@@ -51,7 +51,7 @@ Setup
 Notes
 If you use a custom domain, place a CNAME file in the public directory. The build pipeline should use base path slash for custom domains and slash repo name slash for standard GitHub Pages project URLs.
 
-# HOW TO PLAY
+# How to play
 
 Start the run.
 Place parts for your pipeline and capabilities.
@@ -102,25 +102,25 @@ Uses observability, safeguards, and mitigation nodes intentionally.
 Explains trade offs clearly and proposes improvements to the simulation or architecture.
 Translates game interventions into real world Android engineering and organizational practices.
 
-# OPTIONAL CODE TASK IDEAS
+# Optional code task ideas
 
 Add a new incident type and mitigation.
 Add a new node with tier effects and costs.
 Improve review wave logic and explain the impact.
 Introduce deterministic seeded randomness and add a replay mode.
 
-# SECURITY
+# Security
 
 See SECURITY.md for the reporting process and guidance. Do not include secrets in issues or pull requests.
 
-# CONTRIBUTING
+# Contributing
 
 See CONTRIBUTING.md for setup instructions and contribution expectations.
 
-# CODE OF CONDUCT
+# Code of conduct
 
 See CODE_OF_CONDUCT.md for community standards.
 
-LICENSE
+# License
 
 Apache License 2.0 See LICENSE and NOTICE files.
