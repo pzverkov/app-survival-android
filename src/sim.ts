@@ -76,7 +76,7 @@ export class GameSim {
   anrPoints = 0;
   latSamples: number[] = [];
 
-  nodes: component[] = [];
+  components: Component[] = [];
   links: Link[] = [];
 
   selectedId: number | null = null;
@@ -116,7 +116,7 @@ export class GameSim {
     this.anrPoints = 0;
     this.latSamples = [];
 
-    this.nodes = [];
+    this.components = [];
     this.links = [];
 
     this.selectedId = null;
@@ -146,7 +146,7 @@ export class GameSim {
     const nO  = this.createComponent('OBS',    cx - 260, cy + 120);
     const nF  = this.createComponent('FLAGS',  cx + 310, cy + 60);
 
-    this.nodes.push(nUI, nVM, nD, nR, nC, nDB, nN, nW, nO, nF);
+    this.components.push(nUI, nVM, nD, nR, nC, nDB, nN, nW, nO, nF);
 
     this.link(nUI.id, nVM.id);
     this.link(nVM.id, nD.id);
@@ -165,7 +165,7 @@ export class GameSim {
     if (this.budget < def.cost) return { ok: false, reason: 'Not enough budget' };
     this.budget -= def.cost;
     const n = this.createComponent(type, x, y);
-    this.nodes.push(n);
+    this.components.push(n);
     this.selectedId = n.id;
     return { ok: true, id: n.id };
   }
@@ -175,7 +175,7 @@ export class GameSim {
     if (!id) return false;
     this.links = this.links.filter(l => l.from !== id && l.to !== id);
     this.queues.delete(id);
-    this.nodes = this.nodes.filter(n => n.id !== id);
+    this.components = this.components.filter(n => n.id !== id);
     this.selectedId = null;
     this.log(`Deleted component #${id}.`);
     return true;
@@ -234,7 +234,7 @@ export class GameSim {
     this.maybeIncident();
 
     // compute component derived stats and sync queue lengths
-    for (const n of this.nodes) {
+    for (const n of this.components) {
       this.computeComponentStats(n);
       n.load = 0;
       n.queue = this.getQueue(n.id).length;
@@ -242,14 +242,14 @@ export class GameSim {
 
     this.spawnRequests();
 
-    const nodes = [...this.nodes].sort((a, b) => a.id - b.id);
+    const components = [...this.components].sort((a, b) => a.id - b.id);
 
     let ok = 0;
     let fail = 0;
     let anrPoints = 0;
     const latThisTick: number[] = [];
 
-    for (const n of nodes) {
+    for (const n of components) {
       const q = this.getQueue(n.id);
       if (q.length === 0) continue;
 
@@ -450,7 +450,7 @@ export class GameSim {
   }
 
   private nodeById(id: number): Component | undefined {
-    return this.nodes.find(n => n.id === id);
+    return this.components.find(n => n.id === id);
   }
 
   private outLinks(id: number): number[] {
@@ -497,7 +497,7 @@ export class GameSim {
   private hasFLAGS(): boolean { return this.has('FLAGS'); }
 
   private tierOf(type: ComponentType): 0 | 1 | 2 | 3 {
-    const n = this.nodes.find(n => n.type === type && !n.down);
+    const n = this.components.find(n => n.type === type && !n.down);
     return (n ? n.tier : 0) as 0 | 1 | 2 | 3;
   }
 
@@ -530,8 +530,8 @@ export class GameSim {
       ['SYNC',   0.08]
     ];
 
-    const uiComponent = this.nodes.find(n => n.type === 'UI');
-    const workComponent = this.nodes.find(n => n.type === 'WORK');
+    const uiComponent = this.components.find(n => n.type === 'UI');
+    const workComponent = this.components.find(n => n.type === 'WORK');
     if (!uiComponent || uiComponent.down) return;
 
     for (const [t, p] of mix) {
@@ -827,7 +827,7 @@ export class GameSim {
         if (sanTier === 0) {
           // Damage "main thread-ish" nodes a bit and add support pain.
           for (const t of ['UI','VM','DOMAIN'] as const) {
-            const n = this.nodes.find(n => n.type === t && !n.down);
+            const n = this.components.find(n => n.type === t && !n.down);
             if (n) n.health = clamp(n.health - (12 + Math.random() * 10), 0, 100);
           }
           bumpSupport(10);
