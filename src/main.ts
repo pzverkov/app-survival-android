@@ -54,7 +54,7 @@ const sim = new GameSim();
 const refs = bindUI();
 
 // Build info (set by CI for GitHub Pages releases)
-const sha = (import.meta.env.VITE_COMMIT_SHA ?? 'dev')toString();
+const sha = String(import.meta.env.VITE_COMMIT_SHA ?? 'dev');
 const shortSha = sha === 'dev' ? 'dev' : sha.slice(0, 7);
 refs.buildInfo.textContent = `Build ${shortSha} • base ${import.meta.env.BASE_URL}`;
 
@@ -101,7 +101,8 @@ window.addEventListener('resize', () => {
 resize();
 
 // initialize game
-sim.reset({ width: refs.canvas.getBoundingClientRect()width, height: refs.canvas.getBoundingClientRect()height });
+const rect = refs.canvas.getBoundingClientRect();
+  sim.reset({ width: rect.width, height: rect.height });
 startTickLoop();
 syncUI();
 
@@ -117,7 +118,8 @@ refs.btnPause.onclick = () => {
 };
 refs.btnReset.onclick = () => {
   sim.running = false;
-  sim.reset({ width: refs.canvas.getBoundingClientRect()width, height: refs.canvas.getBoundingClientRect()height });
+  const rect = refs.canvas.getBoundingClientRect();
+  sim.reset({ width: rect.width, height: rect.height });
   syncUI();
 };
 
@@ -335,8 +337,8 @@ function syncUI() {
   refs.modePill.innerHTML = `Mode: <b>${s.mode === MODE.SELECT ? 'Select' : s.mode === MODE.LINK ? 'Link' : 'Unlink'}</b>`;
   refs.budget.textContent = `$${s.budget.toFixed(0)}`;
   refs.rating.textContent = `${s.rating.toFixed(1)} ★`;
-  refs.fail.textContent = `${(s.failureRate * 100)toFixed(1)}%`;
-  refs.anr.textContent = `${(s.anrRisk * 100)toFixed(1)}%`;
+  refs.fail.textContent = `${(s.failureRate * 100).toFixed(1)}%`;
+  refs.anr.textContent = `${(s.anrRisk * 100).toFixed(1)}%`;
   refs.lat.textContent = `${Math.round(s.p95LatencyMs)} ms`;
   refs.bat.textContent = `${Math.round(s.battery)}`;
 

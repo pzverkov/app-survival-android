@@ -237,7 +237,7 @@ export class GameSim {
     for (const n of this.nodes) {
       this.computeComponentStats(n);
       n.load = 0;
-      n.queue = this.getQueue(n.id)length;
+      n.queue = this.getQueue(n.id).length;
     }
 
     this.spawnRequests();
@@ -437,8 +437,8 @@ export class GameSim {
     const def = ComponentDefs[n.type];
     return (
       `health=${n.health.toFixed(0)}  down=${n.down ? 'yes' : 'no'}\n` +
-      `cap=${n.cap.toFixed(1)}  load=${n.load.toFixed(1)}  queue=${this.getQueue(n.id)length}\n` +
-      `fail=${(n.fail * 100)toFixed(2)}%  lat~${n.lat.toFixed(0)}ms\n` +
+      `cap=${n.cap.toFixed(1)}  load=${n.load.toFixed(1)}  queue=${this.getQueue(n.id).length}\n` +
+      `fail=${(n.fail * 100).toFixed(2)}%  lat~${n.lat.toFixed(0)}ms\n` +
       `${def.desc}`
     );
   }
@@ -662,13 +662,13 @@ export class GameSim {
 
     switch (kind) {
       case 'perf':
-        return `${sev}: Feels laggy/janky. p95 ~${Math.round(p95)}ms.`;
+        return `${sev}: Feels laggy/janky. p95 ~${Math.round(p95)}ms`;
       case 'reliability':
-        return `${sev}: Crashes/ANRs after the update (${(failureRate * 100)toFixed(1)}% failures, ${(anrRisk * 100)toFixed(1)}% ANR risk)`;
+        return `${sev}: Crashes/ANRs after the update (${(failureRate * 100).toFixed(1)}% failures, ${(anrRisk * 100).toFixed(1)}% ANR risk)`;
       case 'privacy':
-        return `${sev}: Privacy vibes are off. Trust=${Math.round(this.privacyTrust)}/100.`;
+        return `${sev}: Privacy vibes are off. Trust=${Math.round(this.privacyTrust)}/100`;
       case 'a11y':
-        return `${sev}: Accessibility issues (labels/contrast/focus) A11y=${Math.round(this.a11yScore)}/100.`;
+        return `${sev}: Accessibility issues (labels/contrast/focus) A11y=${Math.round(this.a11yScore)}/100`;
       case 'battery':
         return `${sev}: Battery drain is wild. Battery=${Math.round(this.battery)}/100.`;
     }
