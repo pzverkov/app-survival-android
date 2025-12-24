@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>App Survival: Android Release Night</title>
+  </head>
+  <body>
+    <div id="app" class="wrap">
+      <canvas id="c"></canvas>
+
+      <aside class="side">
+        <h1>App Survival: Android Release Night <span class="badge">TS + Vite</span></h1>
+
+        <div class="row">
+          <button id="btnStart" class="primary">Start</button>
+          <button id="btnPause">Pause</button>
+          <button id="btnReset" class="danger">Reset</button>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="row">
+          <span class="pill" id="modePill">Mode: <b>Select</b></span>
+          <button id="btnSelect">Select</button>
+          <button id="btnLink">Link</button>
+          <button id="btnUnlink">Unlink</button>
+        </div>
+
+        <div class="hr"></div>
+
+        <section class="card">
+          <div class="k">Place node</div>
+          <div class="row" style="margin-top:8px;">
+            <select id="nodeType">
+              <option value="UI">UI</option>
+              <option value="VM">ViewModel</option>
+              <option value="DOMAIN">Domain</option>
+              <option value="REPO">Repository</option>
+              <option value="CACHE">Cache</option>
+              <option value="DB">Room DB</option>
+              <option value="NET">Network</option>
+              <option value="WORK">WorkManager</option>
+              <option value="OBS">Observability</option>
+              <option value="FLAGS">Feature Flags</option>
+            </select>
+            <button id="btnAdd">+ Add</button>
+          </div>
+          <div class="small" style="margin-top:8px;">
+            Drag nodes to rearrange. Link mode: click <span class="mono">source</span> → click <span class="mono">destination</span>.
+          </div>
+        </section>
+
+        <div class="hr"></div>
+
+        <section class="grid">
+          <div class="card">
+            <div class="k">Budget</div>
+            <div class="v mono" id="budget">$500</div>
+            <div class="small">Run dies at $0 or rating 1.0*.</div>
+          </div>
+          <div class="card">
+            <div class="k">Rating</div>
+            <div class="v mono" id="rating">5.0 *</div>
+            <div class="small">Drops from failures / ANRs / slow.</div>
+          </div>
+          <div class="card">
+            <div class="k">Failures</div>
+            <div class="v mono" id="fail">0.0%</div>
+            <div class="small">Too many = review bombs.</div>
+          </div>
+          <div class="card">
+            <div class="k">ANR Risk</div>
+            <div class="v mono" id="anr">0.0%</div>
+            <div class="small">Main thread pain.</div>
+          </div>
+          <div class="card">
+            <div class="k">p95 Latency</div>
+            <div class="v mono" id="lat">0 ms</div>
+            <div class="small">Queueing makes it worse.</div>
+          </div>
+          <div class="card">
+            <div class="k">Battery</div>
+            <div class="v mono" id="bat">100</div>
+            <div class="small">Work spam drains.</div>
+          </div>
+        </section>
+
+        <div class="hr"></div>
+
+        <section class="card" id="selCard">
+          <div class="k">Selected</div>
+          <div class="v mono" id="selName">None</div>
+          <pre class="small mono" id="selStats">—</pre>
+          <div class="row" style="margin-top:10px;">
+            <button id="btnUpgrade" class="primary" disabled>Upgrade</button>
+            <button id="btnRepair" disabled>Repair</button>
+            <button id="btnDelete" class="danger" disabled>Delete</button>
+          </div>
+          <div class="small" style="margin-top:8px;">
+            Upgrades raise capacity & reliability. Repairs restore health. Both cost budget.
+          </div>
+        </section>
+
+        <div class="hr"></div>
+
+        <section class="card">
+          <div class="k">Incidents</div>
+          <pre class="small" id="eventLog">No incidents… yet.</pre>
+        </section>
+
+        <div class="hr"></div>
+
+        <section class="card">
+          <div class="k">Roadmap (next 3 “Android-real” upgrades)</div>
+          <ol class="small" style="margin:8px 0 0; padding-left:18px;">
+            <li><b>Frame budget + jank</b> (16ms scheduler + jank meter)</li>
+            <li><b>Main thread strictness</b> (serial UI/VM/Domain + “IO on main” ANR)</li>
+            <li><b>Memory / GC / image realism</b> (heap meter, GC pauses, OOM)</li>
+          </ol>
+        </section>
+
+        <div class="hr"></div>
+
+        <p class="small">
+          Recommended starter graph: <span class="mono">UI → VM → Domain → Repo → (Cache → DB)</span> and <span class="mono">Repo → Net</span>.
+          Add <span class="mono">Observability</span> + <span class="mono">Feature Flags</span> to reduce blast radius.
+        </p>
+      <div id="buildInfo" class="small mono" style="opacity:.75; margin-top:10px;"></div>
+
+      </aside>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
