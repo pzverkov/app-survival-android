@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f131c" />
     <title>App Survival: Android Release Night</title>
   </head>
   <body>
@@ -22,10 +23,11 @@
 
         <div class="row">
           <span class="pill" id="modePill">Mode: <b>Select</b></span>
-          <button id="btnUnlink">Unlink</button>
+          <div class="row segmented" role="group" aria-label="Mode">
             <button id="btnSelect" class="btn text is-selected">Select</button>
             <button id="btnLink" class="btn text">Link</button>
             <button id="btnUnlink" class="btn text">Unlink</button>
+          </div>
         </div>
 
         <div class="hr"></div>
