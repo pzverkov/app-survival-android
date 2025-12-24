@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
     paths:
       - "src/**"
       - "public/**"
@@ -11,12 +11,6 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/**"
-      - "README.md"
-      - "LICENSE"
-      - "NOTICE"
-      - "SECURITY.md"
-      - "CONTRIBUTING.md"
-      - "CODE_OF_CONDUCT.md"
   workflow_dispatch:
 
 permissions:
@@ -42,23 +36,19 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Force npm public registry
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm config delete proxy || true
+          npm config delete https-proxy || true
+          npm config delete cafile || true
+
       - name: Cache Vite
         uses: actions/cache@v4
         with:
-          path: |
-            node_modules/.vite
+          path: node_modules/.vite
           key: vite-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            vite-${{ runner.os }}-
-
-      - name: Compute Pages base
-        shell: bash
-        run: |
-          if [ -f public/CNAME ]; then
-            echo "VITE_BASE=/" >> "$GITHUB_ENV"
-          else
-            echo "VITE_BASE=/${{ github.event.repository.name }}/" >> "$GITHUB_ENV"
-          fi
+          restore-keys: vite-${{ runner.os }}-
 
       - name: Install
         run: npm ci --no-audit --fund=false
