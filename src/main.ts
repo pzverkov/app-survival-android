@@ -54,7 +54,7 @@ const sim = new GameSim();
 const refs = bindUI();
 
 // Build info (set by CI for GitHub Pages releases)
-const sha = String(import.meta.env.VITE_COMMIT_SHA ?? 'dev');
+const sha = (import.meta.env.VITE_COMMIT_SHA ?? 'dev').toString();
 const shortSha = sha === 'dev' ? 'dev' : sha.slice(0, 7);
 refs.buildInfo.textContent = `Build ${shortSha} • base ${import.meta.env.BASE_URL}`;
 
@@ -101,8 +101,7 @@ window.addEventListener('resize', () => {
 resize();
 
 // initialize game
-const rect = refs.canvas.getBoundingClientRect();
-  sim.reset({ width: rect.width, height: rect.height });
+sim.reset({ width: refs.canvas.getBoundingClientRect().width, height: refs.canvas.getBoundingClientRect().height });
 startTickLoop();
 syncUI();
 
@@ -118,8 +117,7 @@ refs.btnPause.onclick = () => {
 };
 refs.btnReset.onclick = () => {
   sim.running = false;
-  const rect = refs.canvas.getBoundingClientRect();
-  sim.reset({ width: rect.width, height: rect.height });
+  sim.reset({ width: refs.canvas.getBoundingClientRect().width, height: refs.canvas.getBoundingClientRect().height });
   syncUI();
 };
 

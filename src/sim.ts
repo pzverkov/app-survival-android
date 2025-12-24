@@ -59,7 +59,7 @@ export class GameSim {
   rating = 5.0;
   battery = 100;
 
-  // Perception metrics (0..100) These feed into user rating separately from pure tech metrics.
+  // Perception metrics (0..100). These feed into user rating separately from pure tech metrics.
   a11yScore = 100;
   privacyTrust = 100;
   securityPosture = 100;
@@ -177,7 +177,7 @@ export class GameSim {
     this.queues.delete(id);
     this.nodes = this.nodes.filter(n => n.id !== id);
     this.selectedId = null;
-    this.log(`Deleted component #${id}`);
+    this.log(`Deleted component #${id}.`);
     return true;
   }
 
@@ -189,7 +189,7 @@ export class GameSim {
     if (this.budget < cost) return { ok: false, reason: 'Not enough budget' };
     this.budget -= cost;
     n.tier = (n.tier + 1) as 2 | 3;
-    this.log(`${n.type} upgraded to Tier ${n.tier}`);
+    this.log(`${n.type} upgraded to Tier ${n.tier}.`);
     return { ok: true };
   }
 
@@ -202,7 +202,7 @@ export class GameSim {
     this.budget -= cost;
     n.health = 100;
     n.down = false;
-    this.log(`${n.type} repaired`);
+    this.log(`${n.type} repaired.`);
     return { ok: true };
   }
 
@@ -292,7 +292,7 @@ export class GameSim {
           if (n.health <= 0) {
             n.down = true;
             n.health = 0;
-            this.log(`${n.type} went DOWN`);
+            this.log(`${n.type} went DOWN.`);
           }
         } else {
           ok++;
@@ -300,7 +300,7 @@ export class GameSim {
           for (const tid of targets) {
             const tn = this.nodeById(tid);
             if (!tn || tn.down) continue;
-            this.getQueue(tid)push(req);
+            this.getQueue(tid).push(req);
           }
         }
       }
@@ -391,7 +391,7 @@ export class GameSim {
     if (this.budget <= 0 || this.rating <= 1.0) {
       this.budget = Math.max(0, this.budget);
       this.running = false;
-      this.log('RUN ENDED: budget/rating collapsed');
+      this.log('RUN ENDED: budget/rating collapsed.');
     }
   }
 
@@ -429,7 +429,7 @@ export class GameSim {
       votes: { ...this.votes },
       recentReviews: [...this.recentReviews],
       selected,
-      eventsText: this.eventLines.length ? this.eventLines.join('\n') : 'No incidents… yet'
+      eventsText: this.eventLines.length ? this.eventLines.join('\n') : 'No incidents… yet.'
     };
   }
 
@@ -454,7 +454,7 @@ export class GameSim {
   }
 
   private outLinks(id: number): number[] {
-    return this.links.filter(l => l.from === id)map(l => l.to);
+    return this.links.filter(l => l.from === id).map(l => l.to);
   }
 
   private getQueue(id: number): Request[] {
@@ -542,7 +542,7 @@ export class GameSim {
 
       for (let i = 0; i < count; i++) {
         const origin = (t === 'SYNC' && workComponent && !workComponent.down) ? workComponent : uiComponent;
-        this.getQueue(origin.id)push({ type: t, ttl: 20 });
+        this.getQueue(origin.id).push({ type: t, ttl: 20 });
       }
     }
   }
@@ -625,10 +625,10 @@ export class GameSim {
     // If everything is fine, you still get the occasional "love it" review.
     if (top[1] < 0.12) {
       const positives = [
-        'Smooth and stable lately. Nice',
-        'Fast, reliable, no drama. Keep it up',
-        'Works great on my device. Finally',
-        'No crashes, no battery drain — chef’s kiss'
+        'Smooth and stable lately. Nice.',
+        'Fast, reliable, no drama. Keep it up.',
+        'Works great on my device. Finally.',
+        'No crashes, no battery drain — chef’s kiss.'
       ];
       const snippet = positives[Math.floor(Math.random() * positives.length)];
       this.recentReviews.unshift(snippet);
@@ -662,13 +662,13 @@ export class GameSim {
 
     switch (kind) {
       case 'perf':
-        return `${sev}: Feels laggy/janky. p95 ~${Math.round(p95)}ms`;
+        return `${sev}: Feels laggy/janky. p95 ~${Math.round(p95)}ms.`;
       case 'reliability':
-        return `${sev}: Crashes/ANRs after the update (${(failureRate * 100).toFixed(1)}% failures, ${(anrRisk * 100).toFixed(1)}% ANR risk)`;
+        return `${sev}: Crashes/ANRs after the update (${(failureRate * 100).toFixed(1)}% failures, ${(anrRisk * 100).toFixed(1)}% ANR risk).`;
       case 'privacy':
-        return `${sev}: Privacy vibes are off. Trust=${Math.round(this.privacyTrust)}/100`;
+        return `${sev}: Privacy vibes are off. Trust=${Math.round(this.privacyTrust)}/100.`;
       case 'a11y':
-        return `${sev}: Accessibility issues (labels/contrast/focus) A11y=${Math.round(this.a11yScore)}/100`;
+        return `${sev}: Accessibility issues (labels/contrast/focus). A11y=${Math.round(this.a11yScore)}/100.`;
       case 'battery':
         return `${sev}: Battery drain is wild. Battery=${Math.round(this.battery)}/100.`;
     }
@@ -737,7 +737,7 @@ export class GameSim {
         const damp = (abuseTier > 0) ? (0.65 - 0.08 * (abuseTier - 1)) : 1.0;
         this.spawnMul = clamp(this.spawnMul + 0.25 * damp, 1.0, 3.0);
         bumpSupport(2 + (abuseTier === 0 ? 3 : 1));
-        this.log('Marketing spike: action load increased');
+        this.log('Marketing spike: action load increased.');
         break;
       }
 
@@ -745,14 +745,14 @@ export class GameSim {
         const damp = (obsTier > 0) ? 0.85 : 1.0;
         this.netBadness = clamp(this.netBadness + 0.25 * damp, 1.0, 3.0);
         bumpSupport(3);
-        this.log('Backend wobbles: network failures increased');
+        this.log('Backend wobbles: network failures increased.');
         break;
       }
 
       case 'OEM_RESTRICTION': {
         this.workRestriction = clamp(this.workRestriction + 0.35, 1.0, 3.0);
         bumpSupport(2);
-        this.log('OEM restriction: background work drains more');
+        this.log('OEM restriction: background work drains more.');
         break;
       }
 
@@ -764,12 +764,12 @@ export class GameSim {
           this.netBadness = clamp(this.netBadness + 0.15, 1.0, 3.0);
           bumpSupport(10);
           this.rating = clamp(this.rating - 0.22, 1.0, 5.0);
-          this.log('MITM attempt: user trust took a hit (add TLS pinning)');
+          this.log('MITM attempt: user trust took a hit (add TLS pinning).');
         } else {
           // blocked, but strict pinning can increase fragility a bit
           this.netBadness = clamp(this.netBadness + 0.05, 1.0, 3.0);
           bumpSupport(2);
-          this.log('MITM attempt blocked by TLS pinning');
+          this.log('MITM attempt blocked by TLS pinning.');
         }
         break;
       }
@@ -778,7 +778,7 @@ export class GameSim {
         if (pinTier === 0) {
           this.netBadness = clamp(this.netBadness + 0.18, 1.0, 3.0);
           bumpSupport(3);
-          this.log('Cert rotation upstream: brief network turbulence');
+          this.log('Cert rotation upstream: brief network turbulence.');
           break;
         }
 
@@ -787,11 +787,11 @@ export class GameSim {
           this.netBadness = clamp(this.netBadness + 0.35, 1.0, 3.0);
           bumpSupport(12);
           this.rating = clamp(this.rating - 0.15, 1.0, 5.0);
-          this.log('Cert rotated: pinning broke requests (upgrade pinning or use flags)');
+          this.log('Cert rotated: pinning broke requests (upgrade pinning or use flags).');
         } else {
           this.netBadness = clamp(this.netBadness + 0.12, 1.0, 3.0);
           bumpSupport(4);
-          this.log('Cert rotated: pinning handled it (minor hiccup)');
+          this.log('Cert rotated: pinning handled it (minor hiccup).');
         }
         break;
       }
@@ -801,10 +801,10 @@ export class GameSim {
           hitTrust(-8, -22);
           bumpSupport(15);
           this.rating = clamp(this.rating - 0.18, 1.0, 5.0);
-          this.log('Session/token issue: account takeovers reported (add Auth hardening)');
+          this.log('Session/token issue: account takeovers reported (add Auth hardening).');
         } else {
           bumpSupport(3);
-          this.log('Suspicious sessions detected and contained by Auth');
+          this.log('Suspicious sessions detected and contained by Auth.');
         }
         break;
       }
@@ -814,11 +814,11 @@ export class GameSim {
           this.netBadness = clamp(this.netBadness + 0.22, 1.0, 3.0);
           this.spawnMul = clamp(this.spawnMul + 0.12, 1.0, 3.0);
           bumpSupport(14);
-          this.log('Credential stuffing: auth endpoints hammered (add Abuse protection)');
+          this.log('Credential stuffing: auth endpoints hammered (add Abuse protection).');
         } else {
           this.netBadness = clamp(this.netBadness + 0.10, 1.0, 3.0);
           bumpSupport(5);
-          this.log('Credential stuffing mitigated by rate limiting');
+          this.log('Credential stuffing mitigated by rate limiting.');
         }
         break;
       }
@@ -832,10 +832,10 @@ export class GameSim {
           }
           bumpSupport(10);
           this.rating = clamp(this.rating - 0.12, 1.0, 5.0);
-          this.log('Deep link abuse: malformed inputs causing crashes (add Sanitizer)');
+          this.log('Deep link abuse: malformed inputs causing crashes (add Sanitizer).');
         } else {
           bumpSupport(3);
-          this.log('Deep link abuse attempt sanitized');
+          this.log('Deep link abuse attempt sanitized.');
         }
         break;
       }
@@ -845,11 +845,11 @@ export class GameSim {
           hitTrust(0, 0, -(22 + Math.random() * 10));
           bumpSupport(8);
           this.rating = clamp(this.rating - 0.10, 1.0, 5.0);
-          this.log('A11y regression shipped: labels/contrast complaints (add A11y layer)');
+          this.log('A11y regression shipped: labels/contrast complaints (add A11y layer).');
         } else {
           hitTrust(0, 0, -(6 + Math.random() * 6));
           bumpSupport(3);
-          this.log('Minor accessibility regression caught (A11y layer helps)');
+          this.log('Minor accessibility regression caught (A11y layer helps).');
         }
         break;
       }
@@ -861,12 +861,12 @@ export class GameSim {
           hitTrust(-25 * blast, -10 * blast);
           bumpSupport(12);
           this.rating = clamp(this.rating - 0.18 * blast, 1.0, 5.0);
-          this.log('3rd-party SDK scandal: privacy trust tanking (add Keystore/Crypto + flags)');
+          this.log('3rd-party SDK scandal: privacy trust tanking (add Keystore/Crypto + flags).');
         } else {
           hitTrust(-10 * blast, -4 * blast);
           bumpSupport(6);
           this.rating = clamp(this.rating - 0.08 * blast, 1.0, 5.0);
-          this.log('3rd-party SDK issue: reduced impact due to crypto hardening');
+          this.log('3rd-party SDK issue: reduced impact due to crypto hardening.');
         }
         break;
       }

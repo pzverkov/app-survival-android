@@ -1,170 +1,170 @@
 <!doctype html>
 <html lang="en">
- <head>
- <meta charset="UTF-8" />
- <meta name="viewport" content="width=device-width, initial-scale=1.0" />
- <meta name="theme-color" content="#0f131c" />
- <title>App Survival: Android Release Night</title>
- </head>
- <body>
- <div id="app" class="wrap">
- <canvas id="c"></canvas>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f131c" />
+    <title>App Survival: Android Release Night</title>
+  </head>
+  <body>
+    <div id="app" class="wrap">
+      <canvas id="c"></canvas>
 
- <aside class="side">
- <h1>App Survival: Android Release Night <span class="badge">Material 3 • TS + Vite</span></h1>
+      <aside class="side">
+        <h1>App Survival: Android Release Night <span class="badge">Material 3 • TS + Vite</span></h1>
 
- <div class="row">
- <button id="btnStart" class="btn filled">▶ Start</button>
- <button id="btnPause" class="btn tonal">⏸ Pause</button>
- <button id="btnReset" class="btn error">↺ Reset</button>
- </div>
+        <div class="row">
+          <button id="btnStart" class="btn filled">▶ Start</button>
+          <button id="btnPause" class="btn tonal">⏸ Pause</button>
+          <button id="btnReset" class="btn error">↺ Reset</button>
+        </div>
 
- <div class="hr"></div>
+        <div class="hr"></div>
 
- <div class="row">
- <span class="pill" id="modePill">Mode: <b>Select</b></span>
- <div class="row segmented" role="group" aria-label="Mode">
- <button id="btnSelect" class="btn text is-selected">Select</button>
- <button id="btnLink" class="btn text">Link</button>
- <button id="btnUnlink" class="btn text">Unlink</button>
- </div>
- </div>
+        <div class="row">
+          <span class="pill" id="modePill">Mode: <b>Select</b></span>
+          <div class="row segmented" role="group" aria-label="Mode">
+            <button id="btnSelect" class="btn text is-selected">Select</button>
+            <button id="btnLink" class="btn text">Link</button>
+            <button id="btnUnlink" class="btn text">Unlink</button>
+          </div>
+        </div>
 
- <div class="hr"></div>
+        <div class="hr"></div>
 
- <section class="card">
- <div class="k">Place component</div>
- <div class="row" style="margin-top:8px;">
- <select id="componentType">
- <option value="UI">UI</option>
- <option value="VM">ViewModel</option>
- <option value="DOMAIN">Domain</option>
- <option value="REPO">Repository</option>
- <option value="CACHE">Cache</option>
- <option value="DB">Room DB</option>
- <option value="NET">Network</option>
- <option value="WORK">WorkManager</option>
- <option value="OBS">Observability</option>
- <option value="FLAGS">Feature Flags</option>
- <option value="AUTH">Auth / Sessions</option>
- <option value="PINNING">TLS Pinning</option>
- <option value="KEYSTORE">Keystore / Crypto</option>
- <option value="SANITIZER">Input Sanitizer</option>
- <option value="ABUSE">Abuse Protection</option>
- <option value="A11Y">Accessibility Layer</option>
- </select>
- <button id="btnAdd" class="btn tonal">+ Add</button>
- </div>
- <div class="small" style="margin-top:8px;">
- Drag nodes to rearrange. Link mode: click <span class="mono">source</span> → click <span class="mono">destination</span>.
- </div>
- </section>
+        <section class="card">
+          <div class="k">Place component</div>
+          <div class="row" style="margin-top:8px;">
+            <select id="componentType">
+              <option value="UI">UI</option>
+              <option value="VM">ViewModel</option>
+              <option value="DOMAIN">Domain</option>
+              <option value="REPO">Repository</option>
+              <option value="CACHE">Cache</option>
+              <option value="DB">Room DB</option>
+              <option value="NET">Network</option>
+              <option value="WORK">WorkManager</option>
+              <option value="OBS">Observability</option>
+              <option value="FLAGS">Feature Flags</option>
+              <option value="AUTH">Auth / Sessions</option>
+              <option value="PINNING">TLS Pinning</option>
+              <option value="KEYSTORE">Keystore / Crypto</option>
+              <option value="SANITIZER">Input Sanitizer</option>
+              <option value="ABUSE">Abuse Protection</option>
+              <option value="A11Y">Accessibility Layer</option>
+            </select>
+            <button id="btnAdd" class="btn tonal">+ Add</button>
+          </div>
+          <div class="small" style="margin-top:8px;">
+            Drag nodes to rearrange. Link mode: click <span class="mono">source</span> → click <span class="mono">destination</span>
+          </div>
+        </section>
 
- <div class="hr"></div>
+        <div class="hr"></div>
 
- <section class="grid">
- <div class="card">
- <div class="k">Budget</div>
- <div class="v mono" id="budget">$500</div>
- <div class="small">Run dies at $0 or rating 1.0★</div>
- </div>
- <div class="card">
- <div class="k">Rating</div>
- <div class="v mono" id="rating">5.0 ★</div>
- <div class="small">Drops from failures / ANRs / slow.</div>
- </div>
- <div class="card">
- <div class="k">Failures</div>
- <div class="v mono" id="fail">0.0%</div>
- <div class="small">Too many = review bombs.</div>
- </div>
- <div class="card">
- <div class="k">ANR Risk</div>
- <div class="v mono" id="anr">0.0%</div>
- <div class="small">Main thread pain.</div>
- </div>
- <div class="card">
- <div class="k">p95 Latency</div>
- <div class="v mono" id="lat">0 ms</div>
- <div class="small">Queueing makes it worse.</div>
- </div>
- <div class="card">
- <div class="k">Battery</div>
- <div class="v mono" id="bat">100</div>
- <div class="small">Work spam drains.</div>
- </div>
- </section>
+        <section class="grid">
+          <div class="card">
+            <div class="k">Budget</div>
+            <div class="v mono" id="budget">$500</div>
+            <div class="small">Run dies at $0 or rating 1.0★</div>
+          </div>
+          <div class="card">
+            <div class="k">Rating</div>
+            <div class="v mono" id="rating">5.0 ★</div>
+            <div class="small">Drops from failures / ANRs / slow</div>
+          </div>
+          <div class="card">
+            <div class="k">Failures</div>
+            <div class="v mono" id="fail">0.0%</div>
+            <div class="small">Too many = review bombs</div>
+          </div>
+          <div class="card">
+            <div class="k">ANR Risk</div>
+            <div class="v mono" id="anr">0.0%</div>
+            <div class="small">Main thread pain</div>
+          </div>
+          <div class="card">
+            <div class="k">p95 Latency</div>
+            <div class="v mono" id="lat">0 ms</div>
+            <div class="small">Queueing makes it worse</div>
+          </div>
+          <div class="card">
+            <div class="k">Battery</div>
+            <div class="v mono" id="bat">100</div>
+            <div class="small">Work spam drains</div>
+          </div>
+        </section>
 
- <section class="card">
- <div class="k">Trust &amp; accessibility</div>
- <div class="small" style="margin-top:8px;">
- A11y: <span class="mono" id="a11yScore">100</span>/100 •
- Privacy: <span class="mono" id="privacyTrust">100</span>/100 •
- Security: <span class="mono" id="securityPosture">100</span>/100 •
- Support load: <span class="mono" id="supportLoad">0</span>/100
- </div>
- </section>
+        <section class="card">
+          <div class="k">Trust &amp; accessibility</div>
+          <div class="small" style="margin-top:8px;">
+            A11y: <span class="mono" id="a11yScore">100</span>/100 •
+            Privacy: <span class="mono" id="privacyTrust">100</span>/100 •
+            Security: <span class="mono" id="securityPosture">100</span>/100 •
+            Support load: <span class="mono" id="supportLoad">0</span>/100
+          </div>
+        </section>
 
- <div class="hr"></div>
+        <div class="hr"></div>
 
- <section class="card" id="selCard">
- <div class="k">Selected</div>
- <div class="v mono" id="selName">None</div>
- <pre class="small mono" id="selStats">—</pre>
- <div class="row" style="margin-top:10px;">
- <button id="btnUpgrade" class="btn filled" disabled>Upgrade</button>
- <button id="btnRepair" class="btn outlined" disabled>Repair</button>
- <button id="btnDelete" class="btn error" disabled>Delete</button>
- </div>
- <div class="small" style="margin-top:8px;">
- Upgrades raise capacity & reliability. Repairs restore health. Both cost budget.
- </div>
- </section>
+        <section class="card" id="selCard">
+          <div class="k">Selected</div>
+          <div class="v mono" id="selName">None</div>
+          <pre class="small mono" id="selStats">—</pre>
+          <div class="row" style="margin-top:10px;">
+            <button id="btnUpgrade" class="btn filled" disabled>Upgrade</button>
+            <button id="btnRepair" class="btn outlined" disabled>Repair</button>
+            <button id="btnDelete" class="btn error" disabled>Delete</button>
+          </div>
+          <div class="small" style="margin-top:8px;">
+            Upgrades raise capacity & reliability. Repairs restore health. Both cost budget
+          </div>
+        </section>
 
- 
- <div class="hr"></div>
+        
+        <div class="hr"></div>
 
- <section class="card">
- <div class="k">User votes (live sentiment)</div>
- <div class="small" style="margin-top:8px;">
- Perf: <span class="mono" id="votesPerf">0</span> •
- Reliability: <span class="mono" id="votesReliability">0</span> •
- Privacy: <span class="mono" id="votesPrivacy">0</span> •
- A11y: <span class="mono" id="votesA11y">0</span> •
- Battery: <span class="mono" id="votesBattery">0</span>
- </div>
- <pre class="small" id="reviewLog" style="margin-top:8px;">No reviews yet.</pre>
- </section>
+        <section class="card">
+          <div class="k">User votes (live sentiment)</div>
+          <div class="small" style="margin-top:8px;">
+            Perf: <span class="mono" id="votesPerf">0</span> •
+            Reliability: <span class="mono" id="votesReliability">0</span> •
+            Privacy: <span class="mono" id="votesPrivacy">0</span> •
+            A11y: <span class="mono" id="votesA11y">0</span> •
+            Battery: <span class="mono" id="votesBattery">0</span>
+          </div>
+          <pre class="small" id="reviewLog" style="margin-top:8px;">No reviews yet.</pre>
+        </section>
 
- <div class="hr"></div>
+        <div class="hr"></div>
 
- <section class="card">
- <div class="k">Incidents</div>
- <pre class="small" id="eventLog">No incidents… yet.</pre>
- </section>
+        <section class="card">
+          <div class="k">Incidents</div>
+          <pre class="small" id="eventLog">No incidents… yet.</pre>
+        </section>
 
- <div class="hr"></div>
+        <div class="hr"></div>
 
- <section class="card">
- <div class="k">Roadmap (next 3 “Android-real” upgrades)</div>
- <ol class="small" style="margin:8px 0 0; padding-left:18px;">
- <li><b>Frame budget + jank</b> (16ms scheduler + jank meter)</li>
- <li><b>Main thread strictness</b> (serial UI/VM/Domain + “IO on main” ANR)</li>
- <li><b>Memory / GC / image realism</b> (heap meter, GC pauses, OOM)</li>
- </ol>
- </section>
+        <section class="card">
+          <div class="k">Roadmap (next 3 “Android-real” upgrades)</div>
+          <ol class="small" style="margin:8px 0 0; padding-left:18px;">
+            <li><b>Frame budget + jank</b> (16ms scheduler + jank meter)</li>
+            <li><b>Main thread strictness</b> (serial UI/VM/Domain + “IO on main” ANR)</li>
+            <li><b>Memory / GC / image realism</b> (heap meter, GC pauses, OOM)</li>
+          </ol>
+        </section>
 
- <div class="hr"></div>
+        <div class="hr"></div>
 
- <p class="small">
- Recommended starter graph: <span class="mono">UI → VM → Domain → Repo → (Cache → DB)</span> and <span class="mono">Repo → Net</span>.
- Add <span class="mono">Observability</span> + <span class="mono">Feature Flags</span> to reduce blast radius.
- </p>
- <div id="buildInfo" class="small mono" style="opacity:.75; margin-top:10px;"></div>
+        <p class="small">
+          Recommended starter graph: <span class="mono">UI → VM → Domain → Repo → (Cache → DB)</span> and <span class="mono">Repo → Net</span>.
+          Add <span class="mono">Observability</span> + <span class="mono">Feature Flags</span> to reduce blast radius
+        </p>
+      <div id="buildInfo" class="small mono" style="opacity:.75; margin-top:10px;"></div>
 
- </aside>
- </div>
+      </aside>
+    </div>
 
- <script type="module" src="/src/main.ts"></script>
- </body>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>
