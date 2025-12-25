@@ -1,6 +1,6 @@
 import './style.css';
 import { GameSim } from './sim';
-import { MODE, Mode, ComponentType } from './types';
+import { MODE, Mode, ComponentType, Ticket } from './types';
 
 type UIRefs = {
   canvas: HTMLCanvasElement;
@@ -13,6 +13,10 @@ type UIRefs = {
   anr: HTMLElement;
   lat: HTMLElement;
   bat: HTMLElement;
+  jank: HTMLElement;
+  heap: HTMLElement;
+  gc: HTMLElement;
+  oom: HTMLElement;
 
   a11yScore: HTMLElement;
   privacyTrust: HTMLElement;
@@ -60,6 +64,57 @@ refs.buildInfo.textContent = `Build ${shortSha} • base ${import.meta.env.BASE_
 
 const TICK_MS = 1000;
 let tickHandle: number | null = null;
+
+
+function renderTickets() {
+  const cap = sim.getCapacity();
+  const tickets = sim.getTickets()
+    .slice()
+    .sort((a: Ticket, b: Ticket) => (b.severity - a.severity) || (b.impact - a.impact) || (b.ageSec - a.ageSec))
+    .slice(0, 7);
+
+  refs.capVal.textContent = `${cap.cur.toFixed(1)}/${cap.max.toFixed(0)}`;
+
+  if (!tickets.length) {
+    refs.ticketList.innerHTML = `<div class="small muted">No open tickets</div>`;
+    return;
+  }
+
+  refs.ticketList.innerHTML = tickets.map(t => {
+    const sev = ['S0', 'S1', 'S2', 'S3'][t.severity] ?? 'S?';
+    const age = Math.floor(t.ageSec / 60);
+    const canFix = cap.cur + 1e-9 >= t.effort;
+    const fixLabel = canFix ? `Fix (${t.effort})` : `Need ${t.effort}`;
+    const deferLabel = t.deferred ? 'Undefer' : 'Defer';
+    return `
+      <div class="ticket">
+        <div class="ticketMain">
+          <div class="ticketTitle">${sev} ${t.title}</div>
+          <div class="ticketMeta">${t.category} • impact ${t.impact} • age ${age}m</div>
+        </div>
+        <div class="ticketBtns">
+          <button class="btn text ${canFix ? '' : 'is-disabled'}" data-fix="${t.id}" ${canFix ? '' : 'disabled'}>${fixLabel}</button>
+          <button class="btn text" data-defer="${t.id}">${deferLabel}</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  refs.ticketList.querySelectorAll('button[data-fix]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = Number((e.currentTarget as HTMLElement).getAttribute('data-fix'));
+      sim.fixTicket(id);
+      syncUI();
+    });
+  });
+  refs.ticketList.querySelectorAll('button[data-defer]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = Number((e.currentTarget as HTMLElement).getAttribute('data-defer'));
+      sim.deferTicket(id);
+      syncUI();
+    });
+  });
+}
 
 function syncRunButtons() {
   refs.btnStart.classList.toggle('is-active', sim.running);
@@ -339,6 +394,10 @@ function syncUI() {
   refs.anr.textContent = `${(s.anrRisk * 100).toFixed(1)}%`;
   refs.lat.textContent = `${Math.round(s.p95LatencyMs)} ms`;
   refs.bat.textContent = `${Math.round(s.battery)}`;
+  refs.jank.textContent = `${Math.round(s.jankPct)}%`;
+  refs.heap.textContent = `${Math.round(s.heapMb)} MB`;
+  refs.gc.textContent = `${Math.round(s.gcPauseMs)}`;
+  refs.oom.textContent = `${s.oomCount}`;
 
   refs.a11yScore.textContent = `${Math.round(s.a11yScore)}`;
   refs.privacyTrust.textContent = `${Math.round(s.privacyTrust)}`;
@@ -369,6 +428,18 @@ function syncUI() {
     refs.btnRepair.disabled = !s.selected.canRepair;
     refs.btnDelete.disabled = !s.selected.canDelete;
   }
+  // PlatformPulse
+  const p = sim.getPlatform();
+  refs.apiLatest.textContent = String(p.latestApi);
+  refs.apiMin.textContent = String(p.minApi);
+  refs.oldShare.textContent = String(Math.round(p.oldDeviceShare * 100));
+  refs.lowRamShare.textContent = String(Math.round(p.lowRamShare * 100));
+
+  // ZeroDayPulse
+  const adv = sim.getAdvisories().filter(a => !a.mitigated).slice(0, 1);
+  refs.advisoryText.textContent = adv.length ? `Active: ${adv[0].title}` : '';
+
+  renderTickets();
   syncRunButtons();
 }
 
@@ -388,6 +459,10 @@ function bindUI(): UIRefs {
     anr: must('anr'),
     lat: must('lat'),
     bat: must('bat'),
+    jank: must('jank'),
+    heap: must('heap'),
+    gc: must('gc'),
+    oom: must('oom'),
 
     a11yScore: must('a11yScore'),
     privacyTrust: must('privacyTrust'),
@@ -402,6 +477,14 @@ function bindUI(): UIRefs {
     reviewLog: must('reviewLog'),
 
     buildInfo: must('buildInfo'),
+
+    capVal: must('capVal'),
+    ticketList: must('ticketList'),
+    apiLatest: must('apiLatest'),
+    apiMin: must('apiMin'),
+    oldShare: must('oldShare'),
+    lowRamShare: must('lowRamShare'),
+    advisoryText: must('advisoryText'),
     selName: must('selName'),
     selStats: must('selStats'),
     btnUpgrade: must<HTMLButtonElement>('btnUpgrade'),

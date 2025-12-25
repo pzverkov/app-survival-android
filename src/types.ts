@@ -69,6 +69,10 @@ export type UIState = {
   failureRate: number; // 0..1
   anrRisk: number; // 0..1
   p95LatencyMs: number;
+  jankPct: number; // 0..100
+  heapMb: number;
+  gcPauseMs: number;
+  oomCount: number;
 
   // Perception metrics (0..100)
   a11yScore: number;
@@ -98,3 +102,46 @@ export type UIState = {
   eventsText: string;
 };
 
+
+
+export type TicketSeverity = 0 | 1 | 2 | 3;
+
+export type TicketKind =
+  | 'CRASH_SPIKE'
+  | 'ANR_RISK'
+  | 'JANK'
+  | 'HEAP'
+  | 'BATTERY'
+  | 'A11Y_REGRESSION'
+  | 'PRIVACY_COMPLAINTS'
+  | 'SECURITY_EXPOSURE'
+  | 'COMPAT_ANDROID';
+
+export type Ticket = {
+  id: number;
+  kind: TicketKind;
+  title: string;
+  category: 'Reliability' | 'Performance' | 'Accessibility' | 'Privacy' | 'Security' | 'Platform';
+  severity: TicketSeverity;
+  impact: number;   // 0..100
+  effort: number;   // 1..8
+  ageSec: number;
+  deferred: boolean;
+};
+
+export type Advisory = {
+  id: number;
+  dep: 'net' | 'image' | 'json' | 'auth' | 'analytics';
+  title: string;
+  severity: TicketSeverity;
+  ageSec: number;
+  mitigated: boolean;
+};
+
+export type PlatformState = {
+  latestApi: number;
+  minApi: number;
+  oldDeviceShare: number; // 0..1
+  lowRamShare: number;    // 0..1
+  pressure: number;       // 0..1
+};

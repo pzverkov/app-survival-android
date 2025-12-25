@@ -1,4 +1,24 @@
-import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request } from './types';
+
+const COMPONENT_DEPS: Record<string, Array<'net' | 'image' | 'json' | 'auth' | 'analytics'>> = {
+  UI: ['image'],
+  VM: [],
+  DOMAIN: ['json'],
+  REPO: ['json'],
+  CACHE: [],
+  DB: [],
+  NET: ['net', 'json'],
+  WORK: ['net', 'json'],
+  OBS: ['analytics'],
+  FLAGS: [],
+  AUTH: ['auth', 'net'],
+  PINNING: ['net'],
+  KEYSTORE: [],
+  SANITIZER: ['json'],
+  ABUSE: ['net'],
+  A11Y: [],
+};
+
+import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request, Ticket, TicketKind, TicketSeverity, Advisory, PlatformState } from './types';
 
 export const ComponentDefs: Record<ComponentType, ComponentDef> = {
   UI:       { baseCap: 14, baseLat: 10, baseFail: 0.004, cost: 40,  upgrade: [0, 60, 90, 0],   desc: 'Screens / Compose' },
@@ -51,6 +71,40 @@ export type Bounds = { width: number; height: number };
 export class GameSim {
   private nextId = 1;
 
+
+  // TicketFlow
+  engCapacity = 12;
+  engCapacityMax = 12;
+  tickets: Ticket[] = [];
+  private nextTicketId = 1;
+
+  // ZeroDayPulse
+  advisories: Advisory[] = [];
+  private nextAdvisoryId = 1;
+
+  // PlatformPulse
+  platform: PlatformState = {
+    latestApi: 35,
+    minApi: 26,
+    oldDeviceShare: 0.28,
+    lowRamShare: 0.30,
+    pressure: 0,
+  };
+
+  // Ticket applied patches (lightweight)
+  private patch = {
+    crash: 0,
+    anr: 0,
+    jank: 0,
+    heap: 0,
+    battery: 0,
+    a11y: 0,
+    privacy: 0,
+    security: 0,
+    compat: 0,
+    zeroDay: 0,
+  };
+
   mode: Mode = MODE.SELECT;
   running = false;
   timeSec = 0;
@@ -58,6 +112,14 @@ export class GameSim {
   budget = 500;
   rating = 5.0;
   battery = 100;
+
+  // Android realism (minimal)
+  frameBudgetMs = 16.6;
+  jankPct = 0; // 0..100
+  heapMb = 64;
+  heapMaxMb = 320;
+  gcPauseMs = 0;
+  oomCount = 0;
 
   // Perception metrics (0..100). These feed into user rating separately from pure tech metrics.
   a11yScore = 100;
@@ -159,6 +221,45 @@ export class GameSim {
     this.selectedId = nR.id;
   }
 
+  // --- tickets / platform --------------------------------------------------
+  getTickets(): Ticket[] { return this.tickets; }
+  getCapacity() { return { cur: this.engCapacity, max: this.engCapacityMax }; }
+  getPlatform(): PlatformState { return { ...this.platform }; }
+  getAdvisories(): Advisory[] { return this.advisories; }
+
+  fixTicket(id: number) {
+    const t = this.tickets.find(x => x.id === id);
+    if (!t) return;
+    const cost = t.effort;
+    if (this.engCapacity + 1e-9 < cost) return;
+    this.engCapacity = Math.max(0, this.engCapacity - cost);
+    // Apply lightweight patch by kind
+    switch (t.kind) {
+      case 'CRASH_SPIKE': this.patch.crash = clamp(this.patch.crash + 0.35, 0, 1); break;
+      case 'ANR_RISK': this.patch.anr = clamp(this.patch.anr + 0.35, 0, 1); break;
+      case 'JANK': this.patch.jank = clamp(this.patch.jank + 0.35, 0, 1); break;
+      case 'HEAP': this.patch.heap = clamp(this.patch.heap + 0.35, 0, 1); break;
+      case 'BATTERY': this.patch.battery = clamp(this.patch.battery + 0.30, 0, 1); break;
+      case 'A11Y_REGRESSION': this.patch.a11y = clamp(this.patch.a11y + 0.50, 0, 1); break;
+      case 'PRIVACY_COMPLAINTS': this.patch.privacy = clamp(this.patch.privacy + 0.50, 0, 1); break;
+      case 'SECURITY_EXPOSURE': this.patch.security = clamp(this.patch.security + 0.55, 0, 1); break;
+      case 'COMPAT_ANDROID': this.patch.compat = clamp(this.patch.compat + 0.55, 0, 1); break;
+    }
+    // If this was driven by a zero-day, mark advisories mitigated faster
+    if (t.kind === 'SECURITY_EXPOSURE') {
+      for (const a of this.advisories) a.mitigated = true;
+      this.patch.zeroDay = clamp(this.patch.zeroDay + 0.60, 0, 1);
+    }
+    this.tickets = this.tickets.filter(x => x.id !== id);
+    this.addEvent(`Fixed ticket: ${t.title}`);
+  }
+
+  deferTicket(id: number) {
+    const t = this.tickets.find(x => x.id === id);
+    if (!t) return;
+    t.deferred = !t.deferred;
+  }
+
   // --- public CRUD ----------------------------------------------------------
   addComponent(type: ComponentType, x: number, y: number): { ok: boolean; reason?: string; id?: number } {
     const def = ComponentDefs[type];
@@ -227,11 +328,150 @@ export class GameSim {
     n.x = x; n.y = y;
   }
 
+  private createTicket(kind: TicketKind, title: string, category: Ticket['category'], severity: TicketSeverity, impact: number, effort: number) {
+    // Avoid duplicates of the same kind unless the existing one is deferred and old
+    const existing = this.tickets.find(t => t.kind === kind && !t.deferred);
+    if (existing) return;
+    this.tickets.push({
+      id: this.nextTicketId++,
+      kind,
+      title,
+      category,
+      severity,
+      impact: clamp(impact, 0, 100),
+      effort: clamp(effort, 1, 8),
+      ageSec: 0,
+      deferred: false,
+    });
+  }
+
+  private tickTickets(failureRate: number, anrRisk: number, p95: number) {
+    // Engineering capacity regen: about 12 points per minute
+    this.engCapacity = clamp(this.engCapacity + 0.20, 0, this.engCapacityMax);
+
+    // Age tickets and apply compounding pressure (DebtInterest-lite)
+    for (const t of this.tickets) t.ageSec += 1;
+    for (const a of this.advisories) a.ageSec += 1;
+
+    // Ticket generation from signals
+    if (failureRate > 0.08) this.createTicket('CRASH_SPIKE', 'Crash spike', 'Reliability', 3, 85, 5);
+    if (anrRisk > 0.22) this.createTicket('ANR_RISK', 'ANR risk elevated', 'Reliability', 3, 80, 5);
+    if (this.jankPct > 28) this.createTicket('JANK', 'Jank regression', 'Performance', 2, 65, 4);
+    if (this.heapMb / this.heapMaxMb > 0.78) this.createTicket('HEAP', 'Memory pressure', 'Performance', 2, 60, 4);
+    if (this.battery < 25) this.createTicket('BATTERY', 'Battery complaints', 'Performance', 1, 45, 3);
+    if (this.a11yScore < 80) this.createTicket('A11Y_REGRESSION', 'Accessibility regression', 'Accessibility', 2, 70, 4);
+    if (this.privacyTrust < 80) this.createTicket('PRIVACY_COMPLAINTS', 'Privacy complaints', 'Privacy', 2, 70, 4);
+    if (this.securityPosture < 78) this.createTicket('SECURITY_EXPOSURE', 'Security exposure', 'Security', 3, 90, 6);
+
+    // Platform compatibility tickets when new Android arrives
+    if (this.platform.pressure > 0.55 && this.patch.compat < 0.40) {
+      this.createTicket('COMPAT_ANDROID', `Compat on Android API ${this.platform.latestApi}`, 'Platform', 2, 60, 5);
+    }
+
+    // Apply backlog pressure into user perception and support load
+    let backlogImpact = 0;
+    let backlogSupport = 0;
+    for (const t of this.tickets) {
+      const age = clamp(t.ageSec / 240, 0, 2); // grows over ~4 minutes
+      const sev = (t.severity + 1);
+      const defer = t.deferred ? 0.6 : 1.0;
+      backlogImpact += (t.impact / 100) * sev * 0.010 * (1 + 0.25 * age) * defer;
+      backlogSupport += (t.impact / 100) * sev * 0.22 * (1 + 0.40 * age) * defer;
+    }
+    this.supportLoad = clamp(this.supportLoad + backlogSupport - 0.3, 0, 100);
+    // Backlog nudges rating down slightly (review waves amplify it)
+    this.rating = clamp(this.rating - backlogImpact, 1.0, 5.0);
+  }
+
+  private tickPlatformPulse() {
+    // Market shifts slowly away from old devices
+    this.platform.oldDeviceShare = clamp(this.platform.oldDeviceShare - 0.00018, 0.06, 0.40);
+    this.platform.lowRamShare = clamp(this.platform.lowRamShare - 0.00015, 0.08, 0.45);
+
+    // New Android release event occasionally (kept frequent for game pacing)
+    if (this.timeSec > 0 && this.timeSec % 180 === 0) {
+      if (Math.random() < 0.35) {
+        this.platform.latestApi += 1;
+        this.platform.pressure = clamp(this.platform.pressure + 0.65, 0, 1);
+        this.addEvent(`New Android API ${this.platform.latestApi} released`);
+      }
+    }
+
+    // Pressure decays as teams patch and users update
+    this.platform.pressure = clamp(this.platform.pressure * 0.985 - 0.0005, 0, 1);
+
+    // Optional deprecation hint: if old share is small, dropping min SDK becomes tempting
+    if (this.timeSec % 240 === 0 && this.platform.oldDeviceShare < 0.12 && this.platform.minApi < this.platform.latestApi - 9) {
+      this.createTicket(
+        'COMPAT_ANDROID',
+        `Consider dropping API ${this.platform.minApi} support`,
+        'Platform',
+        1,
+        35,
+        3
+      );
+    }
+  }
+
+  private tickZeroDayPulse() {
+    // If we already have an active unmitigated advisory, keep pressure on
+    const active = this.advisories.some(a => !a.mitigated);
+    if (active) {
+      const exposure = clamp(1 - (this.patch.security * 0.6 + this.patch.zeroDay * 0.6), 0, 1);
+      this.securityPosture = clamp(this.securityPosture - 0.10 * exposure, 0, 100);
+      this.privacyTrust = clamp(this.privacyTrust - 0.06 * exposure, 0, 100);
+    }
+
+    // Rare new advisory
+    if (this.timeSec > 30 && this.timeSec % 210 === 0) {
+      if (Math.random() < 0.28) {
+        const deps: Advisory['dep'][] = ['net', 'image', 'json', 'auth', 'analytics'];
+        const dep = deps[Math.floor(Math.random() * deps.length)];
+        const sev: TicketSeverity = (Math.random() < 0.35 ? 3 : (Math.random() < 0.65 ? 2 : 1)) as TicketSeverity;
+
+        // Determine exposure: if any placed component carries this dep, and we lack mitigations
+        const hasDep = this.components.some(c => (COMPONENT_DEPS[c.type] ?? []).includes(dep));
+        const mitigatedBy = (
+          (dep === 'net' && (this.tierOf('PINNING') >= 2 || this.tierOf('ABUSE') >= 2)) ||
+          (dep === 'auth' && this.tierOf('AUTH') >= 2) ||
+          (dep === 'json' && this.tierOf('SANITIZER') >= 2) ||
+          (dep === 'image' && this.patch.heap > 0.2) ||
+          (dep === 'analytics' && this.tierOf('OBS') >= 2)
+        );
+
+        if (hasDep && !mitigatedBy) {
+          const a: Advisory = {
+            id: this.nextAdvisoryId++,
+            dep,
+            title: `Zero-day in ${dep.toUpperCase()} dependency`,
+            severity: sev,
+            ageSec: 0,
+            mitigated: false,
+          };
+          this.advisories.push(a);
+          this.addEvent(a.title);
+
+          // Immediate trust hit
+          this.securityPosture = clamp(this.securityPosture - (sev + 1) * 6, 0, 100);
+          this.privacyTrust = clamp(this.privacyTrust - (sev + 1) * 4, 0, 100);
+
+          // Create ticket
+          this.createTicket('SECURITY_EXPOSURE', `Patch zero-day: ${dep}`, 'Security', 3, 92, 6);
+        }
+      }
+    }
+  }
+
   // --- simulation tick ------------------------------------------------------
   tick() {
     this.timeSec += 1;
 
     this.maybeIncident();
+
+    // Android realism: frame budget, main-thread strictness, heap/GC
+    let mainThreadMs = 0;
+    let ioOnMain = 0;
+    let heapDelta = 0;
 
     // compute component derived stats and sync queue lengths
     for (const n of this.components) {
@@ -278,6 +518,21 @@ export class GameSim {
         const queuePenalty = overflow > 0 ? overflow * 2.5 : 0;
         const latency = n.lat + queuePenalty + (a.heavyCPU ? 4 : 0);
         latThisTick.push(latency);
+
+        // FrameGuard: approximate main thread time from CPU and heavy work
+        if (isMain) {
+          mainThreadMs += a.cpu * 4 + (a.heavyCPU ? 2 : 0);
+        }
+
+        // MainThreadGuard: IO on main increases ANR risk and jank
+        if (isMain && (a.io + a.net) > 1.2) {
+          ioOnMain += (a.io + a.net);
+          anrPoints += (a.io + a.net) * 1.2;
+          mainThreadMs += (a.io + a.net) * 2.5;
+        }
+
+        // HeapWatch: memory pressure from user actions
+        heapDelta += memCostForAction(req.type) * (isMain ? 1.0 : 0.6);
 
         let failP = n.fail;
         if (n.type === 'NET') failP *= 1.0 + (a.net * 0.25);
@@ -331,6 +586,40 @@ export class GameSim {
     const failureRate = total > 0 ? (this.reqFail / total) : 0;
     const anrRisk = clamp(this.anrPoints / 120, 0, 1);
     const p95 = percentile(this.latSamples, 0.95);
+
+    this.tickPlatformPulse();
+    this.tickZeroDayPulse();
+    this.tickTickets(failureRate, anrRisk, p95);
+
+
+    // HeapWatch: decay and GC
+    const cacheTier = this.tierOf('CACHE');
+    const heapDecay = 1.6 + cacheTier * 0.6;
+    this.heapMb = clamp(this.heapMb + heapDelta - heapDecay, 0, this.heapMaxMb * 1.3);
+
+    // Trigger GC when heap is high; GC pause shows up as jank
+    this.gcPauseMs = 0;
+    const heapRatio = this.heapMb / this.heapMaxMb;
+    if (heapRatio > 0.78) {
+      this.gcPauseMs = clamp((heapRatio - 0.70) * 140, 0, 80);
+      this.heapMb = this.heapMb * 0.72;
+    }
+
+    // OOM crash
+    if (this.heapMb > this.heapMaxMb) {
+      this.oomCount += 1;
+      this.reqFail += 6;
+      this.rating = clamp(this.rating - 0.20, 1.0, 5.0);
+      this.budget = Math.max(0, this.budget - 25);
+      this.heapMb = this.heapMaxMb * 0.55;
+      this.addEvent('OOM crash');
+    }
+
+    // FrameGuard: jank estimate (how far over 16ms we go), include GC pause
+    const over = Math.max(0, (mainThreadMs + this.gcPauseMs) - this.frameBudgetMs);
+    const jankBase = clamp(over / this.frameBudgetMs, 0, 3) * 100;
+    const jankNow = clamp(jankBase * (1 + this.platform.pressure * 0.30) * (1 - this.patch.jank * 0.35), 0, 300);
+    this.jankPct = this.jankPct * 0.85 + jankNow * 0.15;
     const slowPenalty = clamp((p95 - 120) / 500, 0, 1);
 
     // Support load: rises when the app hurts users; decays slowly when stable.
@@ -402,6 +691,40 @@ export class GameSim {
     const anrRisk = clamp(this.anrPoints / 120, 0, 1);
     const p95 = percentile(this.latSamples, 0.95);
 
+    this.tickPlatformPulse();
+    this.tickZeroDayPulse();
+    this.tickTickets(failureRate, anrRisk, p95);
+
+
+    // HeapWatch: decay and GC
+    const cacheTier = this.tierOf('CACHE');
+    const heapDecay = 1.6 + cacheTier * 0.6;
+    this.heapMb = clamp(this.heapMb + heapDelta - heapDecay, 0, this.heapMaxMb * 1.3);
+
+    // Trigger GC when heap is high; GC pause shows up as jank
+    this.gcPauseMs = 0;
+    const heapRatio = this.heapMb / this.heapMaxMb;
+    if (heapRatio > 0.78) {
+      this.gcPauseMs = clamp((heapRatio - 0.70) * 140, 0, 80);
+      this.heapMb = this.heapMb * 0.72;
+    }
+
+    // OOM crash
+    if (this.heapMb > this.heapMaxMb) {
+      this.oomCount += 1;
+      this.reqFail += 6;
+      this.rating = clamp(this.rating - 0.20, 1.0, 5.0);
+      this.budget = Math.max(0, this.budget - 25);
+      this.heapMb = this.heapMaxMb * 0.55;
+      this.addEvent('OOM crash');
+    }
+
+    // FrameGuard: jank estimate (how far over 16ms we go), include GC pause
+    const over = Math.max(0, (mainThreadMs + this.gcPauseMs) - this.frameBudgetMs);
+    const jankBase = clamp(over / this.frameBudgetMs, 0, 3) * 100;
+    const jankNow = clamp(jankBase * (1 + this.platform.pressure * 0.30) * (1 - this.patch.jank * 0.35), 0, 300);
+    this.jankPct = this.jankPct * 0.85 + jankNow * 0.15;
+
     const sel = this.selected();
     const selected = sel ? {
       id: sel.id,
@@ -422,6 +745,10 @@ export class GameSim {
       failureRate,
       anrRisk,
       p95LatencyMs: p95,
+      jankPct: this.jankPct,
+      heapMb: this.heapMb,
+      gcPauseMs: this.gcPauseMs,
+      oomCount: this.oomCount,
       a11yScore: this.a11yScore,
       privacyTrust: this.privacyTrust,
       securityPosture: this.securityPosture,
@@ -876,6 +1203,19 @@ export class GameSim {
   private log(msg: string) {
     this.eventLines.unshift(`[t=${this.timeSec.toFixed(0)}] ${msg}`);
     this.eventLines = this.eventLines.slice(0, 6);
+  }
+}
+
+
+function memCostForAction(t: ActionKey): number {
+  switch (t) {
+    case 'SCROLL': return 0.6;
+    case 'UPLOAD': return 2.2;
+    case 'SEARCH': return 1.2;
+    case 'WRITE': return 0.9;
+    case 'READ': return 0.5;
+    case 'SYNC': return 0.8;
+    default: return 0.6;
   }
 }
 
