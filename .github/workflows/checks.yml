@@ -16,30 +16,39 @@ jobs:
   unit:
     name: Unit tests (vitest)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node (cache npm)
+      # Pin Node (optional but recommended for stability)
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.12.2
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install dependencies (incl. dev)
+      # Workaround: pin npm away from 10.8.2 which is associated with this CI crash class
+      - name: Pin npm (workaround)
+        run: |
+          npm -v
+          npm i -g npm@10.7.0
+          npm -v
+
+      - name: Install dependencies
         env:
           NODE_ENV: development
           NPM_CONFIG_PRODUCTION: "false"
         run: npm ci --include=dev --prefer-offline --no-audit --no-fund --progress=false
 
-      - name: Sanity check vitest is installed
+      # If install fails, print the npm debug log to the Actions output (huge time-saver)
+      - name: Dump npm logs on failure
+        if: failure()
         run: |
-          node -v
-          npm -v
-          ls -la node_modules/.bin | sed -n '1,120p'
-          npx vitest --version
+          echo "==== npm debug logs ===="
+          ls -la /home/runner/.npm/_logs || true
+          tail -n 200 /home/runner/.npm/_logs/*-debug-0.log || true
 
       - name: Run unit tests
         run: npm run test:unit
