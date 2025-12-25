@@ -766,7 +766,7 @@ export class GameSim {
     const anrRisk = clamp(this.anrPoints / 120, 0, 1);
     const p95 = percentile(this.latSamples, 0.95);
 
-    const mainThreadMs = this.calcMainThreadMs(p95);
+    mainThreadMs = Math.max(mainThreadMs, this.calcMainThreadMs(p95));
 
 
 
@@ -774,7 +774,7 @@ export class GameSim {
     // HeapWatch: decay and GC
     const cacheTier = this.tierOf('CACHE');
     const heapDecay = 1.6 + cacheTier * 0.6;
-    const heapDelta = this.calcHeapDelta();
+    heapDelta += this.calcHeapDelta();
     this.heapMb = clamp(this.heapMb + heapDelta - heapDecay, 0, this.heapMaxMb * 1.3);
 
     // Trigger GC when heap is high; GC pause shows up as jank
