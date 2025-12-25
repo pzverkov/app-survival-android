@@ -115,7 +115,12 @@ export type TicketKind =
   | 'A11Y_REGRESSION'
   | 'PRIVACY_COMPLAINTS'
   | 'SECURITY_EXPOSURE'
-  | 'COMPAT_ANDROID';
+  | 'COMPAT_ANDROID'
+  | 'COMPLIANCE_EU'
+  | 'COMPLIANCE_US'
+  | 'COMPLIANCE_UK'
+  | 'STORE_REJECTION'
+  | 'TEST_COVERAGE';
 
 export type Ticket = {
   id: number;
@@ -145,3 +150,22 @@ export type PlatformState = {
   lowRamShare: number;    // 0..1
   pressure: number;       // 0..1
 };
+
+
+export type RegionCode = 'EU' | 'US' | 'UK' | 'IN' | 'BR' | 'GLOBAL';
+
+export type RegionState = {
+  code: RegionCode;
+  share: number;        // 0..1
+  compliance: number;   // 0..100
+  pressure: number;     // 0..1
+  frozenSec: number;    // seconds remaining of rollout freeze
+};
+
+
+export const EVAL_PRESET = {
+  JUNIOR_MID: 'JUNIOR_MID',
+  SENIOR: 'SENIOR',
+  STAFF: 'STAFF'
+} as const;
+export type EvalPreset = typeof EVAL_PRESET[keyof typeof EVAL_PRESET];

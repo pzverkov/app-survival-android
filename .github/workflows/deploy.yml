@@ -38,7 +38,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.12.2
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -68,7 +68,10 @@ jobs:
           fi
 
       - name: Install
-        run: npm ci --no-audit --fund=false
+        env:
+          NODE_ENV: development
+          NPM_CONFIG_PRODUCTION: "false"
+        run: npm ci --include=dev --prefer-offline --no-audit --no-fund --progress=false
 
       - name: Build
         env:
