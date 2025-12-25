@@ -556,7 +556,6 @@ export class GameSim {
       this.addEvent('Policy enforcement risk increased');
       this.rating = clamp(this.rating - 0.06, 1.0, 5.0);
     }
-  }
 
     // Stronger effects when pressure is high
     if (this.regPressure > 55) {
@@ -582,6 +581,7 @@ export class GameSim {
 
 
 
+  }
   private tickCoverageGate() {
     const compCount = this.components.length;
     const added = Math.max(0, compCount - this.lastCompCount);
