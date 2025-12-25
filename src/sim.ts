@@ -768,12 +768,7 @@ export class GameSim {
 
     const mainThreadMs = this.calcMainThreadMs(p95);
 
-    const mainThreadMs = this.calcMainThreadMs(p95);
 
-    this.tickPlatformPulse();
-    this.tickZeroDayPulse();
-    this.tickRegMatrix();
-    this.tickTickets(failureRate, anrRisk, p95);
 
 
     // HeapWatch: decay and GC
@@ -878,10 +873,6 @@ export class GameSim {
 
     const mainThreadMs = this.calcMainThreadMs(p95);
 
-    this.tickPlatformPulse();
-    this.tickZeroDayPulse();
-    this.tickRegMatrix();
-    this.tickTickets(failureRate, anrRisk, p95);
 
 
     // HeapWatch: decay and GC
