@@ -582,38 +582,46 @@ export class GameSim {
 
 
   }
-  private tickCoverageGate() {
-    const compCount = this.components.length;
-    const added = Math.max(0, compCount - this.lastCompCount);
-    this.lastCompCount = compCount;
 
-    const addTax = (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.35 : (this.preset === EVAL_PRESET.SENIOR ? 0.55 : 0.70);
-    if (added > 0) this.coveragePct = clamp(this.coveragePct - added * addTax, 0, 100);
+private tickCoverageGate() {
+  // Track recent coverage so we can detect sharp drops ("escaped regressions").
+  // Important: compute drop against the *previous* recent max (pre-current-tick mutations),
+  // otherwise an instantaneous drop (e.g., adding many components at once) won't be visible.
+  if (this.coverageHist.length === 0) this.coverageHist.push(this.coveragePct);
+  if (this.coverageHist.length > 90) this.coverageHist.shift();
+  const maxRecentBefore = Math.max(...this.coverageHist);
 
-    const baseDecay = (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.010 : (this.preset === EVAL_PRESET.SENIOR ? 0.016 : 0.022);
-    const churn = (this.platform.pressure * 0.030) + (this.regPressure / 100) * 0.010;
-    const complexity = clamp(compCount / 30, 0, 1) * 0.020;
-    const decay = (baseDecay + churn + complexity) * (1 - this.qualityProcess * 0.55);
-    this.coveragePct = clamp(this.coveragePct - decay, 0, 100);
+  const compCount = this.components.length;
+  const added = Math.max(0, compCount - this.lastCompCount);
+  this.lastCompCount = compCount;
 
-    const below = Math.max(0, this.coverageThreshold - this.coveragePct);
-    const severityW = (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.55 : (this.preset === EVAL_PRESET.SENIOR ? 1.0 : 1.20);
-    const penalty = clamp(below / this.coverageThreshold, 0, 1) * severityW;
-    this.coverageRiskMult = 1 + penalty * 0.40;
+  const addTax = (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.35 : (this.preset === EVAL_PRESET.SENIOR ? 0.55 : 0.70);
+  if (added > 0) this.coveragePct = clamp(this.coveragePct - added * addTax, 0, 100);
 
-    if (this.coveragePct < this.coverageThreshold) {
-      this.createTicket('TEST_COVERAGE', `Test coverage below ${this.coverageThreshold}%`, 'Reliability', 2, 68, 4);
-    }
+  const baseDecay = (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.010 : (this.preset === EVAL_PRESET.SENIOR ? 0.016 : 0.022);
+  const churn = (this.platform.pressure * 0.030) + (this.regPressure / 100) * 0.010;
+  const complexity = clamp(compCount / 30, 0, 1) * 0.020;
+  const decay = (baseDecay + churn + complexity) * (1 - this.qualityProcess * 0.55);
+  this.coveragePct = clamp(this.coveragePct - decay, 0, 100);
 
-    this.coverageHist.push(this.coveragePct);
-    if (this.coverageHist.length > 90) this.coverageHist.shift();
-    const maxRecent = Math.max(...this.coverageHist);
-    const drop = maxRecent - this.coveragePct;
-    if (drop >= 10 && this.timeSec % 30 === 0) {
-      this.addEvent('Escaped regression due to low coverage');
-      this.createTicket('CRASH_SPIKE', 'Regression crash spike', 'Reliability', 3, 85, 5);
-    }
+  const below = Math.max(0, this.coverageThreshold - this.coveragePct);
+  const severityW = (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.55 : (this.preset === EVAL_PRESET.SENIOR ? 1.0 : 1.20);
+  const penalty = clamp(below / this.coverageThreshold, 0, 1) * severityW;
+  this.coverageRiskMult = 1 + penalty * 0.40;
+
+  if (this.coveragePct < this.coverageThreshold) {
+    this.createTicket('TEST_COVERAGE', `Test coverage below ${this.coverageThreshold}%`, 'Reliability', 2, 68, 4);
   }
+
+  const drop = maxRecentBefore - this.coveragePct;
+  if (drop >= 10 && this.timeSec % 30 === 0) {
+    this.addEvent('Escaped regression due to low coverage');
+    this.createTicket('CRASH_SPIKE', 'Regression crash spike', 'Reliability', 3, 85, 5);
+  }
+
+  this.coverageHist.push(this.coveragePct);
+  if (this.coverageHist.length > 90) this.coverageHist.shift();
+}
 
 
   
