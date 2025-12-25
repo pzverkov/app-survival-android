@@ -48,6 +48,7 @@ type UIRefs = {
   modePill: HTMLElement;
 
   budget: HTMLElement;
+  time: HTMLElement;
   rating: HTMLElement;
   fail: HTMLElement;
   anr: HTMLElement;
@@ -545,6 +546,7 @@ function syncUI() {
 
   refs.modePill.innerHTML = `Mode: <b>${s.mode === MODE.SELECT ? 'Select' : s.mode === MODE.LINK ? 'Link' : 'Unlink'}</b>`;
   setText(refs.budget, `$${s.budget.toFixed(0)}`);
+  setText(refs.time, `${s.timeSec}s`);
   setText(refs.rating, `${s.rating.toFixed(1)} ★`);
   setText(refs.fail, `${(s.failureRate * 100).toFixed(1)}%`);
   setText(refs.anr, `${(s.anrRisk * 100).toFixed(1)}%`);
@@ -615,6 +617,7 @@ function bindUI(): UIRefs {
 
     modePill: must('modePill'),
     budget: must('budget'),
+    time: must('time'),
     rating: must('rating'),
     fail: must('fail'),
     anr: must('anr'),
