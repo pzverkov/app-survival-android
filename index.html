@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f131c" />
+    <meta id="themeColor" name="theme-color" content="#0f131c" />
     <title>App Survival: Android Release Night</title>
   </head>
   <body>
@@ -19,6 +19,23 @@
           <button id="btnReset" class="btn error">↺ Reset</button>
         </div>
 
+
+        <div class="row" style="margin-top:10px;">
+          <div class="pill">Theme</div>
+          <select id="themeSelect" style="margin-left:auto;">
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <div class="pill">Glass</div>
+          <select id="glassSelect" style="margin-left:auto;">
+            <option value="off">Off</option>
+            <option value="on">On</option>
+          </select>
+        </div>
         <div class="hr"></div>
 
         <div class="row">
@@ -32,7 +49,21 @@
 
         <div class="hr"></div>
 
+        
         <section class="card">
+          <div class="k">Evaluation preset</div>
+          <div class="row" style="margin-top:8px;">
+            <select id="presetSelect">
+              <option value="JUNIOR_MID">Junior-Mid</option>
+              <option value="SENIOR">Senior</option>
+              <option value="STAFF">Staff</option>
+            </select>
+          </div>
+          <div class="small muted">CoverageGate and enforcement weight</div>
+        </section>
+
+        <div class="hr"></div>
+<section class="card">
           <div class="k">Place component</div>
           <div class="row" style="margin-top:8px;">
             <select id="componentType">
@@ -82,6 +113,17 @@
           </div>
           <div id="advisoryText" class="small" style="margin-top:8px;"></div>
         </section>
+        <div class="hr"></div>
+
+        <section class="card">
+          <div class="k">Regions</div>
+          <div class="row" style="margin-top:8px; align-items:center;">
+            <div class="pill">Reg pressure <span id="regPressure" class="mono">0</span></div>
+            <div class="small muted" style="margin-left:auto;">Compliance and rollout gates</div>
+          </div>
+          <div id="regionList" class="regionList" style="margin-top:10px;"></div>
+        </section>
+
 
 
         <div class="hr"></div>
@@ -101,6 +143,11 @@
             <div class="k">Failures</div>
             <div class="v mono" id="fail">0.0%</div>
             <div class="small">Too many = review bombs</div>
+          </div>
+          <div class="card">
+            <div class="k">Coverage</div>
+            <div class="v mono" id="coverage">78%</div>
+            <div class="small" id="coverageHint">Target 70%+</div>
           </div>
           <div class="card">
             <div class="k">ANR Risk</div>

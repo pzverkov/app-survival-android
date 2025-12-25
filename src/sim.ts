@@ -18,7 +18,7 @@ const COMPONENT_DEPS: Record<string, Array<'net' | 'image' | 'json' | 'auth' | '
   A11Y: [],
 };
 
-import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request, Ticket, TicketKind, TicketSeverity, Advisory, PlatformState } from './types';
+import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request, Ticket, TicketKind, TicketSeverity, Advisory, PlatformState, RegionState, RegionCode, EvalPreset, EVAL_PRESET } from './types';
 
 export const ComponentDefs: Record<ComponentType, ComponentDef> = {
   UI:       { baseCap: 14, baseLat: 10, baseFail: 0.004, cost: 40,  upgrade: [0, 60, 90, 0],   desc: 'Screens / Compose' },
@@ -90,6 +90,26 @@ export class GameSim {
     lowRamShare: 0.30,
     pressure: 0,
   };
+
+
+  // RegMatrix
+  regions: RegionState[] = [
+    { code: 'EU', share: 0.40, compliance: 86, pressure: 0.0, frozenSec: 0 },
+    { code: 'US', share: 0.35, compliance: 84, pressure: 0.0, frozenSec: 0 },
+    { code: 'UK', share: 0.10, compliance: 85, pressure: 0.0, frozenSec: 0 },
+    { code: 'IN', share: 0.08, compliance: 83, pressure: 0.0, frozenSec: 0 },
+    { code: 'BR', share: 0.07, compliance: 83, pressure: 0.0, frozenSec: 0 },
+  ];
+  regPressure = 0;
+
+  // CoverageGate
+  preset: EvalPreset = EVAL_PRESET.SENIOR;
+  coveragePct = 78;
+  coverageThreshold = 70;
+  coverageRiskMult = 1.0;
+  private coverageHist: number[] = [];
+  private lastCompCount = 0;
+  private qualityProcess = 0.0; // 0..1 reduces coverage decay
 
   // Ticket applied patches (lightweight)
   private patch = {
@@ -225,6 +245,13 @@ export class GameSim {
   getTickets(): Ticket[] { return this.tickets; }
   getCapacity() { return { cur: this.engCapacity, max: this.engCapacityMax }; }
   getPlatform(): PlatformState { return { ...this.platform }; }
+  getRegions(): RegionState[] { return this.regions.map(r => ({ ...r })); }
+  getRegPressure(): number { return this.regPressure; }
+  getCoverage() { return { pct: this.coveragePct, threshold: this.coverageThreshold, preset: this.preset }; }
+  setPreset(p: EvalPreset) {
+    this.preset = p;
+    this.coverageThreshold = (p === EVAL_PRESET.STAFF) ? 75 : 70;
+  }
   getAdvisories(): Advisory[] { return this.advisories; }
 
   fixTicket(id: number) {
@@ -244,6 +271,14 @@ export class GameSim {
       case 'PRIVACY_COMPLAINTS': this.patch.privacy = clamp(this.patch.privacy + 0.50, 0, 1); break;
       case 'SECURITY_EXPOSURE': this.patch.security = clamp(this.patch.security + 0.55, 0, 1); break;
       case 'COMPAT_ANDROID': this.patch.compat = clamp(this.patch.compat + 0.55, 0, 1); break;
+      case 'COMPLIANCE_EU': this.patch.privacy = clamp(this.patch.privacy + 0.35, 0, 1); this.patch.security = clamp(this.patch.security + 0.20, 0, 1); break;
+      case 'COMPLIANCE_US': this.patch.security = clamp(this.patch.security + 0.35, 0, 1); break;
+      case 'COMPLIANCE_UK': this.patch.privacy = clamp(this.patch.privacy + 0.30, 0, 1); this.patch.security = clamp(this.patch.security + 0.25, 0, 1); break;
+      case 'STORE_REJECTION': this.patch.compat = clamp(this.patch.compat + 0.25, 0, 1); this.patch.privacy = clamp(this.patch.privacy + 0.25, 0, 1); break;
+      case 'TEST_COVERAGE':
+        this.coveragePct = clamp(this.coveragePct + 9, 0, 100);
+        this.qualityProcess = clamp(this.qualityProcess + 0.18, 0, 1);
+        break;
     }
     // If this was driven by a zero-day, mark advisories mitigated faster
     if (t.kind === 'SECURITY_EXPOSURE') {
@@ -462,9 +497,130 @@ export class GameSim {
     }
   }
 
+
+  private regionTarget(code: RegionCode) {
+    const base = (
+      0.45 * this.privacyTrust +
+      0.40 * this.securityPosture +
+      0.15 * this.a11yScore
+    );
+
+    let strictPrivacy = 0;
+    let strictSecurity = 0;
+    if (code === 'EU') { strictPrivacy = 10; strictSecurity = 4; }
+    if (code === 'UK') { strictPrivacy = 8; strictSecurity = 4; }
+    if (code === 'US') { strictPrivacy = 2; strictSecurity = 10; }
+    if (code === 'IN') { strictPrivacy = 4; strictSecurity = 6; }
+    if (code === 'BR') { strictPrivacy = 6; strictSecurity = 6; }
+
+    const hasFlags = this.tierOf('FLAGS') >= 1 ? 1 : 0;
+    const hasObs = this.tierOf('OBS') >= 1 ? 1 : 0;
+    const hasKeystore = this.tierOf('KEYSTORE') >= 1 ? 1 : 0;
+    const hasSan = this.tierOf('SANITIZER') >= 1 ? 1 : 0;
+
+    const controlBoost = 2.0 * hasFlags + 1.5 * hasObs + 2.0 * hasKeystore + 1.5 * hasSan;
+    const platformPenalty = this.platform.pressure * 8;
+
+    return clamp(base + controlBoost - platformPenalty - strictPrivacy - strictSecurity, 35, 98);
+  }
+
+  private tickRegMatrix() {
+    const zeroDayActive = this.advisories.some(a => !a.mitigated);
+    const zPressure = zeroDayActive ? 0.55 : 0.0;
+
+    let weighted = 0;
+    for (const r of this.regions) {
+      const target = this.regionTarget(r.code);
+      const decay = (zPressure + this.platform.pressure * 0.35) * ((r.code === 'EU' || r.code === 'UK') ? 1.15 : 1.0);
+      const delta = (target - r.compliance) * 0.04 - decay * 0.10;
+      r.compliance = clamp(r.compliance + delta, 0, 100);
+
+      r.pressure = clamp((100 - r.compliance) / 60 + decay * 0.8, 0, 1);
+
+      if (r.compliance < 55) {
+        r.frozenSec = Math.max(r.frozenSec, 45);
+        if (r.code === 'EU') this.createTicket('COMPLIANCE_EU', 'EU compliance gap', 'Platform', 2, 70, 5);
+        if (r.code === 'US') this.createTicket('COMPLIANCE_US', 'US compliance gap', 'Platform', 2, 60, 4);
+        if (r.code === 'UK') this.createTicket('COMPLIANCE_UK', 'UK compliance gap', 'Platform', 2, 65, 5);
+      }
+
+      if (r.frozenSec > 0) r.frozenSec = Math.max(0, r.frozenSec - 1);
+
+      weighted += r.share * (1 - r.compliance / 100);
+    }
+
+    this.regPressure = clamp(weighted * 140 + (zeroDayActive ? 12 : 0), 0, 100);
+
+    if (this.regPressure > 70 && this.timeSec % 60 === 0 && Math.random() < 0.20) {
+      this.createTicket('STORE_REJECTION', 'Store policy risk', 'Platform', 2, 75, 5);
+      this.addEvent('Policy enforcement risk increased');
+      this.rating = clamp(this.rating - 0.06, 1.0, 5.0);
+    }
+  }
+
+    // Stronger effects when pressure is high
+    if (this.regPressure > 55) {
+      const extra = (this.regPressure - 55) / 100;
+      this.supportLoad = clamp(this.supportLoad + extra * 0.9, 0, 100);
+      this.rating = clamp(this.rating - extra * 0.012, 1.0, 5.0);
+    }
+
+    // Enforcement: audits and fines (minimalistic)
+    if (this.regPressure > 78 && this.timeSec % 75 === 0) {
+      if (Math.random() < 0.25) {
+        this.createTicket('STORE_REJECTION', 'Audit request', 'Platform', 2, 70, 5);
+        this.addEvent('Audit request opened');
+      }
+      if (Math.random() < 0.18) {
+        const fine = Math.round(1200 + Math.random() * 2600);
+        this.money = Math.max(0, this.money - fine);
+        this.addEvent(`Regulatory fine ${fine}`);
+        this.rating = clamp(this.rating - 0.08, 1.0, 5.0);
+      }
+    }
+
+
+
+
+  private tickCoverageGate() {
+    const compCount = this.components.length;
+    const added = Math.max(0, compCount - this.lastCompCount);
+    this.lastCompCount = compCount;
+
+    const addTax = (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.35 : (this.preset === EVAL_PRESET.SENIOR ? 0.55 : 0.70);
+    if (added > 0) this.coveragePct = clamp(this.coveragePct - added * addTax, 0, 100);
+
+    const baseDecay = (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.010 : (this.preset === EVAL_PRESET.SENIOR ? 0.016 : 0.022);
+    const churn = (this.platform.pressure * 0.030) + (this.regPressure / 100) * 0.010;
+    const complexity = clamp(compCount / 30, 0, 1) * 0.020;
+    const decay = (baseDecay + churn + complexity) * (1 - this.qualityProcess * 0.55);
+    this.coveragePct = clamp(this.coveragePct - decay, 0, 100);
+
+    const below = Math.max(0, this.coverageThreshold - this.coveragePct);
+    const severityW = (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.55 : (this.preset === EVAL_PRESET.SENIOR ? 1.0 : 1.20);
+    const penalty = clamp(below / this.coverageThreshold, 0, 1) * severityW;
+    this.coverageRiskMult = 1 + penalty * 0.40;
+
+    if (this.coveragePct < this.coverageThreshold) {
+      this.createTicket('TEST_COVERAGE', `Test coverage below ${this.coverageThreshold}%`, 'Reliability', 2, 68, 4);
+    }
+
+    this.coverageHist.push(this.coveragePct);
+    if (this.coverageHist.length > 90) this.coverageHist.shift();
+    const maxRecent = Math.max(...this.coverageHist);
+    const drop = maxRecent - this.coveragePct;
+    if (drop >= 10 && this.timeSec % 30 === 0) {
+      this.addEvent('Escaped regression due to low coverage');
+      this.createTicket('CRASH_SPIKE', 'Regression crash spike', 'Reliability', 3, 85, 5);
+    }
+  }
+
+
   // --- simulation tick ------------------------------------------------------
   tick() {
     this.timeSec += 1;
+
+    this.tickCoverageGate();
 
     this.maybeIncident();
 
@@ -589,6 +745,7 @@ export class GameSim {
 
     this.tickPlatformPulse();
     this.tickZeroDayPulse();
+    this.tickRegMatrix();
     this.tickTickets(failureRate, anrRisk, p95);
 
 
@@ -618,7 +775,7 @@ export class GameSim {
     // FrameGuard: jank estimate (how far over 16ms we go), include GC pause
     const over = Math.max(0, (mainThreadMs + this.gcPauseMs) - this.frameBudgetMs);
     const jankBase = clamp(over / this.frameBudgetMs, 0, 3) * 100;
-    const jankNow = clamp(jankBase * (1 + this.platform.pressure * 0.30) * (1 - this.patch.jank * 0.35), 0, 300);
+    const jankNow = clamp(jankBase * (1 + this.platform.pressure * 0.30) * (1 - this.patch.jank * 0.35) * (1 + (this.coverageRiskMult - 1) * 0.25), 0, 300);
     this.jankPct = this.jankPct * 0.85 + jankNow * 0.15;
     const slowPenalty = clamp((p95 - 120) / 500, 0, 1);
 
@@ -693,6 +850,7 @@ export class GameSim {
 
     this.tickPlatformPulse();
     this.tickZeroDayPulse();
+    this.tickRegMatrix();
     this.tickTickets(failureRate, anrRisk, p95);
 
 
@@ -722,7 +880,7 @@ export class GameSim {
     // FrameGuard: jank estimate (how far over 16ms we go), include GC pause
     const over = Math.max(0, (mainThreadMs + this.gcPauseMs) - this.frameBudgetMs);
     const jankBase = clamp(over / this.frameBudgetMs, 0, 3) * 100;
-    const jankNow = clamp(jankBase * (1 + this.platform.pressure * 0.30) * (1 - this.patch.jank * 0.35), 0, 300);
+    const jankNow = clamp(jankBase * (1 + this.platform.pressure * 0.30) * (1 - this.patch.jank * 0.35) * (1 + (this.coverageRiskMult - 1) * 0.25), 0, 300);
     this.jankPct = this.jankPct * 0.85 + jankNow * 0.15;
 
     const sel = this.selected();

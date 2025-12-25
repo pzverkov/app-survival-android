@@ -1,6 +1,45 @@
 import './style.css';
 import { GameSim } from './sim';
-import { MODE, Mode, ComponentType, Ticket } from './types';
+import { MODE, Mode, ComponentType, Ticket, EvalPreset, EVAL_PRESET } from './types';
+
+type ThemeMode = 'system' | 'light' | 'dark';
+const THEME_KEY = 'theme';
+const GLASS_KEY = 'glass';
+
+function supportsGlass(): boolean {
+  return (window.CSS && (CSS.supports('backdrop-filter: blur(1px)') || CSS.supports('-webkit-backdrop-filter: blur(1px)')));
+}
+
+function applyGlass(mode: 'on' | 'off') {
+  const root = document.documentElement;
+  if (mode === 'on' && supportsGlass()) root.setAttribute('data-glass', 'on');
+  else root.removeAttribute('data-glass');
+}
+
+
+function getSystemIsDark(): boolean {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function resolveTheme(mode: ThemeMode): 'light' | 'dark' {
+  if (mode === 'dark') return 'dark';
+  if (mode === 'light') return 'light';
+  return getSystemIsDark() ? 'dark' : 'light';
+}
+
+function applyTheme(mode: ThemeMode) {
+  const root = document.documentElement;
+  if (mode === 'system') root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', mode);
+
+  // Update theme-color to match the active background
+  const meta = document.getElementById('themeColor') as HTMLMetaElement | null;
+  if (meta) {
+    const active = resolveTheme(mode);
+    meta.content = active === 'dark' ? '#0f131c' : '#FFFBFE';
+  }
+}
+
 
 type UIRefs = {
   canvas: HTMLCanvasElement;
@@ -62,9 +101,94 @@ const sha = (import.meta.env.VITE_COMMIT_SHA ?? 'dev').toString();
 const shortSha = sha === 'dev' ? 'dev' : sha.slice(0, 7);
 refs.buildInfo.textContent = `Build ${shortSha} • base ${import.meta.env.BASE_URL}`;
 
+
+// Preset (difficulty expectations)
+refs.presetSelect.value = EVAL_PRESET.SENIOR;
+sim.setPreset(EVAL_PRESET.SENIOR);
+refs.presetSelect.addEventListener('change', () => {
+  sim.setPreset(refs.presetSelect.value as EvalPreset);
+  scheduleSync();
+});
+
+// Theme (System / Light / Dark)
+const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+const loadTheme = (): ThemeMode => ((localStorage.getItem(THEME_KEY) as ThemeMode) || 'system');
+
+const setTheme = (mode: ThemeMode) => {
+  localStorage.setItem(THEME_KEY, mode);
+  refs.themeSelect.value = mode;
+  applyTheme(mode);
+};
+
+setTheme(loadTheme());
+
+refs.themeSelect.addEventListener('change', () => {
+  setTheme(refs.themeSelect.value as ThemeMode);
+});
+
+// If user selected System, follow OS changes live
+mq?.addEventListener?.('change', () => {
+  const mode = loadTheme();
+  if (mode === 'system') applyTheme('system');
+});
+
 const TICK_MS = 1000;
 let tickHandle: number | null = null;
+let uiPending = false;
+let lastTicketsSig = '';
+let lastRegionsSig = '';
+let lastTicketsRenderMs = 0;
+let lastRegionsRenderMs = 0;
 
+function setText(el: HTMLElement, v: string) { if (el.textContent !== v) el.textContent = v; }
+function setHTML(el: HTMLElement, v: string) { if (el.innerHTML !== v) el.innerHTML = v; }
+function requestUISync() {
+  if (uiPending) return;
+  uiPending = true;
+  requestAnimationFrame(() => {
+    uiPending = false;
+    syncUI();
+  });
+}
+
+
+
+
+function clamp01(x: number) { return Math.max(0, Math.min(1, x)); }
+
+function renderRegions() {
+  const pressure = sim.getRegPressure();
+  setText(refs.regPressure, `${Math.round(pressure)}`);
+  const nowMs = performance.now();
+
+  const regions = sim.getRegions()
+    .slice()
+    .sort((a, b) => b.share - a.share)
+    .slice(0, 5);
+
+
+  const regionsSig = regions.map(r => `${r.code}:${Math.round(r.compliance)}:${Math.round(r.share*100)}:${r.frozenSec>0?1:0}`).join('|');
+  const allow = (nowMs - lastRegionsRenderMs) > 450;
+  if (!allow && regionsSig === lastRegionsSig) return;
+  lastRegionsSig = regionsSig;
+  lastRegionsRenderMs = nowMs;
+  refs.regionList.innerHTML = regions.map(r => {
+    const comp = Math.round(r.compliance);
+    const share = Math.round(r.share * 100);
+    const frozen = r.frozenSec > 0 ? 'freeze' : '';
+    return `
+      <div class="regionRow ${r.frozenSec > 0 ? 'freeze' : ''}">
+        <div class="regionCode">${r.code}</div>
+        <div class="regionMeta">${share}%</div>
+        <div class="regionBar">
+          <div class="regionFill" style="width:${clamp01(comp / 100) * 100}%"></div>
+        </div>
+        <div class="regionVal">${comp}</div>
+        <div class="regionTag">${frozen}</div>
+      </div>
+    `;
+  }).join('');
+}
 
 function renderTickets() {
   const cap = sim.getCapacity();
@@ -73,12 +197,25 @@ function renderTickets() {
     .sort((a: Ticket, b: Ticket) => (b.severity - a.severity) || (b.impact - a.impact) || (b.ageSec - a.ageSec))
     .slice(0, 7);
 
-  refs.capVal.textContent = `${cap.cur.toFixed(1)}/${cap.max.toFixed(0)}`;
+  setText(refs.capVal, `${cap.cur.toFixed(1)}/${cap.max.toFixed(0)}`);
+
+  const nowMs = performance.now();
+  const ticketsSig = tickets.map(t => `${t.id}:${t.severity}:${t.impact}:${Math.floor(t.ageSec)}:${t.deferred ? 1 : 0}`).join('|');
+  // Throttle list DOM work even if we tick at 1Hz
+  const allow = (nowMs - lastTicketsRenderMs) > 450;
+  if (!allow && ticketsSig === lastTicketsSig) return;
+
 
   if (!tickets.length) {
-    refs.ticketList.innerHTML = `<div class="small muted">No open tickets</div>`;
+    lastTicketsSig = 'empty';
+    lastTicketsRenderMs = nowMs;
+    setHTML(refs.ticketList, `<div class="small muted">No open tickets</div>`);
     return;
   }
+
+  if (ticketsSig === lastTicketsSig && !allow) return;
+  lastTicketsSig = ticketsSig;
+  lastTicketsRenderMs = nowMs;
 
   refs.ticketList.innerHTML = tickets.map(t => {
     const sev = ['S0', 'S1', 'S2', 'S3'][t.severity] ?? 'S?';
@@ -89,8 +226,8 @@ function renderTickets() {
     return `
       <div class="ticket">
         <div class="ticketMain">
-          <div class="ticketTitle">${sev} ${t.title}</div>
-          <div class="ticketMeta">${t.category} • impact ${t.impact} • age ${age}m</div>
+          <div class="ticketTitle"><span class="badge ${t.severity === 3 ? 's3' : t.severity === 2 ? 's2' : t.severity === 1 ? 's1' : 's0'}">${sev}</span> ${t.title}</div>
+          <div class="ticketMeta"><span>${t.category}</span><span>impact ${t.impact}</span><span>age ${age}m</span>${t.deferred ? '<span class="badge">deferred</span>' : ''}</div>
         </div>
         <div class="ticketBtns">
           <button class="btn text ${canFix ? '' : 'is-disabled'}" data-fix="${t.id}" ${canFix ? '' : 'disabled'}>${fixLabel}</button>
@@ -129,11 +266,11 @@ function startTickLoop() {
   if (tickHandle !== null) return;
   tickHandle = window.setInterval(() => {
     if (!sim.running) {
-      syncUI();
+      requestUISync();
       return;
     }
     sim.tick();
-    syncUI();
+    requestUISync();
   }, TICK_MS);
 }
 
@@ -388,61 +525,66 @@ function syncUI() {
   refs.btnUnlink.classList.toggle('is-selected', s.mode === MODE.UNLINK);
 
   refs.modePill.innerHTML = `Mode: <b>${s.mode === MODE.SELECT ? 'Select' : s.mode === MODE.LINK ? 'Link' : 'Unlink'}</b>`;
-  refs.budget.textContent = `$${s.budget.toFixed(0)}`;
-  refs.rating.textContent = `${s.rating.toFixed(1)} ★`;
-  refs.fail.textContent = `${(s.failureRate * 100).toFixed(1)}%`;
-  refs.anr.textContent = `${(s.anrRisk * 100).toFixed(1)}%`;
-  refs.lat.textContent = `${Math.round(s.p95LatencyMs)} ms`;
-  refs.bat.textContent = `${Math.round(s.battery)}`;
-  refs.jank.textContent = `${Math.round(s.jankPct)}%`;
-  refs.heap.textContent = `${Math.round(s.heapMb)} MB`;
-  refs.gc.textContent = `${Math.round(s.gcPauseMs)}`;
-  refs.oom.textContent = `${s.oomCount}`;
+  setText(refs.budget, `$${s.budget.toFixed(0)}`);
+  setText(refs.rating, `${s.rating.toFixed(1)} ★`);
+  setText(refs.fail, `${(s.failureRate * 100).toFixed(1)}%`);
+  setText(refs.anr, `${(s.anrRisk * 100).toFixed(1)}%`);
+  setText(refs.lat, `${Math.round(s.p95LatencyMs)} ms`);
+  setText(refs.bat, `${Math.round(s.battery)}`);
+  setText(refs.jank, `${Math.round(s.jankPct)}%`);
+  setText(refs.heap, `${Math.round(s.heapMb)} MB`);
+  setText(refs.gc, `${Math.round(s.gcPauseMs)}`);
+  setText(refs.oom, `${s.oomCount}`);
 
-  refs.a11yScore.textContent = `${Math.round(s.a11yScore)}`;
-  refs.privacyTrust.textContent = `${Math.round(s.privacyTrust)}`;
-  refs.securityPosture.textContent = `${Math.round(s.securityPosture)}`;
-  refs.supportLoad.textContent = `${Math.round(s.supportLoad)}`;
+  setText(refs.a11yScore, `${Math.round(s.a11yScore)}`);
+  setText(refs.privacyTrust, `${Math.round(s.privacyTrust)}`);
+  setText(refs.securityPosture, `${Math.round(s.securityPosture)}`);
+  setText(refs.supportLoad, `${Math.round(s.supportLoad)}`);
 
-  refs.votesPerf.textContent = `${s.votes.perf}`;
-  refs.votesReliability.textContent = `${s.votes.reliability}`;
-  refs.votesPrivacy.textContent = `${s.votes.privacy}`;
-  refs.votesA11y.textContent = `${s.votes.a11y}`;
-  refs.votesBattery.textContent = `${s.votes.battery}`;
+  setText(refs.votesPerf, `${s.votes.perf}`);
+  setText(refs.votesReliability, `${s.votes.reliability}`);
+  setText(refs.votesPrivacy, `${s.votes.privacy}`);
+  setText(refs.votesA11y, `${s.votes.a11y}`);
+  setText(refs.votesBattery, `${s.votes.battery}`);
 
-  refs.reviewLog.textContent = s.recentReviews.length ? s.recentReviews.join('\n') : 'No reviews yet.';
+  setText(refs.reviewLog, s.recentReviews.length ? s.recentReviews.join('\n') : 'No reviews yet.');
 
-  refs.eventLog.textContent = s.eventsText;
+  setText(refs.eventLog, s.eventsText);
   refs.eventLog.classList.add('mono');
 
   if (!s.selected) {
-    refs.selName.textContent = 'None';
-    refs.selStats.textContent = '—';
+    setText(refs.selName, 'None');
+    setText(refs.selStats, '—');
     refs.btnUpgrade.disabled = true;
     refs.btnRepair.disabled = true;
     refs.btnDelete.disabled = true;
   } else {
-    refs.selName.textContent = s.selected.name;
-    refs.selStats.textContent = s.selected.stats;
+    setText(refs.selName, s.selected.name);
+    setText(refs.selStats, s.selected.stats);
     refs.btnUpgrade.disabled = !s.selected.canUpgrade;
     refs.btnRepair.disabled = !s.selected.canRepair;
     refs.btnDelete.disabled = !s.selected.canDelete;
   }
+  // CoverageGate
+  const cov = sim.getCoverage();
+  setText(refs.coverage, `${Math.round(cov.pct)}%`);
+  setText(refs.coverageHint, cov.pct < cov.threshold ? `Below ${cov.threshold}% increases regressions` : `Target ${cov.threshold}%+ for stable releases`);
+
   // PlatformPulse
   const p = sim.getPlatform();
-  refs.apiLatest.textContent = String(p.latestApi);
-  refs.apiMin.textContent = String(p.minApi);
-  refs.oldShare.textContent = String(Math.round(p.oldDeviceShare * 100));
-  refs.lowRamShare.textContent = String(Math.round(p.lowRamShare * 100));
+  setText(refs.apiLatest, String(p.latestApi));
+  setText(refs.apiMin, String(p.minApi));
+  setText(refs.oldShare, String(Math.round(p.oldDeviceShare * 100)));
+  setText(refs.lowRamShare, String(Math.round(p.lowRamShare * 100)));
 
   // ZeroDayPulse
   const adv = sim.getAdvisories().filter(a => !a.mitigated).slice(0, 1);
-  refs.advisoryText.textContent = adv.length ? `Active: ${adv[0].title}` : '';
+  setText(refs.advisoryText, adv.length ? `Active: ${adv[0].title}` : '');
 
   renderTickets();
+  renderRegions();
   syncRunButtons();
 }
-
 function bindUI(): UIRefs {
   const canvas = must<HTMLCanvasElement>('c');
   const ctx = canvas.getContext('2d');
@@ -478,6 +620,13 @@ function bindUI(): UIRefs {
 
     buildInfo: must('buildInfo'),
 
+    presetSelect: must('presetSelect') as HTMLSelectElement,
+    themeSelect: must('themeSelect') as HTMLSelectElement,
+    glassSelect: must('glassSelect') as HTMLSelectElement,
+
+    coverage: must('coverage'),
+    coverageHint: must('coverageHint'),
+
     capVal: must('capVal'),
     ticketList: must('ticketList'),
     apiLatest: must('apiLatest'),
@@ -485,6 +634,8 @@ function bindUI(): UIRefs {
     oldShare: must('oldShare'),
     lowRamShare: must('lowRamShare'),
     advisoryText: must('advisoryText'),
+    regPressure: must('regPressure'),
+    regionList: must('regionList'),
     selName: must('selName'),
     selStats: must('selStats'),
     btnUpgrade: must<HTMLButtonElement>('btnUpgrade'),
@@ -512,3 +663,18 @@ function must<T extends HTMLElement>(id: string): T {
   if (!el) throw new Error(`Missing element #${id}`);
   return el as T;
 }
+
+// LiquidGlass
+const savedGlass = (localStorage.getItem(GLASS_KEY) as ('on' | 'off')) || 'off';
+refs.glassSelect.value = supportsGlass() ? savedGlass : 'off';
+if (!supportsGlass()) {
+  refs.glassSelect.disabled = true;
+  refs.glassSelect.title = 'Liquid glass not supported in this browser';
+}
+applyGlass(refs.glassSelect.value as ('on' | 'off'));
+refs.glassSelect.addEventListener('change', () => {
+  const g = refs.glassSelect.value as ('on' | 'off');
+  localStorage.setItem(GLASS_KEY, g);
+  applyGlass(g);
+});
+

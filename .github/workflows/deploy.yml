@@ -68,7 +68,7 @@ jobs:
           fi
 
       - name: Install
-        run: npm ci --no-audit --fund=false
+        run: npm install --no-audit --fund=false --registry=https://registry.npmjs.org/
 
       - name: Build
         env:
