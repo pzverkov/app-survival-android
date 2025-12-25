@@ -14,7 +14,7 @@ The simulation core is written in TypeScript and kept separate from rendering an
 
 # Key concepts
 
-Nodes represent Android subsystems and architecture layers such as UI, ViewModel, Domain, Repository, Cache, DB, Network, WorkManager, Observability, Feature Flags, and security and accessibility controls.
+Components represent Android subsystems and architecture layers such as UI, ViewModel, Domain, Repository, Cache, DB, Network, WorkManager, Observability, Feature Flags, and security and accessibility controls.
 
 Actions represent user and system behavior such as scroll, read, write, search, upload, and sync. Some actions can be satisfied via cache while others must hit DB or network.
 
@@ -28,16 +28,16 @@ Prerequisites
 Node.js 20 or newer is recommended.
 
 Install
-npm install
+```npm install```
 
 Run
-npm run dev
+```npm run dev```
 
 Build
-npm run build
+```npm run build```
 
 Preview
-npm run preview
+```npm run preview```
 
 # Github Pages Deployment
 
@@ -54,60 +54,60 @@ If you use a custom domain, place a CNAME file in the public directory. The buil
 # How to play
 
 Start the run.
-Place parts for your pipeline and capabilities.
-Use Link mode to connect nodes from source to destination.
-Watch metrics such as rating, crashes, ANR risk, p95 latency, battery, accessibility score, privacy trust, security posture, and support load.
-Upgrade bottlenecks and add mitigations before incidents cascade.
-Repair parts when they degrade or go down.
-Observe review waves and category votes across performance, reliability, privacy, accessibility, and battery.
+1. Place parts for your pipeline and capabilities.
+2. Use Link mode to connect Components from source to destination.
+3. Watch metrics such as rating, crashes, ANR risk, p95 latency, battery, accessibility score, privacy trust, security posture, and support load.
+4. Upgrade bottlenecks and add mitigations before incidents cascade.
+5. Repair parts when they degrade or go down.
+6. Observe review waves and category votes across performance, reliability, privacy, accessibility, and battery.
 
 RECOMMENDED STARTER GRAPH
 
-UI to ViewModel to Domain to Repository
-Repository to Cache to DB
-Repository to Network
-WorkManager to Repository
-Add Observability and Feature Flags early
-Add security and accessibility nodes as baseline rather than waiting for incidents
+1. UI to ViewModel to Domain to Repository
+2. Repository to Cache to DB
+3. Repository to Network
+4. WorkManager to Repository
+5. Add Observability and Feature Flags early
+6. Add security and accessibility Components as baseline rather than waiting for incidents
 
 EVALUATION EXERCISE
 
 Goal
 Maintain rating at or above 4.2 for 3 to 5 minutes under incident pressure.
 
-Suggested format
-Briefing
-Stabilization run
-Debrief
-Optional code task in the simulation engine
+Suggested format:
+-Briefing
+-Stabilization run
+-Debrief
+-Optional code task in the simulation engine
 
 Evaluation is based on diagnosis quality, prioritization, trade off reasoning, and the ability to connect decisions back to real Android production practices.
 
 LEVEL DIFFERENTIATION
 
 Mid level
-Stabilizes after issues become visible.
-Uses basic metrics but may miss second order effects.
-Often prioritizes performance or reliability while neglecting privacy or accessibility until later.
+-Stabilizes after issues become visible.
+-Uses basic metrics but may miss second order effects.
+-Often prioritizes performance or reliability while neglecting privacy or accessibility until later.
 
 Senior level
-Stabilizes proactively and maintains control through multiple incident waves.
-Chooses targeted upgrades with clear reasoning.
-Balances reliability, performance, privacy, accessibility, and battery with minimal waste.
+-Stabilizes proactively and maintains control through multiple incident waves.
+-Chooses targeted upgrades with clear reasoning.
+-Balances reliability, performance, privacy, accessibility, and battery with minimal waste.
 
 Staff level
-Treats the system as an ecosystem with interacting constraints.
-Establishes a resilient baseline early and prevents cascades.
-Uses observability, safeguards, and mitigation nodes intentionally.
-Explains trade offs clearly and proposes improvements to the simulation or architecture.
-Translates game interventions into real world Android engineering and organizational practices.
+-Treats the system as an ecosystem with interacting constraints.
+-Establishes a resilient baseline early and prevents cascades.
+-Uses observability, safeguards, and mitigation Components intentionally.
+-Explains trade offs clearly and proposes improvements to the simulation or architecture.
+-Translates game interventions into real world Android engineering and organizational practices.
 
 # Optional code task ideas
 
-Add a new incident type and mitigation.
-Add a new node with tier effects and costs.
-Improve review wave logic and explain the impact.
-Introduce deterministic seeded randomness and add a replay mode.
+-Add a new incident type and mitigation.
+-Add a new Component with tier effects and costs.
+-Improve review wave logic and explain the impact.
+-Introduce deterministic seeded randomness and add a replay mode.
 
 # Security
 
