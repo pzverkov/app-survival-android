@@ -56,9 +56,33 @@
             <button id="btnAdd" class="btn tonal">+ Add</button>
           </div>
           <div class="small" style="margin-top:8px;">
-            Drag nodes to rearrange. Link mode: click <span class="mono">source</span> → click <span class="mono">destination</span>
+            Drag components to rearrange. Link mode: click <span class="mono">source</span> → click <span class="mono">destination</span>
           </div>
         </section>
+        <div class="hr"></div>
+
+        <section class="card">
+          <div class="k">Backlog</div>
+          <div class="row" style="margin-top:8px; align-items:center;">
+            <div class="pill">Capacity <span id="capVal" class="mono">0/0</span></div>
+            <div class="small muted" style="margin-left:auto;">Fix tickets or defer</div>
+          </div>
+          <div id="ticketList" class="ticketList" style="margin-top:10px;"></div>
+        </section>
+
+        <div class="hr"></div>
+
+        <section class="card">
+          <div class="k">Platform</div>
+          <div class="small" style="margin-top:8px;">
+            Latest API <span id="apiLatest" class="mono">0</span> • Min API <span id="apiMin" class="mono">0</span>
+          </div>
+          <div class="small muted" style="margin-top:4px;">
+            Old devices <span id="oldShare" class="mono">0</span>% • Low RAM <span id="lowRamShare" class="mono">0</span>%
+          </div>
+          <div id="advisoryText" class="small" style="margin-top:8px;"></div>
+        </section>
+
 
         <div class="hr"></div>
 
@@ -92,6 +116,17 @@
             <div class="k">Battery</div>
             <div class="v mono" id="bat">100</div>
             <div class="small">Work spam drains</div>
+          </div>
+
+          <div class="card">
+            <div class="k">Jank</div>
+            <div class="v mono" id="jank">0%</div>
+            <div class="small">FrameGuard 16ms</div>
+          </div>
+          <div class="card">
+            <div class="k">Heap</div>
+            <div class="v mono" id="heap">64 MB</div>
+            <div class="small">HeapWatch GC <span class="mono" id="gc">0</span> ms • OOM <span class="mono" id="oom">0</span></div>
           </div>
         </section>
 
@@ -146,11 +181,11 @@
         <div class="hr"></div>
 
         <section class="card">
-          <div class="k">Roadmap (next 3 “Android-real” upgrades)</div>
+          <div class="k">Android realism features (implemented)</div>
           <ol class="small" style="margin:8px 0 0; padding-left:18px;">
-            <li><b>Frame budget + jank</b> (16ms scheduler + jank meter)</li>
-            <li><b>Main thread strictness</b> (serial UI/VM/Domain + “IO on main” ANR)</li>
-            <li><b>Memory / GC / image realism</b> (heap meter, GC pauses, OOM)</li>
+            <li><b>FrameGuard</b> frame budget and jank meter (16ms model)</li>
+            <li><b>MainThreadGuard</b> IO on main strictness (adds ANR and jank)</li>
+            <li><b>HeapWatch</b> heap meter with GC pauses and OOM crashes</li>
           </ol>
         </section>
 
