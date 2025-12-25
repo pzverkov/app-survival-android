@@ -129,7 +129,10 @@ export class GameSim {
   running = false;
   timeSec = 0;
 
-  budget = 500;
+  // Starting budget is intentionally generous so tests (and players) can
+  // explore large architectural changes without immediately hitting an
+  // economy wall.
+  budget = 3000;
   rating = 5.0;
   battery = 100;
 
@@ -179,7 +182,7 @@ export class GameSim {
     this.running = false;
     this.timeSec = 0;
 
-    this.budget = 500;
+    this.budget = 3000;
     this.rating = 5.0;
     this.battery = 100;
 
