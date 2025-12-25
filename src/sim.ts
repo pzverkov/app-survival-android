@@ -380,7 +380,7 @@ export class GameSim {
     });
   }
 
-  private tickTickets(failureRate: number, anrRisk: number, p95: number) {
+  private tickTickets(failureRate: number, anrRisk: number, _p95: number) {
     // Engineering capacity regen: about 12 points per minute
     this.engCapacity = clamp(this.engCapacity + 0.20, 0, this.engCapacityMax);
 
@@ -572,7 +572,7 @@ export class GameSim {
       }
       if (Math.random() < 0.18) {
         const fine = Math.round(1200 + Math.random() * 2600);
-        this.money = Math.max(0, this.money - fine);
+        this.budget = Math.max(0, this.budget - fine);
         this.addEvent(`Regulatory fine ${fine}`);
         this.rating = clamp(this.rating - 0.08, 1.0, 5.0);
       }
@@ -616,7 +616,30 @@ export class GameSim {
   }
 
 
-  // --- simulation tick ------------------------------------------------------
+  
+
+  // --- realism helpers
+  private calcMainThreadMs(p95: number): number {
+    // Base UI work + extra cost from complexity, platform pressure, and regression risk.
+    const complexity = this.components.length;
+    const platform = this.platform.pressure; // 0..1
+    const coveragePenalty = (this.coverageRiskMult - 1) * 6;
+    const backlogPenalty = clamp(this.tickets.length / 10, 0, 1) * 3;
+    const latencyPenalty = clamp((p95 - 140) / 400, 0, 1) * 4;
+    return clamp(6 + complexity * 0.28 + platform * 8 + coveragePenalty + backlogPenalty + latencyPenalty, 4, 42);
+  }
+
+  private calcHeapDelta(): number {
+    // Heap churn driven by traffic, complexity, device mix, and unmitigated incidents.
+    const complexity = this.components.length;
+    const lowRam = this.platform.lowRamShare; // 0..1
+    const traffic = this.traffic; // 0..100
+    const cacheTier = this.tierOf('CACHE');
+    const cacheRelief = cacheTier * 0.35;
+    const ticketHeat = clamp(this.tickets.length / 16, 0, 1) * 0.9;
+    return clamp(traffic * 0.045 + complexity * 0.08 + lowRam * 2.2 + ticketHeat - cacheRelief, 0, 12);
+  }
+// --- simulation tick ------------------------------------------------------
   tick() {
     this.timeSec += 1;
 
@@ -743,6 +766,10 @@ export class GameSim {
     const anrRisk = clamp(this.anrPoints / 120, 0, 1);
     const p95 = percentile(this.latSamples, 0.95);
 
+    const mainThreadMs = this.calcMainThreadMs(p95);
+
+    const mainThreadMs = this.calcMainThreadMs(p95);
+
     this.tickPlatformPulse();
     this.tickZeroDayPulse();
     this.tickRegMatrix();
@@ -752,6 +779,7 @@ export class GameSim {
     // HeapWatch: decay and GC
     const cacheTier = this.tierOf('CACHE');
     const heapDecay = 1.6 + cacheTier * 0.6;
+    const heapDelta = this.calcHeapDelta();
     this.heapMb = clamp(this.heapMb + heapDelta - heapDecay, 0, this.heapMaxMb * 1.3);
 
     // Trigger GC when heap is high; GC pause shows up as jank
@@ -848,6 +876,8 @@ export class GameSim {
     const anrRisk = clamp(this.anrPoints / 120, 0, 1);
     const p95 = percentile(this.latSamples, 0.95);
 
+    const mainThreadMs = this.calcMainThreadMs(p95);
+
     this.tickPlatformPulse();
     this.tickZeroDayPulse();
     this.tickRegMatrix();
@@ -857,6 +887,7 @@ export class GameSim {
     // HeapWatch: decay and GC
     const cacheTier = this.tierOf('CACHE');
     const heapDecay = 1.6 + cacheTier * 0.6;
+    const heapDelta = this.calcHeapDelta();
     this.heapMb = clamp(this.heapMb + heapDelta - heapDecay, 0, this.heapMaxMb * 1.3);
 
     // Trigger GC when heap is high; GC pause shows up as jank

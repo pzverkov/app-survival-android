@@ -46,6 +46,7 @@ type UIRefs = {
   ctx: CanvasRenderingContext2D;
 
   modePill: HTMLElement;
+
   budget: HTMLElement;
   rating: HTMLElement;
   fail: HTMLElement;
@@ -57,29 +58,41 @@ type UIRefs = {
   gc: HTMLElement;
   oom: HTMLElement;
 
-  a11yScore: HTMLElement;
   privacyTrust: HTMLElement;
   securityPosture: HTMLElement;
   supportLoad: HTMLElement;
+  a11yScore: HTMLElement;
+
+  coverage: HTMLElement;
+  coverageHint: HTMLElement;
+
+  apiLatest: HTMLElement;
+  apiMin: HTMLElement;
+  oldShare: HTMLElement;
+  lowRamShare: HTMLElement;
+  advisoryText: HTMLElement;
+
+  regPressure: HTMLElement;
+  regionList: HTMLElement;
+  ticketList: HTMLElement;
+  reviewLog: HTMLElement;
+  eventLog: HTMLElement;
 
   votesPerf: HTMLElement;
   votesReliability: HTMLElement;
   votesPrivacy: HTMLElement;
   votesA11y: HTMLElement;
   votesBattery: HTMLElement;
-  reviewLog: HTMLElement;
 
-  buildInfo: HTMLElement;
-
+  capVal: HTMLElement;
   selName: HTMLElement;
   selStats: HTMLElement;
-  btnUpgrade: HTMLButtonElement;
-  btnRepair: HTMLButtonElement;
-  btnDelete: HTMLButtonElement;
-
-  eventLog: HTMLElement;
+  buildInfo: HTMLElement;
 
   componentType: HTMLSelectElement;
+  presetSelect: HTMLSelectElement;
+  themeSelect: HTMLSelectElement;
+  glassSelect: HTMLSelectElement;
 
   btnStart: HTMLButtonElement;
   btnPause: HTMLButtonElement;
@@ -90,7 +103,11 @@ type UIRefs = {
   btnUnlink: HTMLButtonElement;
 
   btnAdd: HTMLButtonElement;
+  btnUpgrade: HTMLButtonElement;
+  btnRepair: HTMLButtonElement;
+  btnDelete: HTMLButtonElement;
 };
+
 
 const sim = new GameSim();
 
@@ -150,6 +167,8 @@ function requestUISync() {
     syncUI();
   });
 }
+
+function scheduleSync() { requestUISync(); }
 
 
 
@@ -237,14 +256,14 @@ function renderTickets() {
     `;
   }).join('');
 
-  refs.ticketList.querySelectorAll('button[data-fix]').forEach(btn => {
+  refs.ticketList.querySelectorAll('button[data-fix]').forEach((btn: HTMLButtonElement) => {
     btn.addEventListener('click', (e) => {
       const id = Number((e.currentTarget as HTMLElement).getAttribute('data-fix'));
       sim.fixTicket(id);
       syncUI();
     });
   });
-  refs.ticketList.querySelectorAll('button[data-defer]').forEach(btn => {
+  refs.ticketList.querySelectorAll('button[data-defer]').forEach((btn: HTMLButtonElement) => {
     btn.addEventListener('click', (e) => {
       const id = Number((e.currentTarget as HTMLElement).getAttribute('data-defer'));
       sim.deferTicket(id);
