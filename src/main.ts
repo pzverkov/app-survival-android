@@ -256,14 +256,14 @@ function renderTickets() {
     `;
   }).join('');
 
-  refs.ticketList.querySelectorAll('button[data-fix]').forEach((btn: HTMLButtonElement) => {
+  refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-fix]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       const id = Number((e.currentTarget as HTMLElement).getAttribute('data-fix'));
       sim.fixTicket(id);
       syncUI();
     });
   });
-  refs.ticketList.querySelectorAll('button[data-defer]').forEach((btn: HTMLButtonElement) => {
+  refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-defer]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       const id = Number((e.currentTarget as HTMLElement).getAttribute('data-defer'));
       sim.deferTicket(id);

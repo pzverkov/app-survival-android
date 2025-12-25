@@ -172,6 +172,9 @@ export class GameSim {
   netBadness = 1.0;
   workRestriction = 1.0;
 
+  // Approx user traffic intensity (0..100). Used by heap/GC heuristics.
+  traffic = 0;
+
   private lastEventAt = 0;
   private eventLines: string[] = [];
 
@@ -210,6 +213,8 @@ export class GameSim {
     this.spawnMul = 1.0;
     this.netBadness = 1.0;
     this.workRestriction = 1.0;
+
+    this.traffic = 0;
 
     this.lastEventAt = 0;
     this.eventLines = [];
@@ -654,6 +659,10 @@ private tickCoverageGate() {
   tick() {
     this.timeSec += 1;
 
+    // Slow-moving world pressures.
+    this.tickPlatformPulse();
+    this.tickZeroDayPulse();
+
     this.tickCoverageGate();
 
     this.maybeIncident();
@@ -777,6 +786,9 @@ private tickCoverageGate() {
     const anrRisk = clamp(this.anrPoints / 120, 0, 1);
     const p95 = percentile(this.latSamples, 0.95);
 
+    // TicketFlow: generate/age tickets from current signals.
+    this.tickTickets(failureRate, anrRisk, p95);
+
     mainThreadMs = Math.max(mainThreadMs, this.calcMainThreadMs(p95));
 
 
@@ -858,6 +870,9 @@ private tickCoverageGate() {
     this.a11yScore = clamp(this.a11yScore + (stable ? a11yBoost : -slowPenalty * 0.5), 0, 100);
     this.securityPosture = clamp(this.securityPosture + (stable ? (0.06 + secBoost) : -failureRate * 3.5), 0, 100);
     this.privacyTrust = clamp(this.privacyTrust + (stable ? (0.05 + (keyTier > 0 ? 0.05 : 0)) : -failureRate * 2.2), 0, 100);
+
+    // RegMatrix: update region compliance and store pressure.
+    this.tickRegMatrix();
 
     // User reviews/votes happen periodically and tug rating in explainable ways.
     this.maybeReviewWave(failureRate, anrRisk, p95);
@@ -1049,6 +1064,10 @@ private tickCoverageGate() {
   private spawnRequests() {
     const growth = 1 + (this.timeSec / 90);
     const base = 7.5 * growth * this.spawnMul;
+
+    // Expose a simple 0..100 "traffic" signal for other heuristics (heap/GC, etc).
+    // Rough mapping: base ~7.5 at t=0 => traffic ~45.
+    this.traffic = clamp(base * 6, 0, 100);
 
     const mix: Array<[ActionKey, number]> = [
       ['SCROLL', 0.28],
