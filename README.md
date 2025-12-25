@@ -76,38 +76,38 @@ Goal
 Maintain rating at or above 4.2 for 3 to 5 minutes under incident pressure.
 
 Suggested format:
--Briefing
--Stabilization run
--Debrief
--Optional code task in the simulation engine
+1. Briefing
+2. Stabilization run
+3. Debrief
+4. Optional code task in the simulation engine
 
 Evaluation is based on diagnosis quality, prioritization, trade off reasoning, and the ability to connect decisions back to real Android production practices.
 
-LEVEL DIFFERENTIATION
+LEVEL DIFFERENTIATION LENS
 
-Mid level
--Stabilizes after issues become visible.
--Uses basic metrics but may miss second order effects.
--Often prioritizes performance or reliability while neglecting privacy or accessibility until later.
+Mid level frame/pattern
+1. Stabilizes after issues become visible.
+2. Uses basic metrics but may miss second order effects.
+3. Often prioritizes performance or reliability while neglecting privacy or accessibility until later.
 
-Senior level
--Stabilizes proactively and maintains control through multiple incident waves.
--Chooses targeted upgrades with clear reasoning.
--Balances reliability, performance, privacy, accessibility, and battery with minimal waste.
+Senior level pattern
+1. Stabilizes proactively and maintains control through multiple incident waves.
+2. Chooses targeted upgrades with clear reasoning.
+3. Balances reliability, performance, privacy, accessibility, and battery with minimal waste.
 
-Staff level
--Treats the system as an ecosystem with interacting constraints.
--Establishes a resilient baseline early and prevents cascades.
--Uses observability, safeguards, and mitigation Components intentionally.
--Explains trade offs clearly and proposes improvements to the simulation or architecture.
--Translates game interventions into real world Android engineering and organizational practices.
+Staff level frame/pattern
+1. Treats the system as an ecosystem with interacting constraints.
+2. Establishes a resilient baseline early and prevents cascades.
+3. Uses observability, safeguards, and mitigation Components intentionally.
+4. Explains trade offs clearly and proposes improvements to the simulation or architecture.
+5. Translates game interventions into real world Android engineering and organizational practices.
 
 # Optional code task ideas
 
--Add a new incident type and mitigation.
--Add a new Component with tier effects and costs.
--Improve review wave logic and explain the impact.
--Introduce deterministic seeded randomness and add a replay mode.
+1. Add a new incident type and mitigation.
+2. Add a new Component with tier effects and costs.
+3. Improve review wave logic and explain the impact.
+4. Introduce deterministic seeded randomness and add a replay mode.
 
 # Security
 
