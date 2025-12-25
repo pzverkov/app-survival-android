@@ -928,7 +928,18 @@ export class GameSim {
     );
   }
 
-  // --- internal helpers -----------------------------------------------------
+  
+
+  private addEvent(msg: string) {
+    // Keep a lightweight incident/event log for the UI.
+    // Newest first, capped to avoid unbounded growth.
+    const tag = this.timeSec > 0 ? `t+${this.timeSec}s` : 't+0s';
+    this.eventLines.unshift(`${tag}  ${msg}`);
+    if (this.eventLines.length > 18) this.eventLines.length = 18;
+    this.lastEventAt = this.timeSec;
+  }
+
+// --- internal helpers -----------------------------------------------------
   private selected(): Component | undefined {
     if (!this.selectedId) return undefined;
     return this.nodeById(this.selectedId) ?? undefined;
