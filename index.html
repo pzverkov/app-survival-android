@@ -135,6 +135,19 @@
             <div class="small muted" style="margin-top:8px;">CoverageGate and enforcement weight</div>
           </section>
 
+          <!-- Seed controls (required by src/main.ts). Kept lightweight so runs can be shared/replayed. -->
+          <section class="card">
+            <div class="k">Seed</div>
+            <div class="small" style="margin-top:8px;">
+              Active: <span id="seedVal" class="mono">0</span>
+            </div>
+            <div class="row" style="margin-top:8px; gap:8px;">
+              <input id="seedInput" class="input" style="flex:1;" placeholder="Seed (optional)" />
+              <button id="btnDailySeed" class="btn text" title="Use a deterministic daily seed">Daily</button>
+            </div>
+            <div class="small muted" style="margin-top:8px;">Reset uses the seed above (if set).</div>
+          </section>
+
           <section class="card">
             <div class="k">Place component</div>
             <div class="row" style="margin-top:8px;">
