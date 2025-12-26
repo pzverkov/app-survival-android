@@ -78,20 +78,20 @@ Prerequisites
 Node.js 20 or newer is recommended
 
 Install
-npm install
+
+`npm install`
 
 Run
-npm run dev
+
+`npm run dev`
 
 Build
-npm run build
+
+`npm run build`
 
 Preview
-npm run preview
 
-## GitHub Pages deployment
-
-This repository includes a GitHub Actions workflow that builds and publishes the dist folder to GitHub Pages.
+`npm run preview`
 
 Setup
 1 Push the repository to GitHub on the main branch
@@ -175,26 +175,26 @@ Evaluation focuses on diagnosis quality, prioritization, trade off reasoning, an
 
 Level differentiation lens
 
-Mid level pattern
+Mid-level pattern
 Stabilizes after issues become visible
-Uses basic metrics but misses second order interactions
+Uses basic metrics but misses second-order interactions
 Optimizes one axis while neglecting privacy, accessibility, compliance, or test debt
 
-Senior level pattern
+Senior-level pattern
 Stabilizes proactively through multiple incident waves
 Chooses targeted upgrades with explicit reasoning
 Balances reliability, performance, privacy, accessibility, battery, coverage, and compliance with minimal waste
 
 Staff level pattern
-Treats the system as an ecosystem with interacting constraints and multi region policy outcomes
+Treats the system as an ecosystem with interacting constraints and multi-region policy outcomes
 Establishes a resilient baseline early and prevents cascades
 Uses observability, feature flags, and safeguards intentionally and explains why
-Makes crisp trade off calls and communicates impact to stakeholders
+Makes crisp trade-off calls and communicates impact to stakeholders
 Proposes improvements to the simulation and maps them to an Android org operating model
 
 Principal level pattern
 Stabilizes early, then invests in preventative controls and guardrails to reduce whole classes of incidents
-Keeps multi region rollout outcomes in mind and avoids "local" optimizations that create global risk
+Keeps multi-region rollout outcomes in mind and avoids "local" optimizations that create global risk
 Explains what automation, standards, and release process constraints would prevent the same failures at scale
 
 ## Tests
@@ -212,12 +212,6 @@ Internally the simulator tracks a few generic signals per component:
 - **Latency** (time cost for work)
 - **Failure/exception rate**
 - **Backlog** (queued work)
-
-The UI maps those to Android-meaningful labels per component type. For example, a **Repository** reports **Data calls/tick**, **I/O latency**, **Exception rate**, and **Request backlog**.
-
-## Android-tuned baselines (v14.4)
-
-Component throughput/latency/failure baselines are tuned to feel like mobile layers (e.g., Network has higher RTT + higher failure, DB has moderate latency, Repository reflects I/O orchestration, UI/VM/Domain are fast but can still crash).
 
 ## Learning resources (Android + KMP)
 
@@ -251,31 +245,30 @@ Vitest covers the simulation engine for key systems such as CoverageGate and reg
 Smoke tests
 Playwright verifies the app boots and a run can advance without basic wiring regressions.
 
-## Optional code task ideas
-
-Add a new incident type and mitigation rule
-Add deterministic seeded randomness and a replay mode
-Add a new region rule and enforcement event
-Add a new component with tier effects and costs
-Add scenario presets for interview mode
-
-## Security
-
-See SECURITY.md for reporting guidance. Do not include secrets in issues or pull requests.
-
-## Contributing
-
-See CONTRIBUTING.md for setup instructions and contribution expectations.
-
-## Code of conduct
-
-See CODE_OF_CONDUCT.md for community standards.
-
-## License
-
-Apache License 2.0 See LICENSE and NOTICE files.
-
-
 ## Seed
 
 Use the **Seed** card in the sidebar to replay/share deterministic runs. Enter a number and press **Reset**, or use **Daily**.
+
+## Optional code task ideas
+
+- Add a new incident type and mitigation rule
+- Add deterministic seeded randomness and a replay mode
+- Add a new region rule and enforcement event
+- Add a new component with tier effects and costs
+- Add scenario presets for interview mode
+
+## Security
+
+See [SECURITY](./SECURITY.md) for reporting guidance. Do not include secrets in issues or pull requests.
+
+## Contributing
+
+See [CONTRIBUTING](./CONTRIBUTING.md) for setup instructions and contribution expectations.
+
+## Code of conduct
+
+See [CODE_OF_CONDUCT](./CODE_OF_CONDUCT.md) for community standards.
+
+## License
+
+Apache License 2.0 See [LICENSE](./LICENSE) and [NOTICE](./NOTICE) files.
