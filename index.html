@@ -178,7 +178,7 @@
           </section>
         </div>
 
-        <section class="card">
+        <section class="card" id="backlogCard">
           <div class="k">Backlog</div>
           <div class="row" style="margin-top:8px; align-items:center;">
             <div class="pill">Capacity <span id="capVal" class="mono">0/0</span></div>
@@ -221,7 +221,7 @@
           <pre class="small" id="reviewLog" style="margin-top:8px;">No reviews yet.</pre>
         </section>
 
-        <section class="card">
+        <section class="card" id="incidentsCard">
           <div class="k">Incidents</div>
           <pre class="small" id="eventLog">No incidents… yet.</pre>
         </section>
@@ -294,6 +294,22 @@
         </div>
 
       </aside>
+    </div>
+
+    <!-- Incident response: shown briefly when a new incident hits -->
+    <div id="incidentOverlay" class="incidentOverlay" hidden aria-live="polite" aria-atomic="true">
+      <div class="card incidentOverlayInner">
+        <div class="row" style="align-items:center;">
+          <div class="pill" style="border-color: color-mix(in oklab, var(--md-sys-color-error) 70%, transparent);">Incident</div>
+          <div id="incidentOverlayTitle" class="small mono" style="margin-left:10px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</div>
+          <button id="incidentOverlayDismiss" class="btn text" aria-label="Dismiss incident">✕</button>
+        </div>
+        <div id="incidentOverlayHint" class="small muted" style="margin-top:8px;">Respond fast: fix or defer the top ticket to stop the bleed.</div>
+        <div class="row" style="margin-top:10px; justify-content:flex-end;">
+          <button id="incidentOverlayBacklog" class="btn outlined">Open backlog</button>
+          <button id="incidentOverlayTriage" class="btn filled">Quick triage</button>
+        </div>
+      </div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

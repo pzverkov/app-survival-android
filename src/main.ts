@@ -119,6 +119,14 @@ type UIRefs = {
   btnUpgrade: HTMLButtonElement;
   btnRepair: HTMLButtonElement;
   btnDelete: HTMLButtonElement;
+
+  // Incident response overlay
+  incidentOverlay: HTMLElement;
+  incidentOverlayTitle: HTMLElement;
+  incidentOverlayHint: HTMLElement;
+  incidentOverlayDismiss: HTMLButtonElement;
+  incidentOverlayBacklog: HTMLButtonElement;
+  incidentOverlayTriage: HTMLButtonElement;
 };
 
 
@@ -139,6 +147,52 @@ const shortSha = sha === 'dev' ? 'dev' : sha.slice(0, 7);
 refs.buildInfo.textContent = `Build ${shortSha} • base ${import.meta.env.BASE_URL}`;
 
 let lastSavedRunId: string | null = null;
+
+// Incident UX: brief highlight + action overlay when a new incident line appears.
+let lastEventsText = '';
+let incidentHotUntilMs = 0;
+
+function setIncidentHot(active: boolean) {
+  document.documentElement.classList.toggle('incident-hot', active);
+  refs.incidentOverlay.hidden = !active;
+}
+
+function latestIncidentLine(eventsText: string): string {
+  if (!eventsText || eventsText.startsWith('No incidents')) return '';
+  return eventsText.split('\n')[0] ?? '';
+}
+
+function openBacklog() {
+  const el = document.getElementById('backlogCard') ?? refs.ticketList;
+  el.scrollIntoView({ behavior: IS_E2E ? 'auto' : 'smooth', block: 'start' });
+}
+
+function quickTriage() {
+  const cap = sim.getCapacity();
+  const tickets = sim.getTickets().filter(t => !t.deferred);
+  if (!tickets.length) return;
+
+  // Highest severity first, then impact, then age.
+  tickets.sort((a, b) => (b.severity - a.severity) || (b.impact - a.impact) || (b.ageSec - a.ageSec));
+  const t = tickets[0];
+  if (!t) return;
+
+  if (cap.cur + 1e-9 >= t.effort) sim.fixTicket(t.id);
+  else sim.deferTicket(t.id);
+}
+
+refs.incidentOverlayDismiss.addEventListener('click', () => {
+  incidentHotUntilMs = 0;
+  setIncidentHot(false);
+});
+refs.incidentOverlayBacklog.addEventListener('click', () => {
+  openBacklog();
+});
+refs.incidentOverlayTriage.addEventListener('click', () => {
+  quickTriage();
+  scheduleSync();
+  openBacklog();
+});
 
 
 // Preset (difficulty expectations)
@@ -307,6 +361,7 @@ function renderTickets() {
     const canFix = cap.cur + 1e-9 >= t.effort;
     const fixLabel = canFix ? `Fix (${t.effort})` : `Need ${t.effort}`;
     const deferLabel = t.deferred ? 'Undefer' : 'Defer';
+    const isArch = t.kind === 'ARCHITECTURE_DEBT';
     return `
       <div class="ticket">
         <div class="ticketMain">
@@ -316,20 +371,23 @@ function renderTickets() {
         <div class="ticketBtns">
           <button class="btn text ${canFix ? '' : 'is-disabled'}" data-fix="${t.id}" ${canFix ? '' : 'disabled'}>${fixLabel}</button>
           <button class="btn text" data-defer="${t.id}">${deferLabel}</button>
-          ${t.kind === 'ARCHITECTURE_DEBT' ? `
+        </div>
+      </div>
+      ${isArch ? `
+        <details class="ticketMore">
+          <summary><span class="ticketMoreSummary">Refactor options</span></summary>
           <div class="ticketRefactors">
-            <select class="input mono" data-target="${t.id}" style="padding:6px 10px; border-radius:999px;">
+            <select class="input mono" data-target="${t.id}">
               <option value="">Auto-target (worst violation)</option>
               ${sim.getArchViolations().slice(0, 8).map(v => `<option value="${v.key}">${v.reason}</option>`).join('')}
             </select>
-            
             ${sim.getRefactorOptions(t.id).map(o => `<button class="btn text" data-refactor="${t.id}" data-action="${o.action}" title="${o.title}
 $${o.cost} • ${o.debtDelta} debt • +${o.scoreBonus} score
 
 ${o.description}">${o.action.replace('_',' ')} ($${o.cost}, ${o.debtDelta} debt)</button>`).join('')}
-          </div>` : ''}
-        </div>
-      </div>
+          </div>
+        </details>
+      ` : ''}
     `;
   }).join('');
 
@@ -732,6 +790,20 @@ function syncUI() {
 
   setText(refs.eventLog, s.eventsText);
 
+  // Incident UX: detect a new incident line and briefly surface response actions.
+  if (s.eventsText && s.eventsText !== lastEventsText) {
+    const line = latestIncidentLine(s.eventsText);
+    if (line) {
+      refs.incidentOverlayTitle.textContent = line;
+      incidentHotUntilMs = Date.now() + 14_000;
+    }
+    lastEventsText = s.eventsText;
+  }
+  const incidentHot = Date.now() < incidentHotUntilMs;
+  if (document.documentElement.classList.contains('incident-hot') !== incidentHot) {
+    setIncidentHot(incidentHot);
+  }
+
 
   // Refactor roadmap (high-signal Staff/Principal mechanic)
   const steps = sim.getRefactorRoadmap();
@@ -880,7 +952,14 @@ function bindUI(): UIRefs {
     btnLink: must<HTMLButtonElement>('btnLink'),
     btnUnlink: must<HTMLButtonElement>('btnUnlink'),
 
-    btnAdd: must<HTMLButtonElement>('btnAdd')
+    btnAdd: must<HTMLButtonElement>('btnAdd'),
+
+    incidentOverlay: must('incidentOverlay'),
+    incidentOverlayTitle: must('incidentOverlayTitle'),
+    incidentOverlayHint: must('incidentOverlayHint'),
+    incidentOverlayDismiss: must<HTMLButtonElement>('incidentOverlayDismiss'),
+    incidentOverlayBacklog: must<HTMLButtonElement>('incidentOverlayBacklog'),
+    incidentOverlayTriage: must<HTMLButtonElement>('incidentOverlayTriage')
   };
 }
 
