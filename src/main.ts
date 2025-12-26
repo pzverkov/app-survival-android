@@ -755,8 +755,39 @@ function syncUI() {
 }
 function bindUI(): UIRefs {
   const canvas = must<HTMLCanvasElement>('c');
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('2D context not available');
+  let ctx = canvas.getContext('2d');
+  if (!ctx) {
+    // In some CI/headless environments (notably Playwright's "chromium_headless_shell"),
+    // Canvas 2D can be unavailable and `getContext('2d')` may return null.
+    // The sim + UI should still run for deterministic E2E tests, so we fall back to a
+    // tiny no-op context that satisfies the drawing calls.
+    console.warn('[render] Canvas 2D context unavailable; running in no-render mode');
+
+    const noop = () => { /* no-op */ };
+    const dummy: any = {
+      canvas,
+      setTransform: noop,
+      clearRect: noop,
+      fillRect: noop,
+      strokeRect: noop,
+      beginPath: noop,
+      closePath: noop,
+      moveTo: noop,
+      lineTo: noop,
+      arc: noop,
+      rect: noop,
+      fill: noop,
+      stroke: noop,
+      fillText: noop,
+      save: noop,
+      restore: noop,
+      translate: noop,
+      scale: noop,
+      rotate: noop,
+      measureText: (_t: string) => ({ width: 0 }),
+    };
+    ctx = dummy as CanvasRenderingContext2D;
+  }
 
   return {
     canvas,
