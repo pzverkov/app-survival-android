@@ -770,3 +770,28 @@ html[data-glass="on"] .ticket {
   border-color: color-mix(in oklab, var(--md-sys-color-primary) 70%, white 30%);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-sys-color-primary) 18%, transparent);
 }
+
+
+.ticketRefactors {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ticketRefactors .btn {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.ticketRefactors select {
+  max-width: 360px;
+}
+
+
+/* E2E: reduce motion to avoid flaky timing in headless browsers */
+html.e2e *, html.e2e *::before, html.e2e *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}

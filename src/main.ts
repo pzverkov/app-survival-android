@@ -1,7 +1,7 @@
 import './style.css';
 import { GameSim } from './sim';
 import { addScoreEntry, clearScoreboard, loadScoreboard } from './scoreboard';
-import { MODE, Mode, ComponentType, Ticket, EvalPreset, EVAL_PRESET } from './types';
+import { MODE, Mode, ComponentType, Ticket, EvalPreset, EVAL_PRESET, RefactorAction } from './types';
 
 type ThemeMode = 'system' | 'light' | 'dark';
 const THEME_KEY = 'theme';
@@ -60,6 +60,8 @@ type UIRefs = {
   btnCopyRun: HTMLButtonElement;
   scoreboardList: HTMLElement;
   btnClearScoreboard: HTMLButtonElement;
+  roadmap: HTMLElement;
+  btnApplyNextRoadmap: HTMLButtonElement;
   fail: HTMLElement;
   anr: HTMLElement;
   lat: HTMLElement;
@@ -122,7 +124,14 @@ type UIRefs = {
 
 const sim = new GameSim();
 
+
+// E2E / CI marker (used by Playwright). Keeps tests deterministic and reduces motion flake.
+const IS_E2E = (import.meta as any).env?.VITE_E2E === '1';
+(window as any).__E2E__ = IS_E2E;
+if (IS_E2E) document.documentElement.classList.add('e2e');
+
 const refs = bindUI();
+if (IS_E2E) refs.seedInput.value = '12345';
 
 // Build info (set by CI for GitHub Pages releases)
 const sha = (import.meta.env.VITE_COMMIT_SHA ?? 'dev').toString();
@@ -209,30 +218,20 @@ function requestUISync() {
   if (uiPending) return;
   uiPending = true;
 
-  const doSync = () => {
+  const run = () => {
     uiPending = false;
     syncUI();
     renderScoreboard();
   };
 
-  // In headless/hidden contexts (CI, background tabs), `requestAnimationFrame` can be heavily
-  // throttled or paused. For testability and correctness, fall back to a macrotask so the UI
-  // still reflects simulation time.
-  const isHidden = (typeof document !== 'undefined') && document.visibilityState === 'hidden';
-
-  if (isHidden) {
-    setTimeout(doSync, 0);
-    return;
+  // In headless E2E, rAF can be throttled; prefer a macrotask so DOM updates are observable.
+  if (IS_E2E) {
+    setTimeout(run, 0);
+  } else {
+    requestAnimationFrame(run);
   }
-
-  requestAnimationFrame(doSync);
-
-  // Safety net: if rAF doesn't fire for any reason, still sync within a short window.
-  setTimeout(() => {
-    if (!uiPending) return;
-    doSync();
-  }, 100);
 }
+
 
 function scheduleSync() { requestUISync(); }
 
@@ -317,6 +316,18 @@ function renderTickets() {
         <div class="ticketBtns">
           <button class="btn text ${canFix ? '' : 'is-disabled'}" data-fix="${t.id}" ${canFix ? '' : 'disabled'}>${fixLabel}</button>
           <button class="btn text" data-defer="${t.id}">${deferLabel}</button>
+          ${t.kind === 'ARCHITECTURE_DEBT' ? `
+          <div class="ticketRefactors">
+            <select class="input mono" data-target="${t.id}" style="padding:6px 10px; border-radius:999px;">
+              <option value="">Auto-target (worst violation)</option>
+              ${sim.getArchViolations().slice(0, 8).map(v => `<option value="${v.key}">${v.reason}</option>`).join('')}
+            </select>
+            
+            ${sim.getRefactorOptions(t.id).map(o => `<button class="btn text" data-refactor="${t.id}" data-action="${o.action}" title="${o.title}
+$${o.cost} • ${o.debtDelta} debt • +${o.scoreBonus} score
+
+${o.description}">${o.action.replace('_',' ')} ($${o.cost}, ${o.debtDelta} debt)</button>`).join('')}
+          </div>` : ''}
         </div>
       </div>
     `;
@@ -336,6 +347,18 @@ function renderTickets() {
       syncUI();
     });
   });
+  refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-refactor]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const el = e.currentTarget as HTMLElement;
+      const id = Number(el.getAttribute('data-refactor'));
+      const action = el.getAttribute('data-action') as RefactorAction;
+      const sel = refs.ticketList.querySelector<HTMLSelectElement>(`select[data-target="${id}"]`);
+      const targetKey = sel ? (sel.value || undefined) : undefined;
+      sim.applyRefactor(id, action, targetKey);
+      syncUI();
+    });
+  });
+
 }
 
 function syncRunButtons() {
@@ -378,7 +401,7 @@ window.addEventListener('resize', () => {
 resize();
 
 // initialize game
-sim.reset({ width: refs.canvas.getBoundingClientRect().width, height: refs.canvas.getBoundingClientRect().height });
+sim.reset({ width: refs.canvas.getBoundingClientRect().width, height: refs.canvas.getBoundingClientRect().height }, IS_E2E ? { seed: 12345 } : undefined);
 startTickLoop();
 syncUI();
 
@@ -437,6 +460,20 @@ refs.btnClearScoreboard.onclick = () => {
   clearScoreboard();
   renderScoreboard();
   toast('Scoreboard cleared');
+};
+
+refs.btnApplyNextRoadmap.onclick = () => {  const steps = sim.getRefactorRoadmap();
+  if (!steps.length) return;
+
+  // Apply the first step using any open ARCHITECTURE_DEBT ticket.
+  const ticketId = sim.getFirstArchitectureDebtTicketId();
+  if (!ticketId) {
+    toast('No architecture debt ticket to refactor');
+    return;
+  }
+  const next = steps[0];
+  sim.applyRefactor(ticketId, next.action);
+  syncUI();
 };
 
 refs.btnAdd.onclick = () => {
@@ -695,6 +732,15 @@ function syncUI() {
 
   setText(refs.eventLog, s.eventsText);
 
+
+  // Refactor roadmap (high-signal Staff/Principal mechanic)
+  const steps = sim.getRefactorRoadmap();
+  if (!steps.length) {
+    refs.roadmap.textContent = 'No roadmap yet.';
+  } else {
+    refs.roadmap.textContent = steps.map((s, i) => `${i + 1}. ${s.title}\n   - Action: ${s.action.replace('_',' ')}\n   - Why: ${s.rationale}`).join('\n\n');
+  }
+
   // Postmortem + persistence
   if (s.lastRun) {
     refs.postmortem.textContent = s.lastRun.summaryLines.join('\n');
@@ -755,39 +801,8 @@ function syncUI() {
 }
 function bindUI(): UIRefs {
   const canvas = must<HTMLCanvasElement>('c');
-  let ctx = canvas.getContext('2d');
-  if (!ctx) {
-    // In some CI/headless environments (notably Playwright's "chromium_headless_shell"),
-    // Canvas 2D can be unavailable and `getContext('2d')` may return null.
-    // The sim + UI should still run for deterministic E2E tests, so we fall back to a
-    // tiny no-op context that satisfies the drawing calls.
-    console.warn('[render] Canvas 2D context unavailable; running in no-render mode');
-
-    const noop = () => { /* no-op */ };
-    const dummy: any = {
-      canvas,
-      setTransform: noop,
-      clearRect: noop,
-      fillRect: noop,
-      strokeRect: noop,
-      beginPath: noop,
-      closePath: noop,
-      moveTo: noop,
-      lineTo: noop,
-      arc: noop,
-      rect: noop,
-      fill: noop,
-      stroke: noop,
-      fillText: noop,
-      save: noop,
-      restore: noop,
-      translate: noop,
-      scale: noop,
-      rotate: noop,
-      measureText: (_t: string) => ({ width: 0 }),
-    };
-    ctx = dummy as CanvasRenderingContext2D;
-  }
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('2D context not available');
 
   return {
     canvas,
@@ -806,6 +821,8 @@ function bindUI(): UIRefs {
     btnCopyRun: must('btnCopyRun') as HTMLButtonElement,
     scoreboardList: must('scoreboardList'),
     btnClearScoreboard: must('btnClearScoreboard') as HTMLButtonElement,
+    roadmap: must('roadmap'),
+    btnApplyNextRoadmap: must('btnApplyNextRoadmap') as HTMLButtonElement,
     fail: must('fail'),
     anr: must('anr'),
     lat: must('lat'),
