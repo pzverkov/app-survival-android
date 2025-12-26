@@ -217,12 +217,21 @@ function toast(msg: string) {
 function requestUISync() {
   if (uiPending) return;
   uiPending = true;
-  requestAnimationFrame(() => {
+
+  const run = () => {
     uiPending = false;
     syncUI();
-renderScoreboard();
-  });
+    renderScoreboard();
+  };
+
+  // In headless E2E, rAF can be throttled; prefer a macrotask so DOM updates are observable.
+  if (IS_E2E) {
+    setTimeout(run, 0);
+  } else {
+    requestAnimationFrame(run);
+  }
 }
+
 
 function scheduleSync() { requestUISync(); }
 

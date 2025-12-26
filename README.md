@@ -199,6 +199,52 @@ Explains what automation, standards, and release process constraints would preve
 
 ## Tests
 
+## E2E marker + deterministic mode
+
+- When Playwright runs the app, it sets `VITE_E2E=1`.
+- The app then sets `window.__E2E__ = true`, disables motion (CSS), and uses an initial seed of `12345`.
+
+## Component metrics (Android terms)
+
+Internally the simulator tracks a few generic signals per component:
+
+- **Capacity** (how much work it can process per tick)
+- **Latency** (time cost for work)
+- **Failure/exception rate**
+- **Backlog** (queued work)
+
+The UI maps those to Android-meaningful labels per component type. For example, a **Repository** reports **Data calls/tick**, **I/O latency**, **Exception rate**, and **Request backlog**.
+
+## Android-tuned baselines (v14.4)
+
+Component throughput/latency/failure baselines are tuned to feel like mobile layers (e.g., Network has higher RTT + higher failure, DB has moderate latency, Repository reflects I/O orchestration, UI/VM/Domain are fast but can still crash).
+
+## Learning resources (Android + KMP)
+
+A short set of links that scales from Junior → Principal:
+
+- Android training courses (official): https://developer.android.com/courses
+- Architecture reference app (GitHub): https://github.com/android/architecture-samples
+- “Now in Android” reference app + learning journey: https://github.com/android/nowinandroid (see `docs/ArchitectureLearningJourney.md`)
+- Kotlin Multiplatform quickstart (official): https://kotlinlang.org/docs/multiplatform/quickstart.html
+- KaMPKit (KMP starter template): https://github.com/touchlab/KaMPKit
+
+### Community / Q&A
+
+- Kotlin Discussions: https://discuss.kotlinlang.org/
+- Stack Overflow tag: https://stackoverflow.com/tags/kotlin-android/info
+
+### If you’re coming from backend engineering
+
+A pragmatic learning path that usually works:
+
+1) Kotlin fundamentals + coroutines  
+2) Android app lifecycle + threading model (main thread, background work)  
+3) Architecture (state, DI, data layer) + testing  
+4) Performance/UX (jank, startup, memory) + observability  
+5) Security/privacy basics (secrets, storage, network, permissions)
+
+
 Unit tests
 Vitest covers the simulation engine for key systems such as CoverageGate and regional freeze behavior.
 
@@ -228,3 +274,8 @@ See CODE_OF_CONDUCT.md for community standards.
 ## License
 
 Apache License 2.0 See LICENSE and NOTICE files.
+
+
+## Seed
+
+Use the **Seed** card in the sidebar to replay/share deterministic runs. Enter a number and press **Reset**, or use **Daily**.
