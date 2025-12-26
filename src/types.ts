@@ -64,6 +64,12 @@ export type UIState = {
   budget: number;
   rating: number;
 
+  // Run meta
+  seed: number;
+  score: number;
+  architectureDebt: number;
+  lastRun?: RunResult;
+
   // Tech metrics
   battery: number;
   failureRate: number; // 0..1
@@ -120,7 +126,8 @@ export type TicketKind =
   | 'COMPLIANCE_US'
   | 'COMPLIANCE_UK'
   | 'STORE_REJECTION'
-  | 'TEST_COVERAGE';
+  | 'TEST_COVERAGE'
+  | 'ARCHITECTURE_DEBT';
 
 export type Ticket = {
   id: number;
@@ -163,9 +170,49 @@ export type RegionState = {
 };
 
 
+export type EndReason =
+  | 'BUDGET_DEPLETED'
+  | 'RATING_COLLAPSED';
+
+export type RunResult = {
+  runId: string;
+  seed: number;
+  preset: EvalPreset;
+  endReason: EndReason;
+  endedAtTs: number;
+  durationSec: number;
+
+  rawScore: number;
+  finalScore: number;
+  multiplier: number;
+
+  // End-of-run snapshot
+  rating: number;
+  budget: number;
+  failureRate: number;
+  anrRisk: number;
+  p95LatencyMs: number;
+  jankPct: number;
+  heapMb: number;
+
+  architectureDebt: number;
+  ticketsOpen: number;
+
+  // Human-readable postmortem
+  summaryLines: string[];
+};
+
+
+export type ScoreEntry = Pick<
+  RunResult,
+  'runId' | 'seed' | 'preset' | 'endReason' | 'endedAtTs' | 'durationSec' | 'finalScore' | 'multiplier' | 'architectureDebt' | 'rating'
+>;
+
+
 export const EVAL_PRESET = {
   JUNIOR_MID: 'JUNIOR_MID',
   SENIOR: 'SENIOR',
-  STAFF: 'STAFF'
+  STAFF: 'STAFF',
+  PRINCIPAL: 'PRINCIPAL'
 } as const;
 export type EvalPreset = typeof EVAL_PRESET[keyof typeof EVAL_PRESET];

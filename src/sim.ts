@@ -18,7 +18,8 @@ const COMPONENT_DEPS: Record<string, Array<'net' | 'image' | 'json' | 'auth' | '
   A11Y: [],
 };
 
-import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request, Ticket, TicketKind, TicketSeverity, Advisory, PlatformState, RegionState, RegionCode, EvalPreset, EVAL_PRESET } from './types';
+import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request, Ticket, TicketKind, TicketSeverity, Advisory, PlatformState, RegionState, RegionCode, EvalPreset, EVAL_PRESET, RunResult, EndReason } from './types';
+import { Rng } from './rng';
 
 export const ComponentDefs: Record<ComponentType, ComponentDef> = {
   UI:       { baseCap: 14, baseLat: 10, baseFail: 0.004, cost: 40,  upgrade: [0, 60, 90, 0],   desc: 'Screens / Compose' },
@@ -71,6 +72,15 @@ export type Bounds = { width: number; height: number };
 export class GameSim {
   private nextId = 1;
 
+
+  // Deterministic run
+  seed = 0;
+  private rng = new Rng(0xC0FFEE);
+  score = 0;
+  architectureDebt = 0; // 0..100
+  lastRun: RunResult | null = null;
+
+  private rand(): number { return this.rng.next(); }
 
   // TicketFlow
   engCapacity = 12;
@@ -180,10 +190,17 @@ export class GameSim {
 
   private queues = new Map<number, Request[]>();
 
-  reset(bounds: Bounds) {
+  reset(bounds: Bounds, opts?: { seed?: number }) {
     this.mode = MODE.SELECT;
     this.running = false;
     this.timeSec = 0;
+
+    // Deterministic seed: same seed => same run.
+    const s = (opts?.seed ?? (Date.now() & 0xffffffff)) >>> 0;
+    this.seed = s;
+    this.rng = new Rng(s);
+    this.score = 0;
+    this.architectureDebt = 0;
 
     this.budget = 3000;
     this.rating = 5.0;
@@ -258,7 +275,9 @@ export class GameSim {
   getCoverage() { return { pct: this.coveragePct, threshold: this.coverageThreshold, preset: this.preset }; }
   setPreset(p: EvalPreset) {
     this.preset = p;
-    this.coverageThreshold = (p === EVAL_PRESET.STAFF) ? 75 : 70;
+    this.coverageThreshold =
+      (p === EVAL_PRESET.PRINCIPAL) ? 80 :
+      (p === EVAL_PRESET.STAFF) ? 75 : 70;
   }
   getAdvisories(): Advisory[] { return this.advisories; }
 
@@ -286,6 +305,10 @@ export class GameSim {
       case 'TEST_COVERAGE':
         this.coveragePct = clamp(this.coveragePct + 9, 0, 100);
         this.qualityProcess = clamp(this.qualityProcess + 0.18, 0, 1);
+        break;
+      case 'ARCHITECTURE_DEBT':
+        this.architectureDebt = clamp(this.architectureDebt - 25, 0, 100);
+        this.qualityProcess = clamp(this.qualityProcess + 0.06, 0, 1);
         break;
     }
     // If this was driven by a zero-day, mark advisories mitigated faster
@@ -355,9 +378,99 @@ export class GameSim {
   link(from: number, to: number): boolean {
     if (from === to) return false;
     if (this.links.some(l => l.from === from && l.to === to)) return false;
+
+    const a = this.components.find(c => c.id === from);
+    const b = this.components.find(c => c.id === to);
+    if (!a || !b) return false;
+
+    const { ok, debtAdd, reason, blocksInPrincipal } = this.archLint(a.type, b.type);
+
+    if (!ok) {
+      // Record debt even if blocked (Principal mode).
+      if (debtAdd > 0) {
+        this.architectureDebt = clamp(this.architectureDebt + debtAdd, 0, 100);
+        this.createTicket(
+          'ARCHITECTURE_DEBT',
+          `Architecture debt: ${reason}`,
+          'Platform',
+          blocksInPrincipal ? 2 : 1,
+          40 + debtAdd * 2,
+          blocksInPrincipal ? 5 : 3
+        );
+        this.log(`Architecture debt created (${debtAdd}): ${reason}`);
+      }
+      return false;
+    }
+
+    // If link is allowed but still incurs debt (Staff tolerates, Principal may allow minor skip)
+    if (debtAdd > 0) {
+      this.architectureDebt = clamp(this.architectureDebt + debtAdd, 0, 100);
+      this.createTicket(
+        'ARCHITECTURE_DEBT',
+        `Architecture debt: ${reason}`,
+        'Platform',
+        1,
+        35 + debtAdd * 2,
+        3
+      );
+      this.log(`Architecture debt added (${debtAdd}): ${reason}`);
+    }
+
     this.links.push({ from, to });
     return true;
   }
+
+  private archLint(fromType: ComponentType, toType: ComponentType): { ok: boolean; debtAdd: number; reason: string; blocksInPrincipal: boolean } {
+    // Sidecars can be depended on from anywhere.
+    const sidecars = new Set<ComponentType>(['OBS', 'FLAGS', 'A11Y']);
+    if (sidecars.has(toType)) return { ok: true, debtAdd: 0, reason: 'sidecar ok', blocksInPrincipal: false };
+
+    const layer = (t: ComponentType): number => {
+      switch (t) {
+        case 'UI': return 0;
+        case 'VM': return 1;
+        case 'DOMAIN': return 2;
+        case 'REPO': return 3;
+        // "Data/system" layer
+        case 'CACHE':
+        case 'DB':
+        case 'NET':
+        case 'WORK':
+        case 'AUTH':
+        case 'PINNING':
+        case 'KEYSTORE':
+        case 'SANITIZER':
+        case 'ABUSE':
+          return 4;
+        default:
+          return 4;
+      }
+    };
+
+    const a = layer(fromType);
+    const b = layer(toType);
+
+    // Higher layers should depend on lower layers: UI(0)->VM(1)->DOMAIN(2)->REPO(3)->DATA(4)
+    const upward = a > b;
+    const skip = (b - a) > 1;
+
+    if (!upward && !skip) return { ok: true, debtAdd: 0, reason: 'ok', blocksInPrincipal: false };
+
+    const debtAdd = (upward ? 10 : 0) + (skip ? 6 : 0);
+    const reason =
+      upward && skip ? `${fromType} -> ${toType} (upward + layer skip)` :
+      upward ? `${fromType} -> ${toType} (upward dependency)` :
+      `${fromType} -> ${toType} (layer skip)`;
+
+    const principal = this.preset === EVAL_PRESET.PRINCIPAL;
+    // Principal blocks all upward deps and large skips; Staff allows but taxes.
+    const blocksInPrincipal = principal && (upward || (b - a) >= 3);
+    if (blocksInPrincipal) return { ok: false, debtAdd, reason, blocksInPrincipal: true };
+
+    // Allowed but taxed.
+    return { ok: true, debtAdd, reason, blocksInPrincipal: false };
+  }
+
 
   unlink(from: number, to: number): boolean {
     const before = this.links.length;
@@ -433,7 +546,7 @@ export class GameSim {
 
     // New Android release event occasionally (kept frequent for game pacing)
     if (this.timeSec > 0 && this.timeSec % 180 === 0) {
-      if (Math.random() < 0.35) {
+      if (this.rand() < 0.35) {
         this.platform.latestApi += 1;
         this.platform.pressure = clamp(this.platform.pressure + 0.65, 0, 1);
         this.addEvent(`New Android API ${this.platform.latestApi} released`);
@@ -467,10 +580,10 @@ export class GameSim {
 
     // Rare new advisory
     if (this.timeSec > 30 && this.timeSec % 210 === 0) {
-      if (Math.random() < 0.28) {
+      if (this.rand() < 0.28) {
         const deps: Advisory['dep'][] = ['net', 'image', 'json', 'auth', 'analytics'];
-        const dep = deps[Math.floor(Math.random() * deps.length)];
-        const sev: TicketSeverity = (Math.random() < 0.35 ? 3 : (Math.random() < 0.65 ? 2 : 1)) as TicketSeverity;
+        const dep = deps[this.rng.int(0, deps.length - 1)];
+        const sev: TicketSeverity = (this.rand() < 0.35 ? 3 : (this.rand() < 0.65 ? 2 : 1)) as TicketSeverity;
 
         // Determine exposure: if any placed component carries this dep, and we lack mitigations
         const hasDep = this.components.some(c => (COMPONENT_DEPS[c.type] ?? []).includes(dep));
@@ -559,7 +672,7 @@ export class GameSim {
 
     this.regPressure = clamp(weighted * 140 + (zeroDayActive ? 12 : 0), 0, 100);
 
-    if (this.regPressure > 70 && this.timeSec % 60 === 0 && Math.random() < 0.20) {
+    if (this.regPressure > 70 && this.timeSec % 60 === 0 && this.rand() < 0.20) {
       this.createTicket('STORE_REJECTION', 'Store policy risk', 'Platform', 2, 75, 5);
       this.addEvent('Policy enforcement risk increased');
       this.rating = clamp(this.rating - 0.06, 1.0, 5.0);
@@ -574,12 +687,12 @@ export class GameSim {
 
     // Enforcement: audits and fines (minimalistic)
     if (this.regPressure > 78 && this.timeSec % 75 === 0) {
-      if (Math.random() < 0.25) {
+      if (this.rand() < 0.25) {
         this.createTicket('STORE_REJECTION', 'Audit request', 'Platform', 2, 70, 5);
         this.addEvent('Audit request opened');
       }
-      if (Math.random() < 0.18) {
-        const fine = Math.round(1200 + Math.random() * 2600);
+      if (this.rand() < 0.18) {
+        const fine = Math.round(1200 + this.rand() * 2600);
         this.budget = Math.max(0, this.budget - fine);
         this.addEvent(`Regulatory fine ${fine}`);
         this.rating = clamp(this.rating - 0.08, 1.0, 5.0);
@@ -603,17 +716,26 @@ private tickCoverageGate() {
   const added = Math.max(0, compCount - this.lastCompCount);
   this.lastCompCount = compCount;
 
-  const addTax = (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.35 : (this.preset === EVAL_PRESET.SENIOR ? 0.55 : 0.70);
+  const addTax =
+    (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.35 :
+    (this.preset === EVAL_PRESET.SENIOR) ? 0.55 :
+    (this.preset === EVAL_PRESET.STAFF) ? 0.70 : 0.85;
   if (added > 0) this.coveragePct = clamp(this.coveragePct - added * addTax, 0, 100);
 
-  const baseDecay = (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.010 : (this.preset === EVAL_PRESET.SENIOR ? 0.016 : 0.022);
+  const baseDecay =
+    (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.010 :
+    (this.preset === EVAL_PRESET.SENIOR) ? 0.016 :
+    (this.preset === EVAL_PRESET.STAFF) ? 0.022 : 0.026;
   const churn = (this.platform.pressure * 0.030) + (this.regPressure / 100) * 0.010;
   const complexity = clamp(compCount / 30, 0, 1) * 0.020;
   const decay = (baseDecay + churn + complexity) * (1 - this.qualityProcess * 0.55);
   this.coveragePct = clamp(this.coveragePct - decay, 0, 100);
 
   const below = Math.max(0, this.coverageThreshold - this.coveragePct);
-  const severityW = (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.55 : (this.preset === EVAL_PRESET.SENIOR ? 1.0 : 1.20);
+  const severityW =
+    (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.55 :
+    (this.preset === EVAL_PRESET.SENIOR) ? 1.0 :
+    (this.preset === EVAL_PRESET.STAFF) ? 1.20 : 1.35;
   const penalty = clamp(below / this.coverageThreshold, 0, 1) * severityW;
   this.coverageRiskMult = 1 + penalty * 0.40;
 
@@ -734,11 +856,13 @@ private tickCoverageGate() {
         heapDelta += memCostForAction(req.type) * (isMain ? 1.0 : 0.6);
 
         let failP = n.fail;
+        // Architecture debt makes everything a bit more fragile.
+        failP *= 1.0 + (this.architectureDebt / 100) * 0.25;
         if (n.type === 'NET') failP *= 1.0 + (a.net * 0.25);
         if (n.type === 'DB')  failP *= 1.0 + (a.io * 0.20);
         if (this.hasOBS()) failP *= 0.92;
 
-        const didFail = (Math.random() < failP) || req.ttl <= 0 || n.down;
+        const didFail = (this.rand() < failP) || req.ttl <= 0 || n.down;
         if (didFail) {
           fail++;
           const blast = this.hasFLAGS() ? 0.55 : 1.0;
@@ -883,70 +1007,35 @@ private tickCoverageGate() {
 
     this.battery = clamp(this.battery + (this.running ? 0.06 : 0.12), 0, 100);
 
+    // Score: accumulate per tick while the run is alive.
+    this.score += this.calcTickScore(failureRate, anrRisk, p95);
+
     if (this.budget <= 0 || this.rating <= 1.0) {
       this.budget = Math.max(0, this.budget);
-      this.running = false;
-      this.log('RUN ENDED: budget/rating collapsed.');
+      const reason: EndReason = (this.budget <= 0) ? 'BUDGET_DEPLETED' : 'RATING_COLLAPSED';
+      this.endRun(reason, failureRate, anrRisk, p95);
     }
   }
 
+  // --- UI snapshot ----------------------------------------------------------
   // --- UI snapshot ----------------------------------------------------------
   getUIState() {
     const total = this.reqOk + this.reqFail;
     const failureRate = total > 0 ? (this.reqFail / total) : 0;
     const anrRisk = clamp(this.anrPoints / 120, 0, 1);
     const p95 = percentile(this.latSamples, 0.95);
-
-    const mainThreadMs = this.calcMainThreadMs(p95);
-
-
-
-    // HeapWatch: decay and GC
-    const cacheTier = this.tierOf('CACHE');
-    const heapDecay = 1.6 + cacheTier * 0.6;
-    const heapDelta = this.calcHeapDelta();
-    this.heapMb = clamp(this.heapMb + heapDelta - heapDecay, 0, this.heapMaxMb * 1.3);
-
-    // Trigger GC when heap is high; GC pause shows up as jank
-    this.gcPauseMs = 0;
-    const heapRatio = this.heapMb / this.heapMaxMb;
-    if (heapRatio > 0.78) {
-      this.gcPauseMs = clamp((heapRatio - 0.70) * 140, 0, 80);
-      this.heapMb = this.heapMb * 0.72;
-    }
-
-    // OOM crash
-    if (this.heapMb > this.heapMaxMb) {
-      this.oomCount += 1;
-      this.reqFail += 6;
-      this.rating = clamp(this.rating - 0.20, 1.0, 5.0);
-      this.budget = Math.max(0, this.budget - 25);
-      this.heapMb = this.heapMaxMb * 0.55;
-      this.addEvent('OOM crash');
-    }
-
-    // FrameGuard: jank estimate (how far over 16ms we go), include GC pause
-    const over = Math.max(0, (mainThreadMs + this.gcPauseMs) - this.frameBudgetMs);
-    const jankBase = clamp(over / this.frameBudgetMs, 0, 3) * 100;
-    const jankNow = clamp(jankBase * (1 + this.platform.pressure * 0.30) * (1 - this.patch.jank * 0.35) * (1 + (this.coverageRiskMult - 1) * 0.25), 0, 300);
-    this.jankPct = this.jankPct * 0.85 + jankNow * 0.15;
-
-    const sel = this.selected();
-    const selected = sel ? {
-      id: sel.id,
-      name: `${sel.type}  #${sel.id} (Tier ${sel.tier})`,
-      stats: this.describeComponent(sel),
-      canUpgrade: (sel.tier < 3) && (this.budget >= this.upgradeCost(sel)),
-      canRepair: ((sel.health < 100) || sel.down) && (this.budget >= this.repairCost(sel)),
-      canDelete: true
-    } : undefined;
-
+    const selected = this.selected();
     return {
       mode: this.mode,
       running: this.running,
       timeSec: this.timeSec,
       budget: this.budget,
       rating: this.rating,
+      seed: this.seed,
+      score: this.score,
+      architectureDebt: this.architectureDebt,
+      lastRun: this.lastRun ?? undefined,
+
       battery: this.battery,
       failureRate,
       anrRisk,
@@ -955,13 +1044,24 @@ private tickCoverageGate() {
       heapMb: this.heapMb,
       gcPauseMs: this.gcPauseMs,
       oomCount: this.oomCount,
+
       a11yScore: this.a11yScore,
       privacyTrust: this.privacyTrust,
       securityPosture: this.securityPosture,
       supportLoad: this.supportLoad,
+
       votes: { ...this.votes },
       recentReviews: [...this.recentReviews],
-      selected,
+
+      selected: selected ? {
+        id: selected.id,
+        name: selected.type,
+        stats: this.componentStats(selected),
+        canUpgrade: selected.tier < 3,
+        canRepair: selected.health < 100 || selected.down,
+        canDelete: true
+      } : undefined,
+
       eventsText: this.eventLines.length ? this.eventLines.join('\n') : 'No incidents… yet.'
     };
   }
@@ -1026,6 +1126,21 @@ private tickCoverageGate() {
     };
   }
 
+
+  private componentStats(n: Component): string {
+    // Ensure computed values are fresh.
+    this.computeComponentStats(n);
+    const out = this.outLinks(n.id).length;
+    const q = n.queue;
+    const failPct = (n.fail * 100);
+    const health = `${Math.round(n.health)}%${n.down ? ' (DOWN)' : ''}`;
+    return [
+      `Tier ${n.tier} • Health ${health}`,
+      `Cap ${n.cap.toFixed(0)} req/tick • Lat ${Math.round(n.lat)}ms • Fail ${failPct.toFixed(2)}%`,
+      `Queue ${q} • Out links ${out}`
+    ].join('\n');
+  }
+
   private computeComponentStats(n: Component) {
     const def = ComponentDefs[n.type];
     const tierMul = [0, 1.0, 1.45, 2.05][n.tier];
@@ -1085,7 +1200,7 @@ private tickCoverageGate() {
     for (const [t, p] of mix) {
       const want = base * p;
       const floor = Math.floor(want);
-      const count = floor + (Math.random() < (want - floor) ? 1 : 0);
+      const count = floor + (this.rand() < (want - floor) ? 1 : 0);
       if (count <= 0) continue;
 
       for (let i = 0; i < count; i++) {
@@ -1120,7 +1235,7 @@ private tickCoverageGate() {
 
     if (reqType === 'WRITE') {
       if (db) targets.push(db.id);
-      if (net && Math.random() < 0.25) targets.push(net.id);
+      if (net && this.rand() < 0.25) targets.push(net.id);
       return targets;
     }
 
@@ -1136,11 +1251,11 @@ private tickCoverageGate() {
     const cacheTier = cache ? cache.tier : 0;
     const baseHit = reqType === 'SEARCH' ? 0.15 : 0.40;
     const hit = clamp(baseHit + (cacheTier - 1) * 0.18, 0, 0.88);
-    const isHit = cache ? (Math.random() < hit) : false;
+    const isHit = cache ? (this.rand() < hit) : false;
 
     if (!isHit && db) targets.push(db.id);
-    if (reqType === 'SCROLL' && net && Math.random() < 0.55) targets.push(net.id);
-    if (reqType === 'SEARCH' && net && Math.random() < 0.20) targets.push(net.id);
+    if (reqType === 'SCROLL' && net && this.rand() < 0.55) targets.push(net.id);
+    if (reqType === 'SEARCH' && net && this.rand() < 0.20) targets.push(net.id);
 
     return targets.length ? targets : [outs[0].id];
   }
@@ -1150,7 +1265,7 @@ private tickCoverageGate() {
     if (this.timeSec < this.nextReviewAt) return;
 
     // schedule next wave (reviews are "bursty")
-    const nextIn = 22 + Math.floor(Math.random() * 16);
+    const nextIn = 22 + Math.floor(this.rand() * 16);
     this.nextReviewAt = this.timeSec + nextIn;
 
     const perfPenalty = clamp((p95 - 160) / 480, 0, 1) + anrRisk * 0.35;
@@ -1178,7 +1293,7 @@ private tickCoverageGate() {
         'Works great on my device. Finally.',
         'No crashes, no battery drain — chef’s kiss.'
       ];
-      const snippet = positives[Math.floor(Math.random() * positives.length)];
+      const snippet = positives[this.rng.int(0, positives.length - 1)];
       this.recentReviews.unshift(snippet);
       this.recentReviews = this.recentReviews.slice(0, 6);
       this.rating = clamp(this.rating + 0.03, 1.0, 5.0);
@@ -1236,7 +1351,7 @@ private tickCoverageGate() {
 
     // security posture influences how often weird things happen
     const incidentChance = clamp(0.44 + (1 - this.securityPosture / 100) * 0.10, 0.35, 0.60);
-    if (Math.random() > incidentChance) return;
+    if (this.rand() > incidentChance) return;
 
     this.lastEventAt = this.timeSec;
 
@@ -1250,7 +1365,7 @@ private tickCoverageGate() {
     const obsTier = this.tierOf('OBS');
 
     // Weighted roll across incident types
-    const roll = Math.random();
+    const roll = this.rand();
     const table: Array<[IncidentKind, number]> = [
       ['TRAFFIC_SPIKE',    0.18],
       ['NET_WOBBLE',       0.16],
@@ -1306,8 +1421,8 @@ private tickCoverageGate() {
 
       case 'MITM': {
         if (pinTier === 0) {
-          const p = -(18 + Math.random() * 10);
-          const s = -(22 + Math.random() * 10);
+          const p = -(18 + this.rand() * 10);
+          const s = -(22 + this.rand() * 10);
           hitTrust(p, s);
           this.netBadness = clamp(this.netBadness + 0.15, 1.0, 3.0);
           bumpSupport(10);
@@ -1376,7 +1491,7 @@ private tickCoverageGate() {
           // Damage "main thread-ish" nodes a bit and add support pain.
           for (const t of ['UI','VM','DOMAIN'] as const) {
             const n = this.components.find(n => n.type === t && !n.down);
-            if (n) n.health = clamp(n.health - (12 + Math.random() * 10), 0, 100);
+            if (n) n.health = clamp(n.health - (12 + this.rand() * 10), 0, 100);
           }
           bumpSupport(10);
           this.rating = clamp(this.rating - 0.12, 1.0, 5.0);
@@ -1390,12 +1505,12 @@ private tickCoverageGate() {
 
       case 'A11Y_REGRESSION': {
         if (a11yTier === 0) {
-          hitTrust(0, 0, -(22 + Math.random() * 10));
+          hitTrust(0, 0, -(22 + this.rand() * 10));
           bumpSupport(8);
           this.rating = clamp(this.rating - 0.10, 1.0, 5.0);
           this.log('A11y regression shipped: labels/contrast complaints (add A11y layer).');
         } else {
-          hitTrust(0, 0, -(6 + Math.random() * 6));
+          hitTrust(0, 0, -(6 + this.rand() * 6));
           bumpSupport(3);
           this.log('Minor accessibility regression caught (A11y layer helps).');
         }
@@ -1419,6 +1534,95 @@ private tickCoverageGate() {
         break;
       }
     }
+  }
+
+
+  private calcTickScore(failureRate: number, anrRisk: number, p95: number): number {
+    const stability =
+      clamp(1 - failureRate * 1.8, 0, 1) *
+      clamp(1 - anrRisk * 0.9, 0, 1) *
+      clamp(1 - (this.jankPct / 100) * 0.9, 0, 1) *
+      clamp(1 - (p95 / 450), 0, 1);
+
+    const quality =
+      clamp(this.a11yScore / 100, 0, 1) *
+      clamp(this.privacyTrust / 100, 0, 1) *
+      clamp(this.securityPosture / 100, 0, 1);
+
+    let comp = 1.0;
+    if (this.regions.length) {
+      const sumShare = this.regions.reduce((s, r) => s + r.share, 0) || 1;
+      const weighted = this.regions.reduce((s, r) => s + (r.compliance / 100) * r.share, 0) / sumShare;
+      comp = clamp(weighted, 0, 1);
+    }
+
+    const debtPenalty = 1 - (this.architectureDebt / 100) * 0.30;
+    const base = (stability * 0.60 + quality * 0.20 + comp * 0.20) * 10;
+    return clamp(base * debtPenalty, 0, 12);
+  }
+
+  private scoreMultiplier(): number {
+    if (this.preset === EVAL_PRESET.STAFF) return 1.12;
+    if (this.preset === EVAL_PRESET.PRINCIPAL) {
+      const mult = 1.22 - (this.architectureDebt / 100) * 0.50;
+      return clamp(mult, 0.72, 1.22);
+    }
+    return 1.0;
+  }
+
+  private endRun(reason: EndReason, failureRate: number, anrRisk: number, p95: number) {
+    this.running = false;
+    const mult = this.scoreMultiplier();
+    const raw = Math.max(0, this.score);
+    const finalScore = Math.round(raw * mult);
+    const runId = `${this.seed}-${Date.now()}`;
+
+    const summary: string[] = [
+      `END: ${reason.replace('_', ' ')}`,
+      `Preset: ${this.preset}`,
+      `Seed: ${this.seed}`,
+      `Duration: ${Math.floor(this.timeSec)}s`,
+      `Final score: ${finalScore} (x${mult.toFixed(2)})`,
+      `Rating: ${this.rating.toFixed(1)}★ • Budget: $${Math.round(this.budget)}`,
+      `Failure: ${(failureRate * 100).toFixed(1)}% • ANR: ${(anrRisk * 100).toFixed(1)}% • P95: ${Math.round(p95)}ms`,
+      `Jank: ${Math.round(this.jankPct)}% • Heap: ${Math.round(this.heapMb)}MB`,
+      `Architecture debt: ${Math.round(this.architectureDebt)}/100 • Tickets open: ${this.tickets.length}`,
+    ];
+
+    const top = this.tickets
+      .slice()
+      .sort((a, b) => (b.severity - a.severity) || (b.impact - a.impact) || (b.ageSec - a.ageSec))
+      .slice(0, 3);
+    if (top.length) {
+      summary.push('Top issues:');
+      for (const t of top) summary.push(`- ${t.kind}: ${t.title}`);
+    }
+
+    this.lastRun = {
+      runId,
+      seed: this.seed,
+      preset: this.preset,
+      endReason: reason,
+      endedAtTs: Date.now(),
+      durationSec: Math.floor(this.timeSec),
+      rawScore: Math.round(raw),
+      finalScore,
+      multiplier: mult,
+      rating: this.rating,
+      budget: this.budget,
+      failureRate,
+      anrRisk,
+      p95LatencyMs: p95,
+      jankPct: this.jankPct,
+      heapMb: this.heapMb,
+      architectureDebt: this.architectureDebt,
+      ticketsOpen: this.tickets.length,
+      summaryLines: summary
+    };
+
+    // Make the end visible in the on-screen log.
+    this.log('RUN ENDED.');
+    this.log(`POSTMORTEM\n${summary.join('\n')}`);
   }
 
   private log(msg: string) {

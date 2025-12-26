@@ -11,124 +11,42 @@
       <canvas id="c"></canvas>
 
       <aside class="side">
-        <h1>App Survival: Android Release Night <span class="badge">Material 3 • TS + Vite</span></h1>
+        <div class="sideHeader">
+          <h1>App Survival: Android Release Night <span class="badge">M3 • TS + Vite</span></h1>
 
-        <div class="row">
-          <button id="btnStart" class="btn filled">▶ Start</button>
-          <button id="btnPause" class="btn tonal">⏸ Pause</button>
-          <button id="btnReset" class="btn error">↺ Reset</button>
-        </div>
+          <div class="row">
+            <button id="btnStart" class="btn filled">▶ Start</button>
+            <button id="btnPause" class="btn tonal">⏸ Pause</button>
+            <button id="btnReset" class="btn error">↺ Reset</button>
+          </div>
 
-
-        <div class="row" style="margin-top:10px;">
-          <div class="pill">Theme</div>
-          <select id="themeSelect" style="margin-left:auto;">
-            <option value="system">System</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </div>
-
-        <div class="row" style="margin-top:10px;">
-          <div class="pill">Glass</div>
-          <select id="glassSelect" style="margin-left:auto;">
-            <option value="off">Off</option>
-            <option value="on">On</option>
-          </select>
-        </div>
-        <div class="hr"></div>
-
-        <div class="row">
-          <span class="pill" id="modePill">Mode: <b>Select</b></span>
-          <div class="row segmented" role="group" aria-label="Mode">
-            <button id="btnSelect" class="btn text is-selected">Select</button>
-            <button id="btnLink" class="btn text">Link</button>
-            <button id="btnUnlink" class="btn text">Unlink</button>
+          <div class="row" style="margin-top:10px; align-items:center;">
+            <span class="pill" id="modePill">Mode: <b>Select</b></span>
+            <div class="row segmented" role="group" aria-label="Mode" style="margin-left:auto;">
+              <button id="btnSelect" class="btn text is-selected">Select</button>
+              <button id="btnLink" class="btn text">Link</button>
+              <button id="btnUnlink" class="btn text">Unlink</button>
+            </div>
           </div>
         </div>
 
-        <div class="hr"></div>
-
-        
-        <section class="card">
-          <div class="k">Evaluation preset</div>
-          <div class="row" style="margin-top:8px;">
-            <select id="presetSelect">
-              <option value="JUNIOR_MID">Junior-Mid</option>
-              <option value="SENIOR">Senior</option>
-              <option value="STAFF">Staff</option>
-            </select>
-          </div>
-          <div class="small muted">CoverageGate and enforcement weight</div>
-        </section>
-
-        <div class="hr"></div>
-<section class="card">
-          <div class="k">Place component</div>
-          <div class="row" style="margin-top:8px;">
-            <select id="componentType">
-              <option value="UI">UI</option>
-              <option value="VM">ViewModel</option>
-              <option value="DOMAIN">Domain</option>
-              <option value="REPO">Repository</option>
-              <option value="CACHE">Cache</option>
-              <option value="DB">Room DB</option>
-              <option value="NET">Network</option>
-              <option value="WORK">WorkManager</option>
-              <option value="OBS">Observability</option>
-              <option value="FLAGS">Feature Flags</option>
-              <option value="AUTH">Auth / Sessions</option>
-              <option value="PINNING">TLS Pinning</option>
-              <option value="KEYSTORE">Keystore / Crypto</option>
-              <option value="SANITIZER">Input Sanitizer</option>
-              <option value="ABUSE">Abuse Protection</option>
-              <option value="A11Y">Accessibility Layer</option>
-            </select>
-            <button id="btnAdd" class="btn tonal">+ Add</button>
+        <!-- Keep "Selected" high in the panel for fast diagnosis/repair cycles -->
+        <section class="card" id="selCard">
+          <div class="k">Selected</div>
+          <div class="v mono" id="selName">None</div>
+          <pre class="small mono" id="selStats">—</pre>
+          <div class="row" style="margin-top:10px;">
+            <button id="btnUpgrade" class="btn filled" disabled>Upgrade</button>
+            <button id="btnRepair" class="btn outlined" disabled>Repair</button>
+            <button id="btnDelete" class="btn error" disabled>Delete</button>
           </div>
           <div class="small" style="margin-top:8px;">
-            Drag components to rearrange. Link mode: click <span class="mono">source</span> → click <span class="mono">destination</span>
+            Upgrades raise capacity & reliability. Repairs restore health. Both cost budget
           </div>
         </section>
-        <div class="hr"></div>
 
-        <section class="card">
-          <div class="k">Backlog</div>
-          <div class="row" style="margin-top:8px; align-items:center;">
-            <div class="pill">Capacity <span id="capVal" class="mono">0/0</span></div>
-            <div class="small muted" style="margin-left:auto;">Fix tickets or defer</div>
-          </div>
-          <div id="ticketList" class="ticketList" style="margin-top:10px;"></div>
-        </section>
-
-        <div class="hr"></div>
-
-        <section class="card">
-          <div class="k">Platform</div>
-          <div class="small" style="margin-top:8px;">
-            Latest API <span id="apiLatest" class="mono">0</span> • Min API <span id="apiMin" class="mono">0</span>
-          </div>
-          <div class="small muted" style="margin-top:4px;">
-            Old devices <span id="oldShare" class="mono">0</span>% • Low RAM <span id="lowRamShare" class="mono">0</span>%
-          </div>
-          <div id="advisoryText" class="small" style="margin-top:8px;"></div>
-        </section>
-        <div class="hr"></div>
-
-        <section class="card">
-          <div class="k">Regions</div>
-          <div class="row" style="margin-top:8px; align-items:center;">
-            <div class="pill">Reg pressure <span id="regPressure" class="mono">0</span></div>
-            <div class="small muted" style="margin-left:auto;">Compliance and rollout gates</div>
-          </div>
-          <div id="regionList" class="regionList" style="margin-top:10px;"></div>
-        </section>
-
-
-
-        <div class="hr"></div>
-
-        <section class="grid">
+        <!-- High-signal observability block -->
+        <section class="metricsGrid">
           <div class="card">
             <div class="k">Budget</div>
             <div class="v mono" id="budget">$500</div>
@@ -143,6 +61,16 @@
             <div class="k">Rating</div>
             <div class="v mono" id="rating">5.0 ★</div>
             <div class="small">Drops from failures / ANRs / slow</div>
+          </div>
+          <div class="card">
+            <div class="k">Score</div>
+            <div class="v mono" id="score">0</div>
+            <div class="small">Deterministic per seed</div>
+          </div>
+          <div class="card">
+            <div class="k">Architecture</div>
+            <div class="v mono" id="archDebt">0</div>
+            <div class="small">Debt (0..100)</div>
           </div>
           <div class="card">
             <div class="k">Failures</div>
@@ -192,24 +120,93 @@
           </div>
         </section>
 
-        <div class="hr"></div>
+        <!-- Setup & controls: these become a 2-col grid on wider viewports -->
+        <div class="sideGroup">
+          <section class="card">
+            <div class="k">Evaluation preset</div>
+            <div class="row" style="margin-top:8px;">
+              <select id="presetSelect">
+                <option value="JUNIOR_MID">Junior-Mid</option>
+                <option value="SENIOR">Senior</option>
+                <option value="STAFF">Staff</option>
+                <option value="PRINCIPAL">Principal</option>
+              </select>
+            </div>
+            <div class="small muted" style="margin-top:8px;">CoverageGate and enforcement weight</div>
+          </section>
 
-        <section class="card" id="selCard">
-          <div class="k">Selected</div>
-          <div class="v mono" id="selName">None</div>
-          <pre class="small mono" id="selStats">—</pre>
-          <div class="row" style="margin-top:10px;">
-            <button id="btnUpgrade" class="btn filled" disabled>Upgrade</button>
-            <button id="btnRepair" class="btn outlined" disabled>Repair</button>
-            <button id="btnDelete" class="btn error" disabled>Delete</button>
+          <!-- Seed controls (required by src/main.ts). Kept lightweight so runs can be shared/replayed. -->
+          <section class="card">
+            <div class="k">Seed</div>
+            <div class="small" style="margin-top:8px;">
+              Active: <span id="seedVal" class="mono">0</span>
+            </div>
+            <div class="row" style="margin-top:8px; gap:8px;">
+              <input id="seedInput" class="input" style="flex:1;" placeholder="Seed (optional)" />
+              <button id="btnDailySeed" class="btn text" title="Use a deterministic daily seed">Daily</button>
+            </div>
+            <div class="small muted" style="margin-top:8px;">Reset uses the seed above (if set).</div>
+          </section>
+
+          <section class="card">
+            <div class="k">Place component</div>
+            <div class="row" style="margin-top:8px;">
+              <select id="componentType">
+                <option value="UI">UI</option>
+                <option value="VM">ViewModel</option>
+                <option value="DOMAIN">Domain</option>
+                <option value="REPO">Repository</option>
+                <option value="CACHE">Cache</option>
+                <option value="DB">Room DB</option>
+                <option value="NET">Network</option>
+                <option value="WORK">WorkManager</option>
+                <option value="OBS">Observability</option>
+                <option value="FLAGS">Feature Flags</option>
+                <option value="AUTH">Auth / Sessions</option>
+                <option value="PINNING">TLS Pinning</option>
+                <option value="KEYSTORE">Keystore / Crypto</option>
+                <option value="SANITIZER">Input Sanitizer</option>
+                <option value="ABUSE">Abuse Protection</option>
+                <option value="A11Y">Accessibility Layer</option>
+              </select>
+              <button id="btnAdd" class="btn tonal">+ Add</button>
+            </div>
+            <div class="small" style="margin-top:8px;">
+              Drag components to rearrange. Link mode: click <span class="mono">source</span> → click <span class="mono">destination</span>
+            </div>
+          </section>
+        </div>
+
+        <section class="card">
+          <div class="k">Backlog</div>
+          <div class="row" style="margin-top:8px; align-items:center;">
+            <div class="pill">Capacity <span id="capVal" class="mono">0/0</span></div>
+            <div class="small muted" style="margin-left:auto;">Fix tickets or defer</div>
           </div>
-          <div class="small" style="margin-top:8px;">
-            Upgrades raise capacity & reliability. Repairs restore health. Both cost budget
-          </div>
+          <div id="ticketList" class="ticketList" style="margin-top:10px;"></div>
         </section>
 
-        
-        <div class="hr"></div>
+        <div class="sideGroup">
+          <section class="card">
+            <div class="k">Platform</div>
+            <div class="small" style="margin-top:8px;">
+              Latest API <span id="apiLatest" class="mono">0</span> • Min API <span id="apiMin" class="mono">0</span>
+            </div>
+            <div class="small muted" style="margin-top:4px;">
+              Old devices <span id="oldShare" class="mono">0</span>% • Low RAM <span id="lowRamShare" class="mono">0</span>%
+            </div>
+            <div id="advisoryText" class="small" style="margin-top:8px;"></div>
+          </section>
+
+          <section class="card">
+            <div class="k">Regions</div>
+            <div class="row" style="margin-top:8px; align-items:center;">
+              <div class="pill">Reg pressure <span id="regPressure" class="mono">0</span></div>
+              <div class="small muted" style="margin-left:auto;">Compliance and rollout gates</div>
+            </div>
+            <div id="regionList" class="regionList" style="margin-top:10px;"></div>
+          </section>
+        </div>
 
         <section class="card">
           <div class="k">User votes (live sentiment)</div>
@@ -223,14 +220,30 @@
           <pre class="small" id="reviewLog" style="margin-top:8px;">No reviews yet.</pre>
         </section>
 
-        <div class="hr"></div>
-
         <section class="card">
           <div class="k">Incidents</div>
           <pre class="small" id="eventLog">No incidents… yet.</pre>
         </section>
+        <section class="card">
+          <div class="row" style="align-items:center;">
+            <div class="k">Postmortem</div>
+            <div style="margin-left:auto;">
+              <button id="btnCopyRun" class="btn text">Copy run JSON</button>
+            </div>
+          </div>
+          <pre class="small" id="postmortem">No run yet.</pre>
+        </section>
 
-        <div class="hr"></div>
+        <section class="card">
+          <div class="row" style="align-items:center;">
+            <div class="k">Scoreboard (local)</div>
+            <div style="margin-left:auto;">
+              <button id="btnClearScoreboard" class="btn text">Clear</button>
+            </div>
+          </div>
+          <div class="small muted" style="margin-top:6px;">Top runs stored in localStorage.</div>
+          <pre class="small" id="scoreboardList" style="margin-top:8px;">No scores yet.</pre>
+        </section>
 
         <section class="card">
           <div class="k">Android realism features (implemented)</div>
@@ -241,13 +254,32 @@
           </ol>
         </section>
 
-        <div class="hr"></div>
-
         <p class="small">
           Recommended starter graph: <span class="mono">UI → VM → Domain → Repo → (Cache → DB)</span> and <span class="mono">Repo → Net</span>.
           Add <span class="mono">Observability</span> + <span class="mono">Feature Flags</span> to reduce blast radius
         </p>
-      <div id="buildInfo" class="small mono" style="opacity:.75; margin-top:10px;"></div>
+
+        <!-- Footer: keep theme controls at the bottom, away from the "hot path" -->
+        <div class="sideFooter">
+          <div class="row" style="align-items:center;">
+            <div class="pill">Theme</div>
+            <select id="themeSelect" style="margin-left:auto;">
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+
+          <div class="row" style="margin-top:10px; align-items:center;">
+            <div class="pill">Glass</div>
+            <select id="glassSelect" style="margin-left:auto;">
+              <option value="off">Off</option>
+              <option value="on">On</option>
+            </select>
+          </div>
+
+          <div id="buildInfo" class="small mono" style="opacity:.75; margin-top:10px;"></div>
+        </div>
 
       </aside>
     </div>
