@@ -1,5 +1,6 @@
 import './style.css';
 import { GameSim } from './sim';
+import { addScoreEntry, clearScoreboard, loadScoreboard } from './scoreboard';
 import { MODE, Mode, ComponentType, Ticket, EvalPreset, EVAL_PRESET } from './types';
 
 type ThemeMode = 'system' | 'light' | 'dark';
@@ -50,6 +51,15 @@ type UIRefs = {
   budget: HTMLElement;
   time: HTMLElement;
   rating: HTMLElement;
+  score: HTMLElement;
+  archDebt: HTMLElement;
+  seedVal: HTMLElement;
+  seedInput: HTMLInputElement;
+  btnDailySeed: HTMLButtonElement;
+  postmortem: HTMLElement;
+  btnCopyRun: HTMLButtonElement;
+  scoreboardList: HTMLElement;
+  btnClearScoreboard: HTMLButtonElement;
   fail: HTMLElement;
   anr: HTMLElement;
   lat: HTMLElement;
@@ -119,6 +129,8 @@ const sha = (import.meta.env.VITE_COMMIT_SHA ?? 'dev').toString();
 const shortSha = sha === 'dev' ? 'dev' : sha.slice(0, 7);
 refs.buildInfo.textContent = `Build ${shortSha} • base ${import.meta.env.BASE_URL}`;
 
+let lastSavedRunId: string | null = null;
+
 
 // Preset (difficulty expectations)
 refs.presetSelect.value = EVAL_PRESET.SENIOR;
@@ -160,12 +172,46 @@ let lastRegionsRenderMs = 0;
 
 function setText(el: HTMLElement, v: string) { if (el.textContent !== v) el.textContent = v; }
 function setHTML(el: HTMLElement, v: string) { if (el.innerHTML !== v) el.innerHTML = v; }
+
+function toast(msg: string) {
+  const id = 'toast-host';
+  let host = document.getElementById(id);
+  if (!host) {
+    host = document.createElement('div');
+    host.id = id;
+    host.style.position = 'fixed';
+    host.style.left = '50%';
+    host.style.bottom = '18px';
+    host.style.transform = 'translateX(-50%)';
+    host.style.zIndex = '9999';
+    document.body.appendChild(host);
+  }
+
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.padding = '10px 12px';
+  el.style.borderRadius = '12px';
+  el.style.marginTop = '8px';
+  el.style.background = 'rgba(20,24,34,0.92)';
+  el.style.border = '1px solid rgba(255,255,255,0.14)';
+  el.style.color = 'rgba(255,255,255,0.92)';
+  el.style.font = '12px system-ui';
+  el.style.backdropFilter = 'blur(8px)';
+  (host as HTMLElement).appendChild(el);
+
+  setTimeout(() => {
+    el.style.transition = 'opacity 220ms ease';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 260);
+  }, 1100);
+}
 function requestUISync() {
   if (uiPending) return;
   uiPending = true;
   requestAnimationFrame(() => {
     uiPending = false;
     syncUI();
+renderScoreboard();
   });
 }
 
@@ -329,13 +375,50 @@ refs.btnPause.onclick = () => {
 };
 refs.btnReset.onclick = () => {
   sim.running = false;
-  sim.reset({ width: refs.canvas.getBoundingClientRect().width, height: refs.canvas.getBoundingClientRect().height });
+  const seedStr = (refs.seedInput.value ?? '').trim();
+  const seed = seedStr ? Number(seedStr) : undefined;
+  sim.reset(
+    { width: refs.canvas.getBoundingClientRect().width, height: refs.canvas.getBoundingClientRect().height },
+    (seed !== undefined && Number.isFinite(seed)) ? { seed } : undefined
+  );
   syncUI();
 };
+refs.btnDailySeed.onclick = () => {
+  // Deterministic daily seed (UTC date) so people can compare runs.
+  const d = new Date();
+  const y = d.getUTCFullYear();
+  const m = (d.getUTCMonth() + 1);
+  const day = d.getUTCDate();
+  const daily = (y * 10000 + m * 100 + day) >>> 0;
+  refs.seedInput.value = String(daily);
+  sim.running = false;
+  sim.reset({ width: refs.canvas.getBoundingClientRect().width, height: refs.canvas.getBoundingClientRect().height }, { seed: daily });
+  syncUI();
+};
+
 
 refs.btnSelect.onclick = () => setMode(MODE.SELECT);
 refs.btnLink.onclick = () => setMode(MODE.LINK);
 refs.btnUnlink.onclick = () => setMode(MODE.UNLINK);
+
+refs.btnCopyRun.onclick = async () => {
+  const s = sim.getUIState();
+  if (!s.lastRun) return;
+  const txt = JSON.stringify(s.lastRun, null, 2);
+  try {
+    await navigator.clipboard.writeText(txt);
+    toast('Run JSON copied');
+  } catch {
+    // Fallback: prompt
+    window.prompt('Copy run JSON:', txt);
+  }
+};
+
+refs.btnClearScoreboard.onclick = () => {
+  clearScoreboard();
+  renderScoreboard();
+  toast('Scoreboard cleared');
+};
 
 refs.btnAdd.onclick = () => {
   const type = refs.componentType.value as ComponentType;
@@ -523,18 +606,36 @@ function draw() {
   // hint
   refs.ctx.fillStyle = 'rgba(255,255,255,.28)';
   refs.ctx.font = '12px system-ui';
+  // The component labels set textAlign = 'center' above.
+  // Reset to left here so the hint doesn't get clipped off-screen.
+  refs.ctx.textAlign = 'left';
+  refs.ctx.textBaseline = 'top';
   const hint =
     sim.mode === MODE.LINK
       ? 'Link mode: click source → destination'
       : sim.mode === MODE.UNLINK
         ? 'Unlink mode: click source → destination'
         : 'Select mode: drag components, click to select';
-  refs.ctx.fillText(hint, 16, 20);
+  refs.ctx.fillText(hint, 16, 12);
 
   requestAnimationFrame(draw);
 }
 
 requestAnimationFrame(draw);
+
+
+function renderScoreboard() {
+  const entries = loadScoreboard();
+  if (!entries.length) {
+    refs.scoreboardList.textContent = 'No scores yet.';
+    return;
+  }
+  const lines = entries.slice(0, 12).map((e, i) => {
+    const when = new Date(e.endedAtTs).toLocaleString();
+    return `${String(i + 1).padStart(2, '0')}. ${e.finalScore} pts • ${e.preset} • debt ${Math.round(e.architectureDebt)}/100 • rating ${e.rating.toFixed(1)}★ • ${e.durationSec}s • seed ${e.seed} • ${e.endReason} • ${when}`;
+  });
+  refs.scoreboardList.textContent = lines.join('\n');
+}
 
 function syncUI() {
   const s = sim.getUIState();
@@ -548,6 +649,9 @@ function syncUI() {
   setText(refs.budget, `$${s.budget.toFixed(0)}`);
   setText(refs.time, `${s.timeSec}s`);
   setText(refs.rating, `${s.rating.toFixed(1)} ★`);
+  setText(refs.seedVal, `${s.seed}`);
+  setText(refs.score, `${Math.round(s.score)}`);
+  setText(refs.archDebt, `${Math.round(s.architectureDebt)}`);
   setText(refs.fail, `${(s.failureRate * 100).toFixed(1)}%`);
   setText(refs.anr, `${(s.anrRisk * 100).toFixed(1)}%`);
   setText(refs.lat, `${Math.round(s.p95LatencyMs)} ms`);
@@ -571,6 +675,30 @@ function syncUI() {
   setText(refs.reviewLog, s.recentReviews.length ? s.recentReviews.join('\n') : 'No reviews yet.');
 
   setText(refs.eventLog, s.eventsText);
+
+  // Postmortem + persistence
+  if (s.lastRun) {
+    refs.postmortem.textContent = s.lastRun.summaryLines.join('\n');
+
+    if (s.lastRun.runId && s.lastRun.runId !== lastSavedRunId) {
+      lastSavedRunId = s.lastRun.runId;
+      addScoreEntry({
+        runId: s.lastRun.runId,
+        seed: s.lastRun.seed,
+        preset: s.lastRun.preset,
+        endReason: s.lastRun.endReason,
+        endedAtTs: s.lastRun.endedAtTs,
+        durationSec: s.lastRun.durationSec,
+        finalScore: s.lastRun.finalScore,
+        multiplier: s.lastRun.multiplier,
+        architectureDebt: s.lastRun.architectureDebt,
+        rating: s.lastRun.rating,
+      });
+      renderScoreboard();
+    }
+  } else {
+    refs.postmortem.textContent = 'No run yet.';
+  }
   refs.eventLog.classList.add('mono');
 
   if (!s.selected) {
@@ -619,6 +747,15 @@ function bindUI(): UIRefs {
     budget: must('budget'),
     time: must('time'),
     rating: must('rating'),
+    score: must('score'),
+    archDebt: must('archDebt'),
+    seedVal: must('seedVal'),
+    seedInput: must('seedInput') as HTMLInputElement,
+    btnDailySeed: must('btnDailySeed') as HTMLButtonElement,
+    postmortem: must('postmortem'),
+    btnCopyRun: must('btnCopyRun') as HTMLButtonElement,
+    scoreboardList: must('scoreboardList'),
+    btnClearScoreboard: must('btnClearScoreboard') as HTMLButtonElement,
     fail: must('fail'),
     anr: must('anr'),
     lat: must('lat'),
@@ -699,4 +836,3 @@ refs.glassSelect.addEventListener('change', () => {
   localStorage.setItem(GLASS_KEY, g);
   applyGlass(g);
 });
-

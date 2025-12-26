@@ -83,7 +83,13 @@
 html, body {
   height: 100%;
   background: var(--md-sys-color-background);
+}
 
+/* Canvas background tokens (so theme switching is obvious) */
+:root {
+  --canvas-bg-1: #18223a;
+  --canvas-bg-2: #070a10;
+}
 
 /* Theme: Light palette (system preference) */
 @media (prefers-color-scheme: light) {
@@ -131,6 +137,9 @@ html, body {
     --glass-border: rgba(0,0,0,0.14);
     --glass-highlight: rgba(255,255,255,0.68);
     --glass-shadow: 0 18px 60px rgba(0,0,0,0.12);
+
+    --canvas-bg-1: #e9e2f5;
+    --canvas-bg-2: #faf7ff;
   }
 }
 
@@ -185,7 +194,9 @@ html[data-theme="light"] {
   --glass-border: rgba(0,0,0,0.14);
   --glass-highlight: rgba(255,255,255,0.68);
   --glass-shadow: 0 18px 60px rgba(0,0,0,0.12);
-}
+
+  --canvas-bg-1: #e9e2f5;
+  --canvas-bg-2: #faf7ff;
 }
 
 body {
@@ -203,13 +214,20 @@ body {
   height: 100vh;
 }
 
+/* Give the side panel more room on large viewports so it can become a true “two-column” control surface */
+@media (min-width: 1400px) {
+  .wrap {
+    grid-template-columns: 1fr 520px;
+  }
+}
+
 canvas {
   display: block;
   width: 100%;
   height: 100%;
   cursor: crosshair;
   background:
-    radial-gradient(1200px 700px at 30% 20%, #18223a, #070a10);
+    radial-gradient(1200px 700px at 30% 20%, var(--canvas-bg-1), var(--canvas-bg-2));
 }
 
 /* Right panel (like a persistent “details” sheet) */
@@ -217,10 +235,37 @@ canvas {
   border-left: 1px solid var(--md-sys-color-outline-variant);
   padding: var(--md-pad-3) var(--md-pad-3) var(--md-pad-4);
   overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   background:
     linear-gradient(180deg,
       rgba(255,255,255,0.025) 0%,
       rgba(255,255,255,0.020) 100%);
+}
+
+.sideHeader {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding-bottom: 10px;
+  background: var(--glass-bg);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-large);
+  box-shadow: var(--md-elevation-1);
+  backdrop-filter: blur(10px);
+}
+
+.sideHeader > * {
+  padding: 0 12px;
+}
+
+.sideHeader h1 {
+  padding-top: 10px;
+}
+
+.sideHeader .row:last-child {
+  padding-bottom: 10px;
 }
 
 .side::before {
@@ -272,10 +317,23 @@ h1 {
   flex-wrap: wrap;
 }
 
-.grid {
+/* High-signal metrics block: adapts from 2 cols to 3/4 based on available width */
+.metricsGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
+}
+
+/* Generic grouping that becomes 2 columns when there is enough width */
+.sideGroup {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.sideFooter {
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  padding-top: 12px;
 }
 
 .hr {
@@ -696,4 +754,19 @@ html[data-glass="on"] .ticket {
     backdrop-filter: none;
     background: var(--md-sys-color-surface-container);
   }
+}
+
+
+/* Minimal input styling matching the buttons/selects */
+.input {
+  background: color-mix(in oklab, var(--md-sys-color-surface) 88%, black 12%);
+  border: 1px solid color-mix(in oklab, var(--md-sys-color-outline) 70%, transparent);
+  color: var(--md-sys-color-on-surface);
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+}
+.input:focus {
+  border-color: color-mix(in oklab, var(--md-sys-color-primary) 70%, white 30%);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-sys-color-primary) 18%, transparent);
 }
