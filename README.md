@@ -1,8 +1,8 @@
-# app-survival-android (web game, TypeScript, Node.js, Vite)
+# ResilientMind - Android (web game, TypeScript, Node.js, Vite)
 
 ## Project
 
-App Survival Android Release Night is a web based simulation game inspired by real Android production incidents. It compresses production constraints into a playable loop: design an architecture graph, ship under pressure, and keep user sentiment, reliability, security, and compliance from collapsing at the same time.
+App Survival ResilientMind - Android is a web-based simulation game inspired by real Android production incidents. It compresses production constraints into a playable loop: design an architecture graph, ship under pressure, and maintain user sentiment, reliability, security, and compliance simultaneously.
 
 Inspired by Server Survival by pshenok at https://pshenok.github.io/server-survival/ This project is an original implementation and is not affiliated with the original author. No code or assets were copied from the original project.
 
@@ -11,9 +11,9 @@ https://pzverkov.github.io/app-survival-android/
 
 ## Purpose
 
-This project is designed to be usable for Android developer skill evaluation, with emphasis on Senior, Staff, and Principal level production thinking. It targets real world trade offs across performance, reliability, background execution, security and privacy, accessibility, observability, incident response, and multi region policy pressure.
+This project is designed to be usable for Android developer skill evaluation, with emphasis on Senior, Staff, and Principal-level production thinking. It targets real-world trade-offs across performance, reliability, background execution, security and privacy, accessibility, observability, incident response, and multi region policy pressure.
 
-The simulation core is written in TypeScript and intentionally kept separate from UI rendering so it can be ported to a Kotlin and Android implementation later.
+The simulation core is written in TypeScript and intentionally kept separate from UI rendering so it can be ported to Kotlin and Android implementation later.
 
 ## Key concepts
 
@@ -21,7 +21,7 @@ Components represent Android subsystems and capability layers such as UI, ViewMo
 
 Actions represent user and system behaviors such as scroll, read, write, search, upload, and sync. Some actions can be satisfied via cache while others must hit DB or network.
 
-Incidents simulate production failure modes including traffic spikes, backend failures, background restrictions, regression waves, zero day advisory pressure, accessibility regressions, and policy enforcement.
+Incidents simulate production failure modes, including traffic spikes, backend failures, background restrictions, regression waves, zero day advisory pressure, accessibility regressions, and policy enforcement.
 
 Review waves simulate user sentiment and category votes. A fast app can still lose rating if privacy trust, accessibility, or compliance drifts below baseline.
 
@@ -33,7 +33,7 @@ FrameGuard
 Frame budget and jank pressure. UI work that looks cheap on paper becomes expensive under load.
 
 MainThreadGuard
-Main thread strictness and ANR style pressure. IO on main creates cascading failure risk.
+Main thread strictness and ANR style pressure. IO on the main creates a cascading failure risk.
 
 HeapWatch
 Memory pressure, GC pauses, and OOM risk. High churn and image realism punish sloppy allocation patterns.
@@ -42,7 +42,7 @@ TicketFlow
 Open bug tickets with severity, impact, effort, and aging. Fixing consumes engineering capacity. Deferral is allowed but has compounding cost through support load and rating pressure.
 
 ZeroDayPulse
-Zero day advisory pressure tied to dependency exposure and mitigations. Unpatched exposure drags security posture and privacy trust quickly.
+Zero-day advisory pressure tied to dependency exposure and mitigations. Unpatched exposure drags security posture and privacy trust quickly.
 
 PlatformPulse
 Android platform churn and compatibility pressure across time. The device mix shifts, deprecations bite, and regression risk increases if you under invest in resilience.
@@ -58,7 +58,7 @@ A simplified Android test coverage proxy. Coverage drifts down as complexity and
 Presets adjust expectations:
 Junior Mid is forgiving
 Senior penalizes low coverage meaningfully
-Staff holds a higher threshold and punishes sustained debt
+Staff hold a higher threshold and punish sustained debt
 Principal expects the strictest bar (higher effective threshold and heavier enforcement) to reflect org scale release risk
 
 ## UI and experience
@@ -69,7 +69,7 @@ System, Light, Dark theme modes with persisted preference. Native controls follo
 LiquidGlass
 Optional glass surfaces with blur and saturation when supported. Disabled automatically when unsupported and respects reduced transparency preferences.
 
-Performance conscious UI
+Performance-conscious UI
 UI updates are scheduled and throttled to reduce DOM churn and GC pressure. Large lists avoid unnecessary re render work.
 
 ## How to run locally
@@ -129,17 +129,17 @@ Local scoreboard
 Architecture rules and debt (Clean Architecture “gameified”)
 - The linker enforces a layered model (UI → VM → DOMAIN → REPO → DATA). “Sidecars” (OBS/FLAGS/A11Y) can be depended on from anywhere.
 - Breaking the rules creates **ARCHITECTURE_DEBT** tickets and increases an **Architecture debt (0..100)** meter.
-- Debt increases fragility and drags down score until you pay it down.
+- Debt increases fragility and drags down the score until you pay it down.
 
 Refactor quests (for ARCHITECTURE_DEBT tickets)
 Architecture debt tickets come with refactor actions (quests) that cost budget and reduce debt:
-- **ADD_BOUNDARY**: dependency inversion / interfaces at boundaries
+- **ADD_BOUNDARY**: dependency inversion/interfaces at boundaries
 - **MOVE_MAPPING**: push DTO/mapping to the proper layer, kill shortcuts
-- **SPLIT_REPO**: reduce blast radius by splitting “god repos”
+- **SPLIT_REPO**: reduce blast radius by splitting “god repos.”
 - **FEATURE_MODULE**: isolate transitive dependencies behind a module boundary
 
 Targeted refactors
-- For architecture debt tickets you can select a specific illegal edge (upward dependency / layer skip) from a dropdown.
+- For architecture debt tickets, you can select a specific illegal edge (upward dependency/layer skip) from a dropdown.
 - If you don’t select an edge, the game auto-targets the “worst” violation.
 
 Refactor Roadmap
@@ -206,7 +206,7 @@ Explains what automation, standards, and release process constraints would preve
 
 ## Component metrics (Android terms)
 
-Internally the simulator tracks a few generic signals per component:
+Internally, the simulator tracks a few generic signals per component:
 
 - **Capacity** (how much work it can process per tick)
 - **Latency** (time cost for work)
