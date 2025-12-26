@@ -10,9 +10,9 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    // CI often sets VITE_BASE for GitHub Pages (e.g. "/<repo>/").
+        // CI often sets VITE_BASE for GitHub Pages (e.g. "/<repo>/").
     // For E2E we always want a root-served app so assets resolve.
-    command: 'VITE_BASE=/ npm run build && VITE_BASE=/ npm run preview -- --host 127.0.0.1 --port 4173',
+    command: 'VITE_BASE=/ VITE_E2E=1 npm run build && VITE_BASE=/ VITE_E2E=1 npm run preview -- --host 127.0.0.1 --port 4173',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

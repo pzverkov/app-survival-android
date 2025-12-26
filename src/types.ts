@@ -170,6 +170,40 @@ export type RegionState = {
 };
 
 
+
+
+export type ArchViolation = {
+  key: string; // `${fromId}->${toId}`
+  fromId: number;
+  toId: number;
+  fromType: ComponentType;
+  toType: ComponentType;
+  kind: 'UPWARD' | 'SKIP' | 'UPWARD_SKIP';
+  reason: string;
+  severityScore: number;
+};
+
+export type RefactorRoadmapStep = {
+  action: RefactorAction;
+  title: string;
+  rationale: string;
+};
+
+export type RefactorAction =
+  | 'ADD_BOUNDARY'
+  | 'MOVE_MAPPING'
+  | 'SPLIT_REPO'
+  | 'FEATURE_MODULE';
+
+export type RefactorOption = {
+  action: RefactorAction;
+  title: string;
+  description: string;
+  cost: number;       // budget cost
+  debtDelta: number;  // negative reduces debt
+  scoreBonus: number; // immediate score bonus (reward architecture work)
+};
+
 export type EndReason =
   | 'BUDGET_DEPLETED'
   | 'RATING_COLLAPSED';

@@ -18,33 +18,37 @@ const COMPONENT_DEPS: Record<string, Array<'net' | 'image' | 'json' | 'auth' | '
   A11Y: [],
 };
 
-import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request, Ticket, TicketKind, TicketSeverity, Advisory, PlatformState, RegionState, RegionCode, EvalPreset, EVAL_PRESET, RunResult, EndReason } from './types';
+import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request, Ticket, TicketKind, TicketSeverity, Advisory, PlatformState, RegionState, RegionCode, EvalPreset, EVAL_PRESET, RunResult, EndReason, RefactorOption, RefactorAction, ArchViolation, RefactorRoadmapStep } from './types';
 import { Rng } from './rng';
 
 export const ComponentDefs: Record<ComponentType, ComponentDef> = {
-  UI:       { baseCap: 14, baseLat: 10, baseFail: 0.004, cost: 40,  upgrade: [0, 60, 90, 0],   desc: 'Screens / Compose' },
-  VM:       { baseCap: 12, baseLat:  8, baseFail: 0.003, cost: 45,  upgrade: [0, 70, 110, 0],  desc: 'State holder, throttling' },
-  DOMAIN:   { baseCap: 11, baseLat:  9, baseFail: 0.003, cost: 55,  upgrade: [0, 80, 120, 0],  desc: 'UseCases / business rules' },
-  REPO:     { baseCap: 10, baseLat: 10, baseFail: 0.004, cost: 70,  upgrade: [0, 95, 140, 0],  desc: 'Source of truth, routing' },
-  CACHE:    { baseCap: 16, baseLat:  3, baseFail: 0.002, cost: 90,  upgrade: [0, 120, 170, 0], desc: 'Memory/disk cache (hit rate upgrades)' },
-  DB:       { baseCap:  8, baseLat: 20, baseFail: 0.006, cost: 120, upgrade: [0, 160, 220, 0], desc: 'Room DB (indices matter)' },
-  NET:      { baseCap:  9, baseLat: 25, baseFail: 0.010, cost: 110, upgrade: [0, 150, 210, 0], desc: 'OkHttp/Retrofit (retries can bite)' },
-  WORK:     { baseCap:  6, baseLat: 18, baseFail: 0.008, cost: 80,  upgrade: [0, 120, 170, 0], desc: 'WorkManager (battery risk)' },
+  // Core layers (Android mental model, not backend microservices)
+  UI:     { baseCap: 18, baseLat:  6,  baseFail: 0.0025, cost: 40,  upgrade: [0, 65, 95, 0],  desc: 'Screens / Compose (main-thread budget)' },
+  VM:     { baseCap: 14, baseLat:  4,  baseFail: 0.0022, cost: 55,  upgrade: [0, 70, 105, 0], desc: 'ViewModel (state + throttling)' },
+  DOMAIN: { baseCap: 12, baseLat:  6,  baseFail: 0.0026, cost: 60,  upgrade: [0, 75, 115, 0], desc: 'UseCases (business rules)' },
+  REPO:   { baseCap:  7, baseLat: 26,  baseFail: 0.0038, cost: 75,  upgrade: [0, 95, 140, 0], desc: 'Repository (I/O orchestration + caching policy)' },
 
-  // Sidecars (mostly reduce incident impact)
-  OBS:      { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 60,  upgrade: [0, 80, 110, 0],  desc: 'Observability (lower failure impact, cheaper repairs)' },
-  FLAGS:    { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 60,  upgrade: [0, 80, 110, 0],  desc: 'Feature flags (reduce blast radius / rollback)' },
+  // Data/system
+  CACHE:  { baseCap: 12, baseLat:  4,  baseFail: 0.0020, cost: 95,  upgrade: [0, 120, 170, 0], desc: 'Cache (memory/disk; hit rate matters)' },
+  DB:     { baseCap:  4, baseLat: 42,  baseFail: 0.0065, cost: 130, upgrade: [0, 170, 240, 0], desc: 'Room DB (schema/indices/transactions)' },
+  NET:    { baseCap:  3, baseLat: 140, baseFail: 0.0180, cost: 125, upgrade: [0, 160, 230, 0], desc: 'Network (OkHttp/Retrofit; retries/timeouts)' },
+  WORK:   { baseCap:  2, baseLat: 90,  baseFail: 0.0100, cost: 85,  upgrade: [0, 120, 175, 0], desc: 'WorkManager (constraints + battery)' },
 
-  // Security + trust features
-  AUTH:     { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 75,  upgrade: [0, 110, 160, 0], desc: 'Auth & sessions (limits token/replay damage)' },
-  PINNING:  { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 85,  upgrade: [0, 120, 175, 0], desc: 'TLS pinning (blocks MITM; cert rotations hurt if weak)' },
-  KEYSTORE: { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 95,  upgrade: [0, 130, 190, 0], desc: 'Keystore/Crypto (protects data-at-rest)' },
-  SANITIZER:{ baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 70,  upgrade: [0, 105, 150, 0], desc: 'Input sanitizer (deep link/payload hardening)' },
-  ABUSE:    { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 80,  upgrade: [0, 115, 165, 0], desc: 'Abuse protection (rate limit / credential stuffing)' },
+  // Sidecars (reduce incident impact; not in the critical path)
+  OBS:    { baseCap: 99, baseLat:  6,  baseFail: 0.0010, cost: 65,  upgrade: [0, 90, 130, 0], desc: 'Observability (logging/tracing; cheaper repairs)' },
+  FLAGS:  { baseCap: 99, baseLat:  3,  baseFail: 0.0010, cost: 65,  upgrade: [0, 90, 130, 0], desc: 'Feature flags (rollback + blast radius)' },
+
+  // Security + trust
+  AUTH:     { baseCap: 99, baseLat: 14, baseFail: 0.0015, cost: 75, upgrade: [0, 110, 160, 0], desc: 'Auth & sessions (token hygiene)' },
+  PINNING:  { baseCap: 99, baseLat: 10, baseFail: 0.0015, cost: 85, upgrade: [0, 120, 175, 0], desc: 'TLS pinning (MITM resistance; rotations hurt)' },
+  KEYSTORE: { baseCap: 99, baseLat: 18, baseFail: 0.0015, cost: 95, upgrade: [0, 130, 190, 0], desc: 'Keystore/Crypto (data-at-rest)' },
+  SANITIZER:{ baseCap: 99, baseLat:  8, baseFail: 0.0015, cost: 75, upgrade: [0, 110, 150, 0], desc: 'Input sanitizer (deep links/payload hardening)' },
+  ABUSE:    { baseCap: 99, baseLat:  9, baseFail: 0.0015, cost: 85, upgrade: [0, 120, 170, 0], desc: 'Abuse protection (rate limit / credential stuffing)' },
 
   // Accessibility
-  A11Y:     { baseCap: 99, baseLat:  0, baseFail: 0.001, cost: 70,  upgrade: [0, 100, 145, 0], desc: 'Accessibility layer (labels, contrast, focus order)' }
+  A11Y:   { baseCap: 99, baseLat:  5,  baseFail: 0.0010, cost: 75, upgrade: [0, 110, 160, 0], desc: 'Accessibility (labels, focus order, contrast)' }
 };
+
 
 export const ActionTypes: Record<ActionKey, ActionDef> = {
   READ:   { cpu: 1.0, io: 1.0, net: 0.8, cacheable: true,  heavyCPU: false, label: 'READ' },
@@ -79,6 +83,8 @@ export class GameSim {
   score = 0;
   architectureDebt = 0; // 0..100
   lastRun: RunResult | null = null;
+
+  private archFindings: Array<{ from: ComponentType; to: ComponentType; kind: 'UPWARD' | 'SKIP' | 'UPWARD_SKIP'; atSec: number }> = [];
 
   private rand(): number { return this.rng.next(); }
 
@@ -389,6 +395,7 @@ export class GameSim {
       // Record debt even if blocked (Principal mode).
       if (debtAdd > 0) {
         this.architectureDebt = clamp(this.architectureDebt + debtAdd, 0, 100);
+        this.recordArchFinding(a.type, b.type, reason);
         this.createTicket(
           'ARCHITECTURE_DEBT',
           `Architecture debt: ${reason}`,
@@ -405,6 +412,7 @@ export class GameSim {
     // If link is allowed but still incurs debt (Staff tolerates, Principal may allow minor skip)
     if (debtAdd > 0) {
       this.architectureDebt = clamp(this.architectureDebt + debtAdd, 0, 100);
+        this.recordArchFinding(a.type, b.type, reason);
       this.createTicket(
         'ARCHITECTURE_DEBT',
         `Architecture debt: ${reason}`,
@@ -470,6 +478,263 @@ export class GameSim {
     // Allowed but taxed.
     return { ok: true, debtAdd, reason, blocksInPrincipal: false };
   }
+
+  private recordArchFinding(from: ComponentType, to: ComponentType, reason: string) {
+    const kind: 'UPWARD' | 'SKIP' | 'UPWARD_SKIP' =
+      reason.includes('upward') && reason.includes('skip') ? 'UPWARD_SKIP' :
+      reason.includes('upward') ? 'UPWARD' : 'SKIP';
+
+    this.archFindings.unshift({ from, to, kind, atSec: this.timeSec });
+    this.archFindings = this.archFindings.slice(0, 20);
+  }
+
+  private chooseWorstViolation(): { fromId: number; toId: number; fromType: ComponentType; toType: ComponentType } | null {
+    // Heuristic: remove an "upward" dependency first, then large layer skips.
+    const layer = (t: ComponentType): number => {
+      switch (t) {
+        case 'UI': return 0;
+        case 'VM': return 1;
+        case 'DOMAIN': return 2;
+        case 'REPO': return 3;
+        default: return 4;
+      }
+    };
+
+    let best: { fromId: number; toId: number; score: number; fromType: ComponentType; toType: ComponentType } | null = null;
+
+    for (const l of this.links) {
+      const a = this.components.find(c => c.id === l.from);
+      const b = this.components.find(c => c.id === l.to);
+      if (!a || !b) continue;
+
+      const la = layer(a.type);
+      const lb = layer(b.type);
+      const upward = la > lb;
+      const skip = (lb - la) > 1;
+
+      if (!upward && !skip) continue;
+
+      const s = (upward ? 100 : 0) + (skip ? (lb - la) * 10 : 0);
+      if (!best || s > best.score) best = { fromId: l.from, toId: l.to, score: s, fromType: a.type, toType: b.type };
+    }
+
+    return best ? { fromId: best.fromId, toId: best.toId, fromType: best.fromType, toType: best.toType } : null;
+  }
+
+
+  getArchViolations(): ArchViolation[] {
+    const layer = (t: ComponentType): number => {
+      switch (t) {
+        case 'UI': return 0;
+        case 'VM': return 1;
+        case 'DOMAIN': return 2;
+        case 'REPO': return 3;
+        default: return 4;
+      }
+    };
+
+    const out: ArchViolation[] = [];
+    for (const l of this.links) {
+      const a = this.components.find(c => c.id === l.from);
+      const b = this.components.find(c => c.id === l.to);
+      if (!a || !b) continue;
+
+      const la = layer(a.type);
+      const lb = layer(b.type);
+      const upward = la > lb;
+      const skip = (lb - la) > 1;
+      if (!upward && !skip) continue;
+
+      const kind: 'UPWARD' | 'SKIP' | 'UPWARD_SKIP' = upward && skip ? 'UPWARD_SKIP' : upward ? 'UPWARD' : 'SKIP';
+      const reason =
+        upward && skip ? `${a.type} → ${b.type} (upward + layer skip)` :
+        upward ? `${a.type} → ${b.type} (upward dependency)` :
+        `${a.type} → ${b.type} (layer skip)`;
+
+      const severityScore = (upward ? 100 : 0) + (skip ? (lb - la) * 10 : 0);
+      out.push({
+        key: `${l.from}->${l.to}`,
+        fromId: l.from,
+        toId: l.to,
+        fromType: a.type,
+        toType: b.type,
+        kind,
+        reason,
+        severityScore
+      });
+    }
+
+    return out.sort((x, y) => y.severityScore - x.severityScore);
+  }
+
+
+  getFirstArchitectureDebtTicketId(): number | null {
+    const t = this.tickets.find(x => x.kind === 'ARCHITECTURE_DEBT');
+    return t ? t.id : null;
+  }
+
+  getRefactorRoadmap(): RefactorRoadmapStep[] {
+    // A simple, interview-friendly strategy:
+    // 1) Fix upward deps (boundaries)
+    // 2) Remove layer skips (mapping/middleware)
+    // 3) Reduce blast radius (split repo)
+    // 4) Create a boundary (feature module)
+    const hasUpward = this.getArchViolations().some(v => v.kind === 'UPWARD' || v.kind === 'UPWARD_SKIP');
+    const hasSkip = this.getArchViolations().some(v => v.kind === 'SKIP' || v.kind === 'UPWARD_SKIP');
+
+    const steps: RefactorRoadmapStep[] = [];
+    if (hasUpward) {
+      steps.push({
+        action: 'ADD_BOUNDARY',
+        title: 'Introduce interface boundaries (Dependency Inversion)',
+        rationale: 'Eliminate upward dependencies and enforce the Clean Architecture direction.',
+      });
+    }
+    if (hasSkip) {
+      steps.push({
+        action: 'MOVE_MAPPING',
+        title: 'Remove layer skips by moving mapping to Data',
+        rationale: 'Kill UI→DB/NET shortcuts and keep transformations at the proper layer.',
+      });
+    }
+    steps.push({
+      action: 'SPLIT_REPO',
+      title: 'Split repositories (single responsibility)',
+      rationale: 'Reduce blast radius and improve testability by shrinking the “god repo”.',
+    });
+    steps.push({
+      action: 'FEATURE_MODULE',
+      title: 'Extract a feature module boundary',
+      rationale: 'Reduce transitive deps and isolate failures behind a module wall.',
+    });
+    return steps;
+  }
+
+  private unlinkViolation(key: string): boolean {
+    const [a, b] = key.split('->').map(n => Number(n));
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+    return this.unlink(a, b);
+  }
+
+  getRefactorOptions(ticketId: number): RefactorOption[] {
+    const t = this.tickets.find(x => x.id === ticketId);
+    if (!t || t.kind !== 'ARCHITECTURE_DEBT') return [];
+
+    const debt = this.architectureDebt;
+    const hasUpward = this.archFindings.some(f => f.kind === 'UPWARD' || f.kind === 'UPWARD_SKIP');
+    const hasSkip = this.archFindings.some(f => f.kind === 'SKIP' || f.kind === 'UPWARD_SKIP');
+
+    const baseCost = this.preset === EVAL_PRESET.PRINCIPAL ? 120 : this.preset === EVAL_PRESET.STAFF ? 90 : 70;
+
+    const principal = this.preset === EVAL_PRESET.PRINCIPAL;
+    const cleanBonus = principal ? clamp(1 - debt / 100, 0, 1) : 1;
+
+    const opts: RefactorOption[] = [
+      {
+        action: 'ADD_BOUNDARY',
+        title: 'Introduce interface boundary (Dependency Inversion)',
+        description: hasUpward
+          ? 'Fix upward dependencies by extracting an interface in Domain and implementing it in Data.'
+          : 'Strengthen layer boundaries to prevent future upward dependencies.',
+        cost: baseCost + (hasUpward ? 40 : 0),
+        debtDelta: -(hasUpward ? 35 : 20),
+        scoreBonus: Math.round((principal ? 140 : 90) * cleanBonus),
+      },
+      {
+        action: 'MOVE_MAPPING',
+        title: 'Move mapping/DTOs to Data layer',
+        description: hasSkip
+          ? 'Remove UI→DB/NET shortcuts by moving mapping and composing through Repo/UseCase boundaries.'
+          : 'Reduce layer skips by consolidating mapping in the correct layer.',
+        cost: baseCost + (hasSkip ? 30 : 0),
+        debtDelta: -(hasSkip ? 30 : 18),
+        scoreBonus: Math.round((principal ? 120 : 80) * cleanBonus),
+      },
+      {
+        action: 'SPLIT_REPO',
+        title: 'Split repository (single responsibility)',
+        description: 'Break a “god repo” into smaller repos to reduce blast radius and improve testability.',
+        cost: baseCost + 60,
+        debtDelta: -22,
+        scoreBonus: Math.round((principal ? 160 : 100) * cleanBonus),
+      },
+      {
+        action: 'FEATURE_MODULE',
+        title: 'Extract feature module boundary',
+        description: 'Create a module boundary to reduce transitive dependencies and isolate incidents.',
+        cost: baseCost + 80,
+        debtDelta: -28,
+        scoreBonus: Math.round((principal ? 190 : 120) * cleanBonus),
+      }
+    ];
+
+    // Keep only affordable options.
+    return opts.filter(o => o.cost <= (this.budget + 1e-9));
+  }
+
+  applyRefactor(ticketId: number, action: RefactorAction, targetKey?: string): { ok: boolean; reason?: string } {
+    const t = this.tickets.find(x => x.id === ticketId);
+    if (!t) return { ok: false, reason: 'Ticket not found' };
+    if (t.kind !== 'ARCHITECTURE_DEBT') return { ok: false, reason: 'Not an architecture debt ticket' };
+
+    const opt = this.getRefactorOptions(ticketId).find(o => o.action === action);
+    if (!opt) return { ok: false, reason: 'Refactor option not available (budget/constraints)' };
+
+    if (this.budget < opt.cost) return { ok: false, reason: 'Not enough budget' };
+
+    // Spend budget and apply effects.
+    this.budget -= opt.cost;
+    this.architectureDebt = clamp(this.architectureDebt + opt.debtDelta, 0, 100);
+    this.score += opt.scoreBonus;
+
+    // Refactors improve quality process a bit (slows coverage decay etc.)
+    this.qualityProcess = clamp(this.qualityProcess + 0.10, 0, 1);
+
+    switch (action) {
+      case 'ADD_BOUNDARY': {
+        if (targetKey && this.unlinkViolation(targetKey)) {
+          this.log('Refactor: removed selected illegal dependency edge.');
+        } else {
+          const worst = this.chooseWorstViolation();
+          if (worst) {
+            this.unlink(worst.fromId, worst.toId);
+            this.log(`Refactor: removed illegal dependency ${worst.fromType} → ${worst.toType}`);
+          }
+        }
+        break;
+      }
+      case 'MOVE_MAPPING': {
+        if (targetKey && this.unlinkViolation(targetKey)) {
+          this.log('Refactor: eliminated selected layer-skip edge.');
+        } else {
+          const worst = this.chooseWorstViolation();
+          if (worst) {
+            this.unlink(worst.fromId, worst.toId);
+            this.log(`Refactor: eliminated layer skip ${worst.fromType} → ${worst.toType}`);
+          }
+        }
+        this.jankPct = clamp(this.jankPct * 0.92, 0, 100);
+        break;
+      }
+      case 'SPLIT_REPO': {
+        this.spawnMul = clamp(this.spawnMul * 0.92, 0.5, 2.0);
+        this.log('Refactor: repository split reduced incident blast radius.');
+        break;
+      }
+      case 'FEATURE_MODULE': {
+        this.spawnMul = clamp(this.spawnMul * 0.88, 0.5, 2.0);
+        this.engCapacityMax = clamp(this.engCapacityMax + 1, 8, 30);
+        this.log('Refactor: feature module boundary improved isolation and throughput.');
+        break;
+      }
+    }
+
+    // Close the debt ticket (completed refactor).
+    this.tickets = this.tickets.filter(x => x.id !== ticketId);
+    this.log(`Refactor complete: ${opt.title} (+${opt.scoreBonus} score)`);
+    return { ok: true };
+  }
+
 
 
   unlink(from: number, to: number): boolean {
@@ -1128,28 +1393,151 @@ private tickCoverageGate() {
 
 
   private componentStats(n: Component): string {
-    // Ensure computed values are fresh.
+    // NOTE: Internally this sim uses generic queue/cap/lat/fail.
+    // Here we *present* those in Android-ish language so "Repository" doesn't look like an HTTP server.
     this.computeComponentStats(n);
-    const out = this.outLinks(n.id).length;
+
+    const downstream = this.outLinks(n.id).length;
+    const cap = n.cap;
+    const lat = n.lat;
+    const fail = n.fail * 100;
     const q = n.queue;
-    const failPct = (n.fail * 100);
+
     const health = `${Math.round(n.health)}%${n.down ? ' (DOWN)' : ''}`;
-    return [
-      `Tier ${n.tier} • Health ${health}`,
-      `Cap ${n.cap.toFixed(0)} req/tick • Lat ${Math.round(n.lat)}ms • Fail ${failPct.toFixed(2)}%`,
-      `Queue ${q} • Out links ${out}`
-    ].join('\n');
+    const tier = `Tier ${n.tier}`;
+
+    const fmt = (label: string, value: string) => `${label} ${value}`;
+
+    // Label map per component type (Android mental model)
+    let capLabel = 'Ops/tick';
+    let latLabel = 'Latency';
+    let failLabel = 'Error rate';
+    let qLabel = 'Backlog';
+
+    switch (n.type) {
+      case 'UI':
+        capLabel = 'UI events/tick';
+        latLabel = 'Render cost';
+        failLabel = 'Crash risk';
+        qLabel = 'Main-thread backlog';
+        break;
+      case 'VM':
+        capLabel = 'State updates/tick';
+        latLabel = 'Dispatch latency';
+        failLabel = 'Exception rate';
+        qLabel = 'Pending intents';
+        break;
+      case 'DOMAIN':
+        capLabel = 'Use-cases/tick';
+        latLabel = 'CPU time';
+        failLabel = 'Logic error rate';
+        qLabel = 'Pending work';
+        break;
+      case 'REPO':
+        capLabel = 'Data calls/tick';
+        latLabel = 'I/O latency';
+        failLabel = 'Exception rate';
+        qLabel = 'Request backlog';
+        break;
+      case 'CACHE':
+        capLabel = 'Reads/tick';
+        latLabel = 'Cache access';
+        failLabel = 'Miss penalty';
+        qLabel = 'Pending reads';
+        break;
+      case 'DB':
+        capLabel = 'Queries/tick';
+        latLabel = 'Query latency';
+        failLabel = 'DB error rate';
+        qLabel = 'Pending queries';
+        break;
+      case 'NET':
+        capLabel = 'Requests/tick';
+        latLabel = 'Network RTT';
+        failLabel = 'Timeout rate';
+        qLabel = 'Pending requests';
+        break;
+      case 'WORK':
+        capLabel = 'Jobs/tick';
+        latLabel = 'Job duration';
+        failLabel = 'Retry rate';
+        qLabel = 'Queued jobs';
+        break;
+      case 'AUTH':
+      case 'PINNING':
+      case 'KEYSTORE':
+        capLabel = 'Auth ops/tick';
+        latLabel = 'Crypto latency';
+        failLabel = 'Auth error rate';
+        qLabel = 'Pending ops';
+        break;
+      case 'SANITIZER':
+        capLabel = 'Events/tick';
+        latLabel = 'Sanitize cost';
+        failLabel = 'Leak risk';
+        qLabel = 'Pending events';
+        break;
+      case 'OBS':
+        capLabel = 'Spans/tick';
+        latLabel = 'Tracing overhead';
+        failLabel = 'Drop rate';
+        qLabel = 'Buffered spans';
+        break;
+      case 'FLAGS':
+        capLabel = 'Reads/tick';
+        latLabel = 'Lookup latency';
+        failLabel = 'Stale rate';
+        qLabel = 'Pending reads';
+        break;
+      case 'A11Y':
+        capLabel = 'Checks/tick';
+        latLabel = 'Audit overhead';
+        failLabel = 'Violation rate';
+        qLabel = 'Pending checks';
+        break;
+      case 'ABUSE':
+        capLabel = 'Reports/tick';
+        latLabel = 'Triage latency';
+        failLabel = 'False-negative rate';
+        qLabel = 'Pending reports';
+        break;
+    }
+
+    // Units: present lat as ms, cap as integer, fail as percent.
+    const line1 = `${tier} • Health ${health}`;
+    const line2 = `${fmt(capLabel + ' •', `${cap.toFixed(0)}`)} • ${fmt(latLabel + ' •', `${Math.round(lat)}ms`)} • ${fmt(failLabel + ' •', `${fail.toFixed(2)}%`)}`;
+    const line3 = `${fmt(qLabel + ' •', `${q}`)} • Downstream deps ${downstream}`;
+
+    return [line1, line2, line3].join('\n');
   }
 
   private computeComponentStats(n: Component) {
     const def = ComponentDefs[n.type];
-    const tierMul = [0, 1.0, 1.45, 2.05][n.tier];
-    n.cap = def.baseCap * tierMul;
-    n.lat = def.baseLat * (n.type === 'DB' ? (1.0 / (1 + (n.tier - 1) * 0.15)) : 1.0);
-    n.fail = def.baseFail * (1.0 / (1 + (n.tier - 1) * 0.55));
+    const tierMul = [0, 1.0, 1.35, 1.85][n.tier];
+
+    // Throughput scales strongly with tier, but health/down can crush it.
+    n.cap = def.baseCap * tierMul * (n.down ? 0 : (0.35 + (n.health / 100) * 0.65));
+
+    // Latency improves with tier for I/O-ish components; degrades when health is low.
+    const ioish = (n.type === 'REPO' || n.type === 'DB' || n.type === 'NET' || n.type === 'WORK' || n.type === 'CACHE');
+    const tierLatMul = ioish ? (1.0 / (1 + (n.tier - 1) * 0.22)) : (1.0 / (1 + (n.tier - 1) * 0.12));
+    const healthLatMul = 1.0 + (1 - (n.health / 100)) * 0.55;
+    n.lat = def.baseLat * tierLatMul * healthLatMul;
+
+    // Failure rate improves with tier, worsens with low health.
+    const tierFailMul = 1.0 / (1 + (n.tier - 1) * 0.55);
+    const healthFailMul = 1.0 + (1 - (n.health / 100)) * 1.25;
+    n.fail = def.baseFail * tierFailMul * healthFailMul;
+
+    // Global network badness impacts NET and anything that depends heavily on NET.
     if (n.type === 'NET') n.fail *= this.netBadness;
+
+    // Clamp to sensible ranges.
+    n.fail = clamp(n.fail, 0.0005, 0.25);
+    n.lat = clamp(n.lat, 0, 2000);
     if (n.down) n.cap = 0;
   }
+
 
   private hasOBS(): boolean { return this.has('OBS'); }
 
