@@ -208,11 +208,30 @@ function toast(msg: string) {
 function requestUISync() {
   if (uiPending) return;
   uiPending = true;
-  requestAnimationFrame(() => {
+
+  const doSync = () => {
     uiPending = false;
     syncUI();
-renderScoreboard();
-  });
+    renderScoreboard();
+  };
+
+  // In headless/hidden contexts (CI, background tabs), `requestAnimationFrame` can be heavily
+  // throttled or paused. For testability and correctness, fall back to a macrotask so the UI
+  // still reflects simulation time.
+  const isHidden = (typeof document !== 'undefined') && document.visibilityState === 'hidden';
+
+  if (isHidden) {
+    setTimeout(doSync, 0);
+    return;
+  }
+
+  requestAnimationFrame(doSync);
+
+  // Safety net: if rAF doesn't fire for any reason, still sync within a short window.
+  setTimeout(() => {
+    if (!uiPending) return;
+    doSync();
+  }, 100);
 }
 
 function scheduleSync() { requestUISync(); }
