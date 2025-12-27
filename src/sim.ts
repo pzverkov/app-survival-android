@@ -73,6 +73,14 @@ type IncidentKind =
 
 export type Bounds = { width: number; height: number };
 
+// Structured events for UI/achievements.
+export type SimEvent =
+  | { type: 'RUN_RESET'; atSec: number }
+  | { type: 'RUN_END'; atSec: number; reason: EndReason }
+  | { type: 'PURCHASE'; atSec: number; item: 'REFILL' | 'REGEN' | 'HIRE' | 'BOOSTER' | 'SHIELD' }
+  | { type: 'TICKET_FIXED'; atSec: number; kind: TicketKind; effort: number }
+  | { type: 'EVENT'; atSec: number; category: 'INCIDENT' | 'OTHER'; msg: string };
+
 export class GameSim {
   private nextId = 1;
 
@@ -91,6 +99,15 @@ export class GameSim {
   // TicketFlow
   engCapacity = 12;
   engCapacityMax = 12;
+  // Capacity tuning / upgrades
+  engRegenTier = 0; // 0..3 (process + tooling; increases regen)
+  engHires = 0; // increases max capacity
+  engRefillsUsed = 0;
+  private engAdrenalineUntil = 0; // incident response burst
+  private engRegenBoostUntil = 0; // temporary booster (non-stacking)
+  private engBoosterBuys = 0; // increases booster cost to prevent spam
+  private incidentShieldCharges = 0; // 0..1
+
   tickets: Ticket[] = [];
   private nextTicketId = 1;
 
@@ -193,6 +210,7 @@ export class GameSim {
 
   private lastEventAt = 0;
   private eventLines: string[] = [];
+  private eventStream: SimEvent[] = [];
 
   private queues = new Map<number, Request[]>();
 
@@ -200,6 +218,10 @@ export class GameSim {
     this.mode = MODE.SELECT;
     this.running = false;
     this.timeSec = 0;
+    this.eventStream = [{ type: 'RUN_RESET', atSec: 0 }];
+
+    // Structured event so UI can reset achievements state in a deterministic way.
+    this.eventStream.push({ type: 'RUN_RESET', atSec: 0 });
 
     // Deterministic seed: same seed => same run.
     const s = (opts?.seed ?? (Date.now() & 0xffffffff)) >>> 0;
@@ -211,6 +233,57 @@ export class GameSim {
     this.budget = 3000;
     this.rating = 5.0;
     this.battery = 100;
+
+
+    // TicketFlow + capacity economy reset
+    this.engCapacityMax = 12;
+    this.engCapacity = 12;
+    this.engRegenTier = 0;
+    this.engHires = 0;
+    this.engRefillsUsed = 0;
+    this.engAdrenalineUntil = 0;
+    this.engRegenBoostUntil = 0;
+    this.engBoosterBuys = 0;
+    this.incidentShieldCharges = 0;
+
+    this.tickets = [];
+    this.nextTicketId = 1;
+
+    // ZeroDayPulse
+    this.advisories = [];
+    this.nextAdvisoryId = 1;
+
+    // PlatformPulse
+    this.platform = {
+      latestApi: 35,
+      minApi: 26,
+      oldDeviceShare: 0.28,
+      lowRamShare: 0.30,
+      pressure: 0,
+    };
+
+    // RegMatrix
+    this.regions = [
+      { code: 'EU', share: 0.40, compliance: 86, pressure: 0.0, frozenSec: 0 },
+      { code: 'US', share: 0.35, compliance: 84, pressure: 0.0, frozenSec: 0 },
+      { code: 'UK', share: 0.10, compliance: 85, pressure: 0.0, frozenSec: 0 },
+      { code: 'IN', share: 0.08, compliance: 83, pressure: 0.0, frozenSec: 0 },
+      { code: 'BR', share: 0.07, compliance: 83, pressure: 0.0, frozenSec: 0 },
+    ];
+    this.regPressure = 0;
+
+    // CoverageGate baseline
+    this.coveragePct = 78;
+    this.coverageRiskMult = 1.0;
+    this.coverageHist = [];
+    this.lastCompCount = 0;
+    this.qualityProcess = 0.0;
+
+    // Clear applied patches
+    this.patch = {
+      crash: 0, anr: 0, jank: 0, heap: 0, battery: 0,
+      a11y: 0, privacy: 0, security: 0, compat: 0, zeroDay: 0,
+    };
 
 
     this.a11yScore = 100;
@@ -274,7 +347,123 @@ export class GameSim {
 
   // --- tickets / platform --------------------------------------------------
   getTickets(): Ticket[] { return this.tickets; }
-  getCapacity() { return { cur: this.engCapacity, max: this.engCapacityMax }; }
+  getCapacity() {
+    const regenPerSec = this.capacityRegenPerSec();
+    const boosterActive = this.timeSec < this.engRegenBoostUntil;
+    return {
+      cur: this.engCapacity,
+      max: this.engCapacityMax,
+      regenPerMin: regenPerSec * 60,
+      tier: this.engRegenTier,
+      adrenaline: this.timeSec < this.engAdrenalineUntil,
+      boosterActive,
+      boosterRemainingSec: boosterActive ? (this.engRegenBoostUntil - this.timeSec) : 0,
+      shieldCharges: this.incidentShieldCharges,
+    };
+  }
+
+  getCapacityShop() {
+    const refillCost = Math.round(120 + this.engRefillsUsed * 35);
+    const regenUpgradeCost = Math.round(350 + this.engRegenTier * 300);
+    const hireCost = Math.round(600 + this.engHires * 450);
+
+    // Achievement-unlocked items are deliberately "anti-snowball":
+    // - Booster is temporary and non-stacking, cost ramps.
+    // - Shield is a 1-charge consumable (no hoarding), cost ramps.
+    const boosterCost = Math.round(240 + this.engBoosterBuys * 80);
+    const shieldCost = Math.round(320 + (this.engBoosterBuys * 35));
+
+    const boosterActive = this.timeSec < this.engRegenBoostUntil;
+
+    return {
+      refillCost,
+      regenUpgradeCost,
+      hireCost,
+      boosterCost,
+      shieldCost,
+      boosterActive,
+      boosterRemainingSec: boosterActive ? (this.engRegenBoostUntil - this.timeSec) : 0,
+      shieldCharges: this.incidentShieldCharges,
+      canBuyBooster: !boosterActive,
+      canBuyShield: this.incidentShieldCharges < 1,
+      canRegenUpgrade: this.engRegenTier < 3,
+      canHire: this.engCapacityMax < 30,
+    };
+  }
+
+  buyCapacityRefill(): { ok: boolean; reason?: string } {
+    const { refillCost } = this.getCapacityShop();
+    if (this.engCapacity >= this.engCapacityMax - 1e-6) return { ok: false, reason: 'Capacity already full' };
+    if (this.budget < refillCost) return { ok: false, reason: 'Not enough budget' };
+    this.budget -= refillCost;
+    this.engCapacity = this.engCapacityMax;
+    this.engRefillsUsed += 1;
+    this.log(`Bought capacity refill (-$${refillCost}).`);
+    this.eventStream.push({ type: 'PURCHASE', atSec: this.timeSec, item: 'REFILL' });
+    return { ok: true };
+  }
+
+  buyCapacityRegenUpgrade(): { ok: boolean; reason?: string } {
+    const { regenUpgradeCost } = this.getCapacityShop();
+    if (this.engRegenTier >= 3) return { ok: false, reason: 'Regen already maxed' };
+    if (this.budget < regenUpgradeCost) return { ok: false, reason: 'Not enough budget' };
+    this.budget -= regenUpgradeCost;
+    this.engRegenTier += 1;
+    this.log(`Upgraded capacity regen to Tier ${this.engRegenTier} (-$${regenUpgradeCost}).`);
+    this.eventStream.push({ type: 'PURCHASE', atSec: this.timeSec, item: 'REGEN' });
+    return { ok: true };
+  }
+
+  hireMoreCapacity(): { ok: boolean; reason?: string } {
+    const { hireCost } = this.getCapacityShop();
+    if (this.engCapacityMax >= 30) return { ok: false, reason: 'Capacity already at max' };
+    if (this.budget < hireCost) return { ok: false, reason: 'Not enough budget' };
+    this.budget -= hireCost;
+    this.engHires += 1;
+    this.engCapacityMax = clamp(this.engCapacityMax + 2, 8, 30);
+    this.engCapacity = clamp(this.engCapacity + 2, 0, this.engCapacityMax);
+    this.log(`Hired extra hands (+2 max capacity, -$${hireCost}).`);
+    this.eventStream.push({ type: 'PURCHASE', atSec: this.timeSec, item: 'HIRE' });
+    return { ok: true };
+  }
+
+  buyRegenBooster(): { ok: boolean; reason?: string } {
+    const { boosterCost, canBuyBooster } = this.getCapacityShop();
+    if (!canBuyBooster) return { ok: false, reason: 'Booster already active' };
+    if (this.budget < boosterCost) return { ok: false, reason: 'Not enough budget' };
+    this.budget -= boosterCost;
+    this.engBoosterBuys += 1;
+    // 45s of extra regen: meaningful, but not a permanent snowball.
+    this.engRegenBoostUntil = this.timeSec + 45;
+    this.log(`Bought energy drink (regen boosted for 45s, -$${boosterCost}).`);
+    this.eventStream.push({ type: 'PURCHASE', atSec: this.timeSec, item: 'BOOSTER' });
+    return { ok: true };
+  }
+
+  buyIncidentShield(): { ok: boolean; reason?: string } {
+    const { shieldCost, canBuyShield } = this.getCapacityShop();
+    if (!canBuyShield) return { ok: false, reason: 'Shield already ready' };
+    if (this.budget < shieldCost) return { ok: false, reason: 'Not enough budget' };
+    this.budget -= shieldCost;
+    this.incidentShieldCharges = 1;
+    this.log(`Bought incident shield (blocks next incident penalty once, -$${shieldCost}).`);
+    this.eventStream.push({ type: 'PURCHASE', atSec: this.timeSec, item: 'SHIELD' });
+    return { ok: true };
+  }
+
+  private capacityRegenPerSec(): number {
+    // Mid-game pacing: avoid the "stagnation valley" where you're stuck waiting.
+    // Strategy: increase regen gently as time passes, and add a rubber-band bonus when backlog is high.
+    const base = 0.22; // ~13.2/min baseline
+    const timeRamp = clamp(this.timeSec / 300, 0, 1) * 0.07; // up to +4.2/min after ~5 min
+    const tierBonus = this.engRegenTier * 0.03; // +1.8/min per tier
+    const backlogBonus = clamp((this.tickets.length - 4) / 8, 0, 1) * 0.05; // up to +3/min when drowning
+    const adrenaline = this.timeSec < this.engAdrenalineUntil ? 0.08 : 0; // incident burst (~+4.8/min)
+    const booster = this.timeSec < this.engRegenBoostUntil ? 0.06 : 0; // temporary (~+3.6/min)
+
+    return base + timeRamp + tierBonus + backlogBonus + adrenaline + booster;
+  }
+
   getPlatform(): PlatformState { return { ...this.platform }; }
   getRegions(): RegionState[] { return this.regions.map(r => ({ ...r })); }
   getRegPressure(): number { return this.regPressure; }
@@ -324,6 +513,7 @@ export class GameSim {
     }
     this.tickets = this.tickets.filter(x => x.id !== id);
     this.addEvent(`Fixed ticket: ${t.title}`);
+    this.eventStream.push({ type: 'TICKET_FIXED', atSec: this.timeSec, kind: t.kind, effort: t.effort });
   }
 
   deferTicket(id: number) {
@@ -767,8 +957,9 @@ export class GameSim {
   }
 
   private tickTickets(failureRate: number, anrRisk: number, _p95: number) {
-    // Engineering capacity regen: about 12 points per minute
-    this.engCapacity = clamp(this.engCapacity + 0.20, 0, this.engCapacityMax);
+    // Engineering capacity regen (can be upgraded, and gets a short burst during incidents)
+    const regen = this.capacityRegenPerSec();
+    this.engCapacity = clamp(this.engCapacity + regen, 0, this.engCapacityMax);
 
     // Age tickets and apply compounding pressure (DebtInterest-lite)
     for (const t of this.tickets) t.ageSec += 1;
@@ -1284,6 +1475,12 @@ private tickCoverageGate() {
 
   // --- UI snapshot ----------------------------------------------------------
   // --- UI snapshot ----------------------------------------------------------
+  drainEvents(): SimEvent[] {
+    const out = this.eventStream;
+    this.eventStream = [];
+    return out;
+  }
+
   getUIState() {
     const total = this.reqOk + this.reqFail;
     const failureRate = total > 0 ? (this.reqFail / total) : 0;
@@ -1346,10 +1543,31 @@ private tickCoverageGate() {
   private addEvent(msg: string) {
     // Keep a lightweight incident/event log for the UI.
     // Newest first, capped to avoid unbounded growth.
+    let category: 'INCIDENT' | 'OTHER' = (
+      msg.startsWith('Fixed ticket:') ||
+      msg.startsWith('New Android API')
+    ) ? 'OTHER' : 'INCIDENT';
+
+    // Incident shield: a single-charge consumable that softens the next incident penalty.
+    // The sim can't perfectly "rewind" every individual penalty (incidents are varied),
+    // so it applies a conservative, bounded compensating bump.
+    if (category === 'INCIDENT' && this.incidentShieldCharges > 0) {
+      this.incidentShieldCharges -= 1;
+      // bounded compensation (avoid making shields a snowball engine)
+      this.budget += 28;
+      this.rating = clamp(this.rating + 0.10, 0, 5);
+      this.supportLoad = clamp(this.supportLoad - 8, 0, 100);
+      msg = `🛡 Shield softened: ${msg}`;
+    }
+
     const tag = this.timeSec > 0 ? `t+${this.timeSec}s` : 't+0s';
     this.eventLines.unshift(`${tag}  ${msg}`);
     if (this.eventLines.length > 18) this.eventLines.length = 18;
     this.lastEventAt = this.timeSec;
+    // On-call adrenaline: a brief capacity regen burst when incidents hit.
+    this.engAdrenalineUntil = this.timeSec + 22;
+
+    this.eventStream.push({ type: 'EVENT', atSec: this.timeSec, category, msg });
   }
 
 // --- internal helpers -----------------------------------------------------
@@ -1742,6 +1960,8 @@ private tickCoverageGate() {
     if (this.rand() > incidentChance) return;
 
     this.lastEventAt = this.timeSec;
+    // On-call adrenaline: a brief capacity regen burst when incidents hit.
+    this.engAdrenalineUntil = this.timeSec + 22;
 
     const authTier = this.tierOf('AUTH');
     const pinTier = this.tierOf('PINNING');
@@ -1960,6 +2180,7 @@ private tickCoverageGate() {
 
   private endRun(reason: EndReason, failureRate: number, anrRisk: number, p95: number) {
     this.running = false;
+    this.eventStream.push({ type: 'RUN_END', atSec: this.timeSec, reason });
     const mult = this.scoreMultiplier();
     const raw = Math.max(0, this.score);
     const finalScore = Math.round(raw * mult);

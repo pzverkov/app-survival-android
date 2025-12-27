@@ -325,6 +325,16 @@ h1 {
   flex-wrap: wrap;
 }
 
+/* Backlog capacity controls */
+.capRow { align-items: center; }
+.capRow .capBtns { display:flex; gap:6px; flex-wrap:wrap; margin-left:auto; }
+.capRow .capRight { margin-left:auto; white-space:nowrap; }
+
+@media (max-width: 540px) {
+  .capRow .capBtns { margin-left:0; width:100%; }
+  .capRow .capRight { margin-left:0; width:100%; white-space:normal; }
+}
+
 /* High-signal metrics block: adapts from 2 cols to 3/4 based on available width */
 .metricsGrid {
   display: grid;
@@ -871,6 +881,87 @@ html.incident-hot #backlogCard {
   z-index: 9999;
   width: min(440px, calc(100vw - 32px));
   pointer-events: none;
+}
+
+/* --- Profile modal + achievements --------------------------------------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 80;
+}
+
+/*
+  We rely on the native `[hidden]` attribute to show/hide modals.
+  Because `.modal { display: grid; }` has the same specificity as the browser's
+  default `[hidden] { display: none; }`, the `.modal` rule can accidentally win
+  and keep the modal (and its backdrop) interactive.
+
+  This rule guarantees that a hidden modal never intercepts pointer events.
+*/
+.modal[hidden] {
+  display: none !important;
+}
+
+.modalBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+}
+
+.modalPanel {
+  position: relative;
+  width: min(720px, calc(100vw - 24px));
+  max-height: min(80vh, 720px);
+  overflow: auto;
+  padding: 14px;
+  border-radius: 18px;
+}
+
+.achList {
+  display: grid;
+  gap: 10px;
+}
+
+.achItem {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  gap: 10px;
+  align-items: start;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--md-sys-color-outline) 35%, transparent);
+}
+
+.achItem.is-locked {
+  opacity: 0.82;
+}
+
+.achBadge {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--md-sys-color-surface-variant) 70%, transparent);
+  border: 1px solid color-mix(in oklab, var(--md-sys-color-outline) 25%, transparent);
+  font-size: 12px;
+}
+
+.achTitle {
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.achDesc {
+  margin-top: 2px;
+  opacity: 0.9;
+}
+
+.achReward {
+  opacity: 0.9;
+  white-space: nowrap;
 }
 
 .incidentOverlayInner {

@@ -38,7 +38,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.12.2
+          # Vite requires Node 20.19+ (or 22.12+). Keep this pinned so CI is deterministic.
+          node-version: 20.19.1
           cache: npm
           cache-dependency-path: package-lock.json
 
