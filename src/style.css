@@ -892,6 +892,18 @@ html.incident-hot #backlogCard {
   z-index: 80;
 }
 
+/*
+  We rely on the native `[hidden]` attribute to show/hide modals.
+  Because `.modal { display: grid; }` has the same specificity as the browser's
+  default `[hidden] { display: none; }`, the `.modal` rule can accidentally win
+  and keep the modal (and its backdrop) interactive.
+
+  This rule guarantees that a hidden modal never intercepts pointer events.
+*/
+.modal[hidden] {
+  display: none !important;
+}
+
 .modalBackdrop {
   position: absolute;
   inset: 0;
