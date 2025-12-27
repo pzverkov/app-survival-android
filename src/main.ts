@@ -1,5 +1,6 @@
 import './style.css';
 import { GameSim } from './sim';
+import { AchievementsTracker, LocalStorageAchStorage, AchEvent, AchievementUnlock } from './achievements';
 import { addScoreEntry, clearScoreboard, loadScoreboard } from './scoreboard';
 import { MODE, Mode, ComponentType, Ticket, EvalPreset, EVAL_PRESET, RefactorAction } from './types';
 
@@ -98,6 +99,12 @@ type UIRefs = {
   votesBattery: HTMLElement;
 
   capVal: HTMLElement;
+  capRegenHint: HTMLElement;
+  btnCapRefill: HTMLButtonElement;
+  btnCapBoost: HTMLButtonElement;
+  btnCapHire: HTMLButtonElement;
+  btnCapDrink: HTMLButtonElement;
+  btnCapShield: HTMLButtonElement;
   selName: HTMLElement;
   selStats: HTMLElement;
   buildInfo: HTMLElement;
@@ -110,6 +117,8 @@ type UIRefs = {
   btnStart: HTMLButtonElement;
   btnPause: HTMLButtonElement;
   btnReset: HTMLButtonElement;
+  btnProfile: HTMLButtonElement;
+  btnOpenProfile: HTMLButtonElement;
 
   btnSelect: HTMLButtonElement;
   btnLink: HTMLButtonElement;
@@ -126,7 +135,23 @@ type UIRefs = {
   incidentOverlayHint: HTMLElement;
   incidentOverlayDismiss: HTMLButtonElement;
   incidentOverlayBacklog: HTMLButtonElement;
+  incidentOverlayRefill: HTMLButtonElement;
   incidentOverlayTriage: HTMLButtonElement;
+
+  // Achievements summary
+  achPreset: HTMLElement;
+  achUnlocked: HTMLElement;
+  achTotal: HTMLElement;
+
+  // Profile modal
+  profileModal: HTMLElement;
+  profileBackdrop: HTMLElement;
+  profilePresetSelect: HTMLSelectElement;
+  btnCloseProfile: HTMLButtonElement;
+  profileUnlocked: HTMLElement;
+  profileTotal: HTMLElement;
+  profileBest: HTMLElement;
+  profileAchList: HTMLElement;
 };
 
 
@@ -147,6 +172,11 @@ const shortSha = sha === 'dev' ? 'dev' : sha.slice(0, 7);
 refs.buildInfo.textContent = `Build ${shortSha} • base ${import.meta.env.BASE_URL}`;
 
 let lastSavedRunId: string | null = null;
+
+// Achievements are stored per preset.
+const ach = new AchievementsTracker(EVAL_PRESET.SENIOR, new LocalStorageAchStorage());
+let achLastTickSec = -1;
+let achPrevRunning = false;
 
 // Incident UX: brief highlight + action overlay when a new incident line appears.
 let lastEventsText = '';
@@ -194,12 +224,45 @@ refs.incidentOverlayTriage.addEventListener('click', () => {
   openBacklog();
 });
 
+refs.incidentOverlayRefill.addEventListener('click', () => {
+  sim.buyCapacityRefill();
+  scheduleSync();
+});
+
+refs.btnCapRefill.addEventListener('click', () => {
+  sim.buyCapacityRefill();
+  scheduleSync();
+});
+refs.btnCapBoost.addEventListener('click', () => {
+  sim.buyCapacityRegenUpgrade();
+  scheduleSync();
+});
+refs.btnCapHire.addEventListener('click', () => {
+  sim.hireMoreCapacity();
+  scheduleSync();
+});
+
+refs.btnCapDrink.addEventListener('click', () => {
+  sim.buyRegenBooster();
+  scheduleSync();
+});
+
+refs.btnCapShield.addEventListener('click', () => {
+  sim.buyIncidentShield();
+  scheduleSync();
+});
+
 
 // Preset (difficulty expectations)
 refs.presetSelect.value = EVAL_PRESET.SENIOR;
 sim.setPreset(EVAL_PRESET.SENIOR);
+ach.setPreset(EVAL_PRESET.SENIOR);
+renderAchievementSummary(EVAL_PRESET.SENIOR);
 refs.presetSelect.addEventListener('change', () => {
-  sim.setPreset(refs.presetSelect.value as EvalPreset);
+  const p = refs.presetSelect.value as EvalPreset;
+  sim.setPreset(p);
+  ach.setPreset(p);
+  renderAchievementSummary(p);
   scheduleSync();
 });
 
@@ -235,6 +298,15 @@ let lastRegionsRenderMs = 0;
 
 function setText(el: HTMLElement, v: string) { if (el.textContent !== v) el.textContent = v; }
 function setHTML(el: HTMLElement, v: string) { if (el.innerHTML !== v) el.innerHTML = v; }
+
+function escapeHtml(s: string): string {
+  return s
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
 
 function toast(msg: string) {
   const id = 'toast-host';
@@ -289,6 +361,57 @@ function requestUISync() {
 
 function scheduleSync() { requestUISync(); }
 
+function formatReward(r?: { budget?: number; score?: number }): string {
+  if (!r) return '';
+  const parts: string[] = [];
+  if (r.budget) parts.push(`+$${r.budget}`);
+  if (r.score) parts.push(`+${r.score} score`);
+  return parts.join(' • ');
+}
+
+function applyAchievementRewards(unlocked: AchievementUnlock[]) {
+  if (!unlocked.length) return;
+  for (const a of unlocked) {
+    if (a.reward?.budget) sim.budget += a.reward.budget;
+    if (a.reward?.score) sim.score += a.reward.score;
+    const reward = formatReward(a.reward);
+    const tier = a.label ? ` ${a.label}` : '';
+    toast(reward ? `Achievement unlocked: ${a.title}${tier} (${reward})` : `Achievement unlocked: ${a.title}${tier}`);
+  }
+}
+
+function renderAchievementSummary(preset: EvalPreset) {
+  const prog = ach.getProgress(preset);
+  setText(refs.achPreset, preset);
+  setText(refs.achUnlocked, String(prog.unlocked));
+  setText(refs.achTotal, String(prog.total));
+}
+
+function renderProfile(preset: EvalPreset) {
+  const prog = ach.getProgress(preset);
+  setText(refs.profileUnlocked, String(prog.unlocked));
+  setText(refs.profileTotal, String(prog.total));
+  setText(refs.profileBest, `${Math.round(prog.bestSurvivalSec)}s`);
+
+  const views = ach.getViewsForPreset(preset);
+  refs.profileAchList.innerHTML = views.map(v => {
+    const icon = v.tier > 0 ? '✓' : '•';
+    const tierBadge = v.tier === 0 ? '' : (v.tier === 1 ? 'BRONZE' : v.tier === 2 ? 'SILVER' : 'GOLD');
+    const next = v.next ? `Next: ${v.next.label} — ${v.next.description}` : '';
+    const reward = formatReward(v.next?.reward);
+    return `
+      <div class="achItem ${v.tier > 0 ? 'is-unlocked' : 'is-locked'}">
+        <div class="achBadge">${icon}</div>
+        <div>
+          <div class="achTitle">${escapeHtml(v.title)}</div>
+          <div class="achDesc small">${escapeHtml(v.description)}${next ? `<div class="small muted" style="margin-top:4px;">${escapeHtml(next)}</div>` : ''}</div>
+        </div>
+        <div class="achReward small mono">${tierBadge}${reward ? (tierBadge ? `<div>${escapeHtml(reward)}</div>` : escapeHtml(reward)) : ''}</div>
+      </div>
+    `;
+  }).join('');
+}
+
 
 
 
@@ -330,12 +453,52 @@ function renderRegions() {
 
 function renderTickets() {
   const cap = sim.getCapacity();
+  const shop = sim.getCapacityShop();
+  const unlocks = ach.getShopUnlocks(refs.presetSelect.value as EvalPreset);
   const tickets = sim.getTickets()
     .slice()
     .sort((a: Ticket, b: Ticket) => (b.severity - a.severity) || (b.impact - a.impact) || (b.ageSec - a.ageSec))
     .slice(0, 7);
 
   setText(refs.capVal, `${cap.cur.toFixed(1)}/${cap.max.toFixed(0)}`);
+  setText(refs.capRegenHint, `+${cap.regenPerMin.toFixed(1)}/min${cap.adrenaline ? ' ⚡' : ''}${cap.boosterActive ? ' 🧃' : ''}${cap.shieldCharges > 0 ? ' 🛡' : ''}`);
+
+  const canRefill = (cap.cur < cap.max - 1e-6) && (sim.budget >= shop.refillCost);
+  refs.btnCapRefill.disabled = !canRefill;
+  refs.btnCapRefill.textContent = cap.cur >= cap.max - 1e-6 ? 'Full' : `Refill ($${shop.refillCost})`;
+
+  const canBoost = shop.canRegenUpgrade && (sim.budget >= shop.regenUpgradeCost);
+  refs.btnCapBoost.disabled = !canBoost;
+  refs.btnCapBoost.textContent = shop.canRegenUpgrade ? `Boost regen ($${shop.regenUpgradeCost})` : 'Boost regen (max)';
+
+  const canHire = shop.canHire && (sim.budget >= shop.hireCost);
+  refs.btnCapHire.disabled = !canHire;
+  refs.btnCapHire.textContent = shop.canHire ? `Hire (+2 max $${shop.hireCost})` : 'Hire (max)';
+
+  // Unlockable (achievement-gated) shop items.
+  refs.btnCapDrink.hidden = !unlocks.booster;
+  if (!refs.btnCapDrink.hidden) {
+    const canDrink = shop.canBuyBooster && (sim.budget >= shop.boosterCost);
+    refs.btnCapDrink.disabled = !canDrink;
+    refs.btnCapDrink.textContent = shop.boosterActive
+      ? `Regen boosted (${Math.ceil(shop.boosterRemainingSec)}s)`
+      : `Energy drink ($${shop.boosterCost})`;
+  }
+
+  refs.btnCapShield.hidden = !unlocks.shield;
+  if (!refs.btnCapShield.hidden) {
+    const canShield = shop.canBuyShield && (sim.budget >= shop.shieldCost);
+    refs.btnCapShield.disabled = !canShield;
+    refs.btnCapShield.textContent = shop.shieldCharges > 0
+      ? 'Shield ready'
+      : `Incident shield ($${shop.shieldCost})`;
+  }
+
+  // Keep overlay action in sync (incident response quick button)
+  if ((refs as any).incidentOverlayRefill) {
+    (refs as any).incidentOverlayRefill.disabled = !canRefill;
+    (refs as any).incidentOverlayRefill.textContent = `Refill ($${shop.refillCost})`;
+  }
 
   const nowMs = performance.now();
   const ticketsSig = tickets.map(t => `${t.id}:${t.severity}:${t.impact}:${Math.floor(t.ageSec)}:${t.deferred ? 1 : 0}`).join('|');
@@ -465,6 +628,10 @@ syncUI();
 
 // buttons
 refs.btnStart.onclick = () => {
+  const preset = refs.presetSelect.value as EvalPreset;
+  if (ach.getPreset() !== preset) ach.setPreset(preset);
+  achLastTickSec = -1;
+  applyAchievementRewards(ach.onEvents([{ type: 'RUN_START', atSec: sim.timeSec, budget: sim.budget, architectureDebt: sim.architectureDebt }]));
   sim.running = true;
   startTickLoop();
   syncUI();
@@ -474,7 +641,10 @@ refs.btnPause.onclick = () => {
   syncUI();
 };
 refs.btnReset.onclick = () => {
+  // Treat reset as run end for achievements tracking.
+  applyAchievementRewards(ach.onEvents([{ type: 'RUN_END', atSec: sim.timeSec, reason: 'RESET' }]));
   sim.running = false;
+  achLastTickSec = -1;
   const seedStr = (refs.seedInput.value ?? '').trim();
   const seed = seedStr ? Number(seedStr) : undefined;
   sim.reset(
@@ -495,6 +665,26 @@ refs.btnDailySeed.onclick = () => {
   sim.reset({ width: refs.canvas.getBoundingClientRect().width, height: refs.canvas.getBoundingClientRect().height }, { seed: daily });
   syncUI();
 };
+
+function openProfile(preset: EvalPreset) {
+  refs.profileModal.hidden = false;
+  refs.profilePresetSelect.value = preset;
+  renderProfile(preset);
+}
+function closeProfile() {
+  refs.profileModal.hidden = true;
+}
+
+refs.btnProfile.onclick = () => openProfile(refs.presetSelect.value as EvalPreset);
+refs.btnOpenProfile.onclick = () => openProfile(refs.presetSelect.value as EvalPreset);
+refs.btnCloseProfile.onclick = closeProfile;
+refs.profileBackdrop.onclick = closeProfile;
+refs.profilePresetSelect.addEventListener('change', () => {
+  renderProfile(refs.profilePresetSelect.value as EvalPreset);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !refs.profileModal.hidden) closeProfile();
+});
 
 
 refs.btnSelect.onclick = () => setMode(MODE.SELECT);
@@ -754,6 +944,49 @@ function renderScoreboard() {
 function syncUI() {
   const s = sim.getUIState();
 
+  // --- Achievements -------------------------------------------------------
+  const currentPreset = refs.presetSelect.value as EvalPreset;
+  if (ach.getPreset() !== currentPreset) ach.setPreset(currentPreset);
+
+  const achEvents: AchEvent[] = [];
+  if (sim.running && !achPrevRunning) {
+    achEvents.push({ type: 'RUN_START', atSec: s.timeSec, budget: s.budget, architectureDebt: s.architectureDebt });
+  }
+  achPrevRunning = sim.running;
+  for (const ev of sim.drainEvents()) {
+    if (ev.type === 'PURCHASE') achEvents.push({ type: 'PURCHASE', atSec: ev.atSec, item: ev.item });
+    if (ev.type === 'TICKET_FIXED') achEvents.push({ type: 'TICKET_FIXED', atSec: ev.atSec, kind: ev.kind, effort: ev.effort });
+    if (ev.type === 'RUN_END') achEvents.push({ type: 'RUN_END', atSec: ev.atSec, reason: ev.reason });
+    if (ev.type === 'EVENT' && ev.category === 'INCIDENT') achEvents.push({ type: 'INCIDENT', atSec: ev.atSec, msg: ev.msg });
+  }
+
+  // Feed a single tick event per second while the sim is running (so achievements remain stable).
+  if (sim.running && s.timeSec !== achLastTickSec) {
+    achLastTickSec = s.timeSec;
+    const components = Array.from(new Set(sim.components.map(n => n.type)));
+    achEvents.push({
+      type: 'TICK',
+      atSec: s.timeSec,
+      backlog: sim.tickets.length,
+      rating: s.rating,
+      capacityCur: sim.engCapacity,
+      capacityMax: sim.engCapacityMax,
+      budget: s.budget,
+      architectureDebt: s.architectureDebt,
+      components,
+    });
+  }
+
+  if (achEvents.length) {
+    const unlocked = ach.onEvents(achEvents);
+    applyAchievementRewards(unlocked);
+  }
+
+  renderAchievementSummary(currentPreset);
+  if (!refs.profileModal.hidden) {
+    renderProfile(refs.profilePresetSelect.value as EvalPreset);
+  }
+
   // Segmented mode buttons (Material 3-ish)
   refs.btnSelect.classList.toggle('is-selected', s.mode === MODE.SELECT);
   refs.btnLink.classList.toggle('is-selected', s.mode === MODE.LINK);
@@ -926,6 +1159,12 @@ function bindUI(): UIRefs {
     coverageHint: must('coverageHint'),
 
     capVal: must('capVal'),
+    capRegenHint: must('capRegenHint'),
+    btnCapRefill: must<HTMLButtonElement>('btnCapRefill'),
+    btnCapBoost: must<HTMLButtonElement>('btnCapBoost'),
+    btnCapHire: must<HTMLButtonElement>('btnCapHire'),
+    btnCapDrink: must<HTMLButtonElement>('btnCapDrink'),
+    btnCapShield: must<HTMLButtonElement>('btnCapShield'),
     ticketList: must('ticketList'),
     apiLatest: must('apiLatest'),
     apiMin: must('apiMin'),
@@ -947,6 +1186,8 @@ function bindUI(): UIRefs {
     btnStart: must<HTMLButtonElement>('btnStart'),
     btnPause: must<HTMLButtonElement>('btnPause'),
     btnReset: must<HTMLButtonElement>('btnReset'),
+    btnProfile: must<HTMLButtonElement>('btnProfile'),
+    btnOpenProfile: must<HTMLButtonElement>('btnOpenProfile'),
 
     btnSelect: must<HTMLButtonElement>('btnSelect'),
     btnLink: must<HTMLButtonElement>('btnLink'),
@@ -959,7 +1200,19 @@ function bindUI(): UIRefs {
     incidentOverlayHint: must('incidentOverlayHint'),
     incidentOverlayDismiss: must<HTMLButtonElement>('incidentOverlayDismiss'),
     incidentOverlayBacklog: must<HTMLButtonElement>('incidentOverlayBacklog'),
-    incidentOverlayTriage: must<HTMLButtonElement>('incidentOverlayTriage')
+    incidentOverlayRefill: must<HTMLButtonElement>('incidentOverlayRefill'),
+    incidentOverlayTriage: must<HTMLButtonElement>('incidentOverlayTriage'),
+    achPreset: must('achPreset'),
+    achUnlocked: must('achUnlocked'),
+    achTotal: must('achTotal'),
+    profileModal: must('profileModal'),
+    profileBackdrop: must('profileBackdrop'),
+    profilePresetSelect: must<HTMLSelectElement>('profilePresetSelect'),
+    btnCloseProfile: must<HTMLButtonElement>('btnCloseProfile'),
+    profileUnlocked: must('profileUnlocked'),
+    profileTotal: must('profileTotal'),
+    profileBest: must('profileBest'),
+    profileAchList: must('profileAchList')
   };
 }
 

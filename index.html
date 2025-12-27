@@ -18,6 +18,7 @@
             <button id="btnStart" class="btn filled">▶ Start</button>
             <button id="btnPause" class="btn tonal">⏸ Pause</button>
             <button id="btnReset" class="btn error">↺ Reset</button>
+            <button id="btnProfile" class="btn outlined" title="Profile & achievements">👤 Profile</button>
           </div>
 
           <div class="row" style="margin-top:10px; align-items:center;">
@@ -123,6 +124,18 @@
           <div class="small muted" style="margin-top:8px;">Reset uses the seed above (if set).</div>
         </section>
 
+        <section class="card">
+          <div class="k">Achievements</div>
+          <div class="small" style="margin-top:8px;">
+            Preset: <span id="achPreset" class="mono">SENIOR</span> •
+            Unlocked: <span id="achUnlocked" class="mono">0</span>/<span id="achTotal" class="mono">0</span>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <button id="btnOpenProfile" class="btn tonal">Open profile</button>
+            <div class="small muted" style="margin-left:auto;">Some are hidden 👀</div>
+          </div>
+        </section>
+
 
         <section class="card">
           <div class="k">Trust &amp; accessibility</div>
@@ -180,9 +193,18 @@
 
         <section class="card" id="backlogCard">
           <div class="k">Backlog</div>
-          <div class="row" style="margin-top:8px; align-items:center;">
-            <div class="pill">Capacity <span id="capVal" class="mono">0/0</span></div>
-            <div class="small muted" style="margin-left:auto;">Fix tickets or defer</div>
+          <div class="row capRow" style="margin-top:8px; align-items:center;">
+            <div class="pill">Capacity <span id="capVal" class="mono">0/0</span> <span id="capRegenHint" class="small muted mono">+0/min</span></div>
+
+            <div class="capBtns" style="margin-left:auto;">
+              <button id="btnCapRefill" class="btn text">Refill</button>
+              <button id="btnCapBoost" class="btn text">Boost regen</button>
+              <button id="btnCapDrink" class="btn text" hidden title="Temporary regen booster (unlocks via achievements)">Energy drink</button>
+              <button id="btnCapShield" class="btn text" hidden title="Blocks the next incident penalty once (unlocks via achievements)">Incident shield</button>
+              <button id="btnCapHire" class="btn text">Hire</button>
+            </div>
+
+            <div class="small muted capRight">Fix tickets or defer</div>
           </div>
           <div id="ticketList" class="ticketList" style="margin-top:10px;"></div>
         </section>
@@ -305,9 +327,39 @@
           <button id="incidentOverlayDismiss" class="btn text" aria-label="Dismiss incident">✕</button>
         </div>
         <div id="incidentOverlayHint" class="small muted" style="margin-top:8px;">Respond fast: fix or defer the top ticket to stop the bleed.</div>
-        <div class="row" style="margin-top:10px; justify-content:flex-end;">
+        <div class="row" style="margin-top:10px; justify-content:flex-end; flex-wrap:wrap;">
           <button id="incidentOverlayBacklog" class="btn outlined">Open backlog</button>
+          <button id="incidentOverlayRefill" class="btn outlined">Refill</button>
           <button id="incidentOverlayTriage" class="btn filled">Quick triage</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile + achievements (per preset) -->
+    <div id="profileModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+      <div class="modalBackdrop" id="profileBackdrop"></div>
+      <div class="modalPanel card">
+        <div class="row" style="align-items:center; gap:10px;">
+          <h2 id="profileTitle" style="margin:0; font-size:16px;">Profile</h2>
+          <div class="pill" style="margin-left:auto;">Preset</div>
+          <select id="profilePresetSelect">
+            <option value="JUNIOR_MID">Junior-Mid</option>
+            <option value="SENIOR">Senior</option>
+            <option value="STAFF">Staff</option>
+            <option value="PRINCIPAL">Principal</option>
+          </select>
+          <button id="btnCloseProfile" class="btn text" aria-label="Close profile">✕</button>
+        </div>
+
+        <div class="small" style="margin-top:10px;">
+          Unlocked: <span id="profileUnlocked" class="mono">0</span>/<span id="profileTotal" class="mono">0</span>
+          • Best survival: <span id="profileBest" class="mono">0s</span>
+        </div>
+
+        <div id="profileAchList" class="achList" style="margin-top:12px;"></div>
+
+        <div class="small muted" style="margin-top:12px;">
+          Hidden achievements show up as “Hidden achievement” until you unlock them.
         </div>
       </div>
     </div>
