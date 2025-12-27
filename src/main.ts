@@ -397,7 +397,7 @@ function renderProfile(preset: EvalPreset) {
   refs.profileAchList.innerHTML = views.map(v => {
     const icon = v.tier > 0 ? '✓' : '•';
     const tierBadge = v.tier === 0 ? '' : (v.tier === 1 ? 'BRONZE' : v.tier === 2 ? 'SILVER' : 'GOLD');
-    const next = v.next ? `Next: ${v.next.label} — ${v.next.description}` : '';
+    const next = v.next ? `Next: ${v.next.label} - ${v.next.description}` : '';
     const reward = formatReward(v.next?.reward);
     return `
       <div class="achItem ${v.tier > 0 ? 'is-unlocked' : 'is-locked'}">
