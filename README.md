@@ -13,13 +13,12 @@ https://pzverkov.github.io/app-survival-android/
 - Purpose
 - Quick start
 - How to play (short)
-- Key systems (short)
 - Docs
 - Security/Contributing /License
 
 ## Purpose
 
-This project is designed to be usable for Android developer skill evaluation, with emphasis on Senior, Staff, and Principal-level production thinking. It targets real-world trade-offs across performance, reliability, background execution, security and privacy, accessibility, observability, incident response, and multi region policy pressure.
+This project is designed to be usable for Android developer skill evaluation, with emphasis on Senior, Staff, and Principal-level production thinking. It targets real-world trade-offs across performance, reliability, background execution, security and privacy, accessibility, observability, incident response, and multi-region policy pressure.
 
 The simulation core is written in TypeScript and intentionally kept separate from UI rendering so it can be ported to Kotlin and Android implementation later.
 
@@ -48,35 +47,28 @@ Tests
 
 More details: see docs/GAMEPLAY.md
 
-## Key systems (short)
-
-- Key concepts: docs/SYSTEMS.md
-- Production realism layers (FrameGuard, MainThreadGuard, HeapWatch, TicketFlow, ZeroDayPulse, PlatformPulse, RegMatrix, PolicyGates, CoverageGate): docs/SYSTEMS.md
-- Architecture rules, debt, and refactor quests: docs/ARCHITECTURE_RULES.md
-- Presets and evaluation rubric (Mid -> Principal): docs/EVALUATION.md
-
 ## Docs
 
-- Gameplay (seeds, scoring, incidents, postmortems, profile & achievements): docs/GAMEPLAY.md
-- Systems (concepts + realism layers): docs/SYSTEMS.md
-- Architecture rules and refactor roadmap: docs/ARCHITECTURE_RULES.md
-- Evaluation exercise + level differentiation lens: docs/EVALUATION.md
-- Testing and CI notes (Vitest + Playwright + E2E marker): docs/TESTING.md
-- UI notes (Material 3 / LiquidGlass / responsive dashboard): docs/UI.md
-- Learning resources (Android + KMP): docs/LEARNING.md
-- Optional code task ideas: docs/OPTIONAL_TASKS.md
+- Gameplay (seeds, scoring, incidents, postmortems, profile & achievements): [GAMEPLAY.md](./docs/GAMEPLAY.md)
+- Systems (concepts + realism layers): [SYSTEMS.md](./docs/SYSTEMS.md)
+- Architecture rules and refactor roadmap: [ARCHITECTURE_RULES.md](./docs/ARCHITECTURE_RULES.md)
+- Evaluation exercise + level differentiation lens: [EVALUATION.md](./docs/EVALUATION.md)
+- Testing and CI notes (Vitest + Playwright + E2E marker): [TESTING.md](./docs/TESTING.md)
+- UI notes (Material 3, LiquidGlass, responsive dashboard): [UI.md](./docs/UI.md)
+- Learning resources (Android + KMP): [LEARNING.md](./docs/LEARNING.md)
+- Optional code task ideas: [OPTIONAL_TASKS.md](./docs/OPTIONAL_TASKS.md)
 
 ## Security
 
-See [SECURITY](./SECURITY.md) for reporting guidance. Do not include secrets in issues or pull requests.
+See [SECURITY.md](./SECURITY.md) for reporting guidance. Do not include secrets in issues or pull requests.
 
 ## Contributing
 
-See [CONTRIBUTING](./CONTRIBUTING.md) for setup instructions and contribution expectations.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions and contribution expectations.
 
 ## Code of conduct
 
-See [CODE_OF_CONDUCT](./CODE_OF_CONDUCT.md) for community standards.
+See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for community standards.
 
 ## License
 
