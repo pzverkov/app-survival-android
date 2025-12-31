@@ -14,7 +14,29 @@ permissions:
   security-events: write
 
 jobs:
+  # NOTE: google/osv-scanner-action provides reusable workflows (not a step-level action).
+  # We run it as a separate job and gate downstream logic based on the job result.
+  osv-scan:
+    name: OSV scan
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.1"
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    with:
+      # Keep args explicit so behavior is stable across OSV versions.
+      scan-args: |-
+        --recursive
+        --skip-git
+        ./
+      # This repo already has a separate CodeQL workflow; don't upload SARIF here.
+      upload-sarif: false
+      # Let the job fail if vulnerabilities are found; downstream job handles reporting/PR.
+      fail-on-vuln: true
+
   security-scan:
+    needs: [osv-scan]
+    if: always()
     runs-on: ubuntu-latest
 
     steps:
@@ -56,16 +78,6 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `audit_error=${auditError}\nhas_vulns=${hasVulns}\n`);
           NODE
 
-      - name: OSV scan
-        id: osv
-        continue-on-error: true
-        uses: google/osv-scanner-action@v2.3.1
-        with:
-          scan-args: |-
-            -r
-            --skip-git
-            .
-
       - name: Decide if findings exist
         id: gate
         shell: bash
@@ -77,8 +89,8 @@ jobs:
             HAS="true"
           fi
 
-          # osv-scanner-action reports "failed" when vulnerabilities are found (or on some errors).
-          if [ "${{ steps.osv.outcome }}" = "failure" ]; then
+          # OSV job fails on vulnerabilities (or errors). Treat any failure as a finding.
+          if [ "${{ needs.osv-scan.result }}" = "failure" ]; then
             HAS="true"
           fi
 
