@@ -236,15 +236,16 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'ticket.autoTarget': 'Auto-target (worst violation)',
 
     'shop.full': 'Full',
-    'shop.refillCost': 'Refill ($${cost})',
-    'shop.boostCost': 'Boost regen ($${cost})',
+    'shop.refillCost': 'Refill ({cost})',
+    'shop.boostCost': 'Boost regen ({cost})',
     'shop.boostMax': 'Boost regen (max)',
-    'shop.hireCost': 'Hire (+2 max $${cost})',
+    'shop.hireCost': 'Hire (+2 max {cost})',
     'shop.hireMax': 'Hire (max)',
     'shop.shieldReady': 'Shield ready',
-    'shop.shieldCost': 'Incident shield ($${cost})',
+    'shop.shieldCost': 'Incident shield ({cost})',
+    'shop.boosterActive': 'Regen boosted ({sec}s)',
     'shop.energyDrinkCharges': 'Energy drink x{n}',
-    'shop.energyDrinkCost': 'Energy drink ($${cost})',
+    'shop.energyDrinkCost': 'Energy drink ({cost})',
 },
 
   es: {

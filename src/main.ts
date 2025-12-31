@@ -10,6 +10,24 @@ const THEME_KEY = 'theme';
 const GLASS_KEY = 'glass';
 const TAB_KEY = 'tab';
 
+// Currency formatting (the in-game economy is USD by design, but we format
+// according to the selected UI locale for readability).
+const moneyFmtCache = new Map<string, Intl.NumberFormat>();
+function fmtMoneyUSD(amount: number): string {
+  const lang = getLanguage();
+  const locale = (lang || 'en') as string;
+  let fmt = moneyFmtCache.get(locale);
+  if (!fmt) {
+    fmt = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0,
+    });
+    moneyFmtCache.set(locale, fmt);
+  }
+  return fmt.format(amount);
+}
+
 function supportsGlass(): boolean {
   return (window.CSS && (CSS.supports('backdrop-filter: blur(1px)') || CSS.supports('-webkit-backdrop-filter: blur(1px)')));
 }
@@ -325,8 +343,14 @@ function scrollToTab(id: TabId, behavior: ScrollBehavior = 'smooth') {
   const section = tabSections[id];
   if (!section) return;
   setActiveTab(id);
-  const top = Math.max(0, section.offsetTop - 8);
-  refs.sideBody.scrollTo({ top, behavior });
+
+  // `offsetTop` can be misleading inside flex/scroll containers; compute the
+  // target position relative to the scroll container instead.
+  const parent = refs.sideBody;
+  const parentRect = parent.getBoundingClientRect();
+  const rect = section.getBoundingClientRect();
+  const top = Math.max(0, parent.scrollTop + (rect.top - parentRect.top) - 8);
+  parent.scrollTo({ top, behavior });
 }
 
 const initialTab = (() => {
@@ -342,8 +366,11 @@ refs.sideBody.addEventListener('scroll', () => {
     const st = refs.sideBody.scrollTop;
     let best: TabId = 'overview';
     let bestDist = Number.POSITIVE_INFINITY;
+    const parentRect = refs.sideBody.getBoundingClientRect();
     for (const id of Object.keys(tabSections) as TabId[]) {
-      const dist = Math.abs(tabSections[id].offsetTop - st);
+      const rect = tabSections[id].getBoundingClientRect();
+      const top = refs.sideBody.scrollTop + (rect.top - parentRect.top);
+      const dist = Math.abs(top - st);
       if (dist < bestDist) { bestDist = dist; best = id; }
     }
     setActiveTab(best);
@@ -575,15 +602,21 @@ function renderTickets() {
 
   const canRefill = (cap.cur < cap.max - 1e-6) && (sim.budget >= shop.refillCost);
   refs.btnCapRefill.disabled = !canRefill;
-  refs.btnCapRefill.textContent = cap.cur >= cap.max - 1e-6 ? t('shop.full') : t('shop.refillCost', { cost: shop.refillCost });
+  refs.btnCapRefill.textContent = cap.cur >= cap.max - 1e-6
+    ? t('shop.full')
+    : t('shop.refillCost', { cost: fmtMoneyUSD(shop.refillCost) });
 
   const canBoost = shop.canRegenUpgrade && (sim.budget >= shop.regenUpgradeCost);
   refs.btnCapBoost.disabled = !canBoost;
-  refs.btnCapBoost.textContent = shop.canRegenUpgrade ? t('shop.boostCost', { cost: shop.regenUpgradeCost }) : t('shop.boostMax');
+  refs.btnCapBoost.textContent = shop.canRegenUpgrade
+    ? t('shop.boostCost', { cost: fmtMoneyUSD(shop.regenUpgradeCost) })
+    : t('shop.boostMax');
 
   const canHire = shop.canHire && (sim.budget >= shop.hireCost);
   refs.btnCapHire.disabled = !canHire;
-  refs.btnCapHire.textContent = shop.canHire ? t('shop.hireCost', { cost: shop.hireCost }) : t('shop.hireMax');
+  refs.btnCapHire.textContent = shop.canHire
+    ? t('shop.hireCost', { cost: fmtMoneyUSD(shop.hireCost) })
+    : t('shop.hireMax');
 
   // Unlockable (achievement-gated) shop items.
   refs.btnCapDrink.hidden = !unlocks.booster;
@@ -591,8 +624,8 @@ function renderTickets() {
     const canDrink = shop.canBuyBooster && (sim.budget >= shop.boosterCost);
     refs.btnCapDrink.disabled = !canDrink;
     refs.btnCapDrink.textContent = shop.boosterActive
-      ? `Regen boosted (${Math.ceil(shop.boosterRemainingSec)}s)`
-      : `Energy drink ($${shop.boosterCost})`;
+      ? t('shop.boosterActive', { sec: Math.ceil(shop.boosterRemainingSec) })
+      : t('shop.energyDrinkCost', { cost: fmtMoneyUSD(shop.boosterCost) });
   }
 
   refs.btnCapShield.hidden = !unlocks.shield;
@@ -601,13 +634,13 @@ function renderTickets() {
     refs.btnCapShield.disabled = !canShield;
     refs.btnCapShield.textContent = shop.shieldCharges > 0
       ? t('shop.shieldReady')
-      : t('shop.shieldCost', { cost: shop.shieldCost });
+      : t('shop.shieldCost', { cost: fmtMoneyUSD(shop.shieldCost) });
   }
 
   // Keep overlay action in sync (incident response quick button)
   if ((refs as any).incidentOverlayRefill) {
     (refs as any).incidentOverlayRefill.disabled = !canRefill;
-    (refs as any).incidentOverlayRefill.textContent = t('shop.refillCost', { cost: shop.refillCost });
+    (refs as any).incidentOverlayRefill.textContent = t('shop.refillCost', { cost: fmtMoneyUSD(shop.refillCost) });
   }
 
   const nowMs = performance.now();
@@ -632,14 +665,14 @@ function renderTickets() {
     const sev = ['S0', 'S1', 'S2', 'S3'][ticket.severity] ?? 'S?';
     const age = Math.floor(ticket.ageSec / 60);
     const canFix = cap.cur + 1e-9 >= ticket.effort;
-    const fixLabel = canFix ? t('ticketicket.fix', { effort: ticket.effort }) : t('ticketicket.need', { effort: ticket.effort });
-    const deferLabel = ticket.deferred ? t('ticketicket.undefer') : t('ticketicket.defer');
+    const fixLabel = canFix ? t('ticket.fix', { effort: ticket.effort }) : t('ticket.need', { effort: ticket.effort });
+    const deferLabel = ticket.deferred ? t('ticket.undefer') : t('ticket.defer');
     const isArch = ticket.kind === 'ARCHITECTURE_DEBT';
     return `
       <div class="ticket">
         <div class="ticketMain">
           <div class="ticketTitle"><span class="badge ${ticket.severity === 3 ? 's3' : ticket.severity === 2 ? 's2' : ticket.severity === 1 ? 's1' : 's0'}">${sev}</span> ${ticket.title}</div>
-          <div class="ticketMeta"><span>${ticket.category}</span><span>${t('ticketicket.impact', { impact: ticket.impact })}</span><span>${t('ticketicket.age', { minutes: age })}</span>${ticket.deferred ? `<span class="badge">${t('ticketicket.deferred')}</span>` : ''}</div>
+          <div class="ticketMeta"><span>${ticket.category}</span><span>${t('ticket.impact', { impact: ticket.impact })}</span><span>${t('ticket.age', { minutes: age })}</span>${ticket.deferred ? `<span class="badge">${t('ticket.deferred')}</span>` : ''}</div>
         </div>
         <div class="ticketBtns">
           <button class="btn text ${canFix ? '' : 'is-disabled'}" data-fix="${ticket.id}" ${canFix ? '' : 'disabled'}>${fixLabel}</button>
@@ -648,10 +681,10 @@ function renderTickets() {
       </div>
       ${isArch ? `
         <details class="ticketMore">
-          <summary><span class="ticketMoreSummary">${t('ticketicket.refactorOptions')}</span></summary>
+          <summary><span class="ticketMoreSummary">${t('ticket.refactorOptions')}</span></summary>
           <div class="ticketRefactors">
             <select class="input mono" data-target="${ticket.id}">
-              <option value="">${t('ticketicket.autoTarget')}</option>
+              <option value="">${t('ticket.autoTarget')}</option>
               ${sim.getArchViolations().slice(0, 8).map(v => `<option value="${v.key}">${v.reason}</option>`).join('')}
             </select>
             ${sim.getRefactorOptions(ticket.id).map(o => `<button class="btn text" data-refactor="${ticket.id}" data-action="${o.action}" title="${o.title}
