@@ -1,0 +1,113 @@
+name: Nightly Security Scan
+
+on:
+  schedule:
+    - cron: "17 2 * * *" # 02:17 UTC daily
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+  pull-requests: write
+  security-events: write
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.1"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci
+
+      # Run npm audit, but keep the workflow running so we can open/update a PR when needed.
+      - name: npm audit (prod deps, high+)
+        id: npm_audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm audit --omit=dev --audit-level=high --json > npm-audit.json || true
+
+          node - <<'NODE'
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('npm-audit.json', 'utf8'));
+
+          // npm may output {"error": ...} on some failures (registry/network/etc).
+          const auditError = !!data.error;
+
+          let hasVulns = false;
+          if (!auditError) {
+            const v = (data.metadata && data.metadata.vulnerabilities) || {};
+            const high = Number(v.high || 0);
+            const critical = Number(v.critical || 0);
+            hasVulns = (high + critical) > 0;
+          }
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `audit_error=${auditError}\nhas_vulns=${hasVulns}\n`);
+          NODE
+
+      - name: OSV scan
+        id: osv
+        continue-on-error: true
+        uses: google/osv-scanner-action@v1
+        with:
+          scan-args: |-
+            -r
+            --skip-git
+            .
+
+      - name: Decide if findings exist
+        id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          HAS="false"
+
+          if [ "${{ steps.npm_audit.outputs.has_vulns }}" = "true" ]; then
+            HAS="true"
+          fi
+
+          # osv-scanner-action reports "failed" when vulnerabilities are found (or on some errors).
+          if [ "${{ steps.osv.outcome }}" = "failure" ]; then
+            HAS="true"
+          fi
+
+          echo "has_findings=$HAS" >> "$GITHUB_OUTPUT"
+
+      - name: Update README stamp (only on findings; schedule/dispatch only)
+        if: github.event_name != 'pull_request' && steps.gate.outputs.has_findings == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          TS="$(date -u +'%Y-%m-%d %H:%M UTC')"
+
+          perl -0777 -i -pe "s/<!-- security-check:begin -->.*?<!-- security-check:end -->/<!-- security-check:begin -->\nLast automated security check: **$TS** — **FAIL**\n<!-- security-check:end -->/s" README.md
+
+      - name: Create/Update PR (only on findings; schedule/dispatch only)
+        if: github.event_name != 'pull_request' && steps.gate.outputs.has_findings == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: chore/security-findings
+          delete-branch: false
+          title: "chore(security): nightly scan found findings"
+          commit-message: "chore(security): record nightly scan findings"
+          body: |
+            Nightly security scan detected findings.
+
+            - npm audit (prod deps, high+)
+            - OSV scanner
+
+            Please review the workflow logs and remediate.
+
+      - name: Fail job if findings exist
+        if: steps.gate.outputs.has_findings == 'true'
+        run: exit 1
