@@ -203,9 +203,15 @@ html[data-theme="light"] {
 body {
   margin: 0;
   color: var(--md-sys-color-on-background);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Sans CJK SC", "Noto Sans CJK JP", "Noto Sans Devanagari", "PingFang SC", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, "Microsoft YaHei", "Microsoft JhengHei", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
 }
 
 /* Layout */
@@ -213,14 +219,48 @@ body {
   display: grid;
   /* Canvas + control surface. Side panel uses clamp so it can breathe on laptops
      and become a real dashboard on wide monitors without crushing the canvas. */
-  grid-template-columns: minmax(420px, 1fr) minmax(340px, clamp(360px, 34vw, 760px));
+  /* Cap the dashboard width on ultrawide monitors so the canvas doesn't get starved. */
+  grid-template-columns: minmax(420px, 1fr) minmax(340px, clamp(360px, 28vw, 520px));
   height: 100vh;
 }
 
-/* Give the side panel more room on large viewports so it can become a true “two-column” control surface */
-@media (min-width: 1400px) {
-  .wrap { grid-template-columns: minmax(520px, 1fr) minmax(420px, clamp(520px, 32vw, 860px)); }
+/* Small screens: stack canvas above the dashboard (single scroll surface). */
+@media (max-width: 900px) {
+  .wrap {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(320px, 1fr) minmax(280px, 46vh);
+    height: 100dvh;
+  }
+  .side { border-left: none; border-top: 1px solid var(--md-sys-color-outline-variant); }
 }
+
+.canvasWrap {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.canvasHud {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+
+.btn.hud {
+  padding: 6px 10px;
+  min-width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--glass-bg);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  box-shadow: var(--md-elevation-1);
+  backdrop-filter: blur(10px);
+}
+
+.btn.hud:hover { background: color-mix(in oklab, var(--glass-bg) 80%, white); }
 
 canvas {
   display: block;
@@ -235,7 +275,7 @@ canvas {
 .side {
   border-left: 1px solid var(--md-sys-color-outline-variant);
   padding: var(--md-pad-3) var(--md-pad-3) var(--md-pad-4);
-  overflow: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -243,6 +283,15 @@ canvas {
     linear-gradient(180deg,
       rgba(255,255,255,0.025) 0%,
       rgba(255,255,255,0.020) 100%);
+}
+
+.sideBody {
+  overflow: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 12px;
 }
 
 /* On glass mode, big shadows + scroll containers can look "clipped".
@@ -262,6 +311,43 @@ html[data-glass="on"] .side {
   border-radius: var(--md-sys-shape-corner-large);
   box-shadow: var(--md-elevation-1);
   backdrop-filter: blur(10px);
+}
+
+.tabBar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  margin-top: 10px;
+}
+
+.tabBtn {
+  appearance: none;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  border-radius: 14px;
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform 120ms ease, background 140ms ease, border-color 140ms ease;
+}
+
+.tabBtn:hover { background: var(--md-state-hover); }
+
+.tabBtn.is-selected {
+  background: color-mix(in oklab, var(--md-sys-color-primary-container) 60%, transparent);
+  border-color: color-mix(in oklab, var(--md-sys-color-primary) 60%, var(--md-sys-color-outline-variant));
+  color: var(--md-sys-color-on-primary-container);
+}
+
+.tabPanel { display: flex; flex-direction: column; gap: 12px; }
+
+/* Mobile polish: tabs remain usable even when the panel is narrow. */
+@media (max-width: 900px) {
+  .tabBar { grid-template-columns: repeat(2, 1fr); }
+  .canvasHud { top: 8px; right: 8px; }
 }
 
 .sideHeader > * {
@@ -973,7 +1059,8 @@ html.incident-hot #backlogCard {
   .incidentOverlay {
     left: 12px;
     right: 12px;
-    bottom: calc(min(62vh, 540px) + 12px);
+    top: 12px;
+    bottom: auto;
     width: auto;
   }
 }

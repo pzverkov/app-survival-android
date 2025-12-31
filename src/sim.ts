@@ -474,6 +474,20 @@ export class GameSim {
       (p === EVAL_PRESET.PRINCIPAL) ? 80 :
       (p === EVAL_PRESET.STAFF) ? 75 : 70;
   }
+
+  /**
+   * Target session length ("shift") per evaluation level.
+   * Goal: keep runs in the ~8–10 minute range while still allowing different difficulty feels.
+   */
+  getShiftDurationSec(): number {
+    switch (this.preset) {
+      case EVAL_PRESET.JUNIOR_MID: return 600; // 10:00
+      case EVAL_PRESET.SENIOR: return 540;     // 09:00
+      case EVAL_PRESET.STAFF: return 510;      // 08:30
+      case EVAL_PRESET.PRINCIPAL: return 480;  // 08:00
+      default: return 540;
+    }
+  }
   getAdvisories(): Advisory[] { return this.advisories; }
 
   fixTicket(id: number) {
@@ -1465,6 +1479,13 @@ private tickCoverageGate() {
 
     // Score: accumulate per tick while the run is alive.
     this.score += this.calcTickScore(failureRate, anrRisk, p95);
+
+    // Shift complete: end the run in the target 8–10 minute window (per preset).
+    // Only applies to active runs so unit tests that call tick() directly remain deterministic.
+    if (this.running && this.timeSec >= this.getShiftDurationSec()) {
+      this.endRun('SHIFT_COMPLETE', failureRate, anrRisk, p95);
+      return;
+    }
 
     if (this.budget <= 0 || this.rating <= 1.0) {
       this.budget = Math.max(0, this.budget);
