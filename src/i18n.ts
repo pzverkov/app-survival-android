@@ -114,6 +114,7 @@ const DICTS: Partial<Record<Lang, Dict>> = {
 
     'glass.off': 'Off',
     'glass.on': 'On',
+    'glass.unsupported': 'Liquid glass not supported in this browser',
 
     'canvas.zoomIn': 'Zoom in',
     'canvas.zoomOut': 'Zoom out',
@@ -122,7 +123,129 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'toast.achUnlocked': 'Achievement unlocked: {title}{tier}{reward}',
     'toast.reward': ' (+{reward})',
     'toast.tier': ' {tier}',
-  },
+  
+    'btn.profileTitle': 'Profile & achievements',
+    'seed.dailyTitle': 'Use a deterministic daily seed',
+    'ach.someHidden': 'Some are hidden 👀',
+    'sel.title': 'Selected',
+    'sel.none': 'None',
+    'sel.hint': 'Upgrades raise capacity & reliability. Repairs restore health. Both cost budget',
+    'btn.upgrade': 'Upgrade',
+    'btn.repair': 'Repair',
+    'btn.delete': 'Delete',
+    'trust.a11y': 'A11y',
+    'trust.privacy': 'Privacy',
+    'trust.security': 'Security',
+    'trust.supportLoad': 'Support load',
+    'setup.evalPreset': 'Evaluation preset',
+    'setup.evalPresetHint': 'CoverageGate and enforcement weight',
+    'preset.juniorMid': 'Junior-Mid',
+    'preset.senior': 'Senior',
+    'preset.staff': 'Staff',
+    'preset.principal': 'Principal',
+    'setup.placeComponent': 'Place component',
+    'btn.add': '+ Add',
+    'component.UI': 'UI',
+    'component.VM': 'ViewModel',
+    'component.DOMAIN': 'Domain',
+    'component.REPO': 'Repository',
+    'component.CACHE': 'Cache',
+    'component.DB': 'Room DB',
+    'component.NET': 'Network',
+    'component.WORK': 'WorkManager',
+    'component.OBS': 'Observability',
+    'component.FLAGS': 'Feature Flags',
+    'component.AUTH': 'Auth / Sessions',
+    'component.PINNING': 'TLS Pinning',
+    'component.KEYSTORE': 'Keystore / Crypto',
+    'component.SANITIZER': 'Input Sanitizer',
+    'component.ABUSE': 'Abuse Protection',
+    'component.A11Y': 'Accessibility Layer',
+    'setup.dragHintPrefix': 'Drag components to rearrange. Link mode: click',
+    'setup.dragHintSource': 'source',
+    'setup.dragHintThen': 'click',
+    'setup.dragHintDest': 'destination',
+    'backlog.capacity': 'Capacity',
+    'btn.refill': 'Refill',
+    'btn.boostRegen': 'Boost regen',
+    'btn.energyDrink': 'Energy drink',
+    'btn.energyDrinkTitle': 'Temporary regen booster (unlocks via achievements)',
+    'btn.incidentShield': 'Incident shield',
+    'btn.incidentShieldTitle': 'Blocks the next incident penalty once (unlocks via achievements)',
+    'btn.hire': 'Hire',
+    'backlog.fixOrDefer': 'Fix tickets or defer',
+    'platform.latestApi': 'Latest API',
+    'platform.minApi': 'Min API',
+    'platform.oldDevices': 'Old devices',
+    'platform.lowRam': 'Low RAM',
+    'regions.regPressure': 'Reg pressure',
+    'regions.hint': 'Compliance and rollout gates',
+    'votes.perf': 'Perf',
+    'votes.reliability': 'Reliability',
+    'votes.privacy': 'Privacy',
+    'votes.a11y': 'A11y',
+    'votes.battery': 'Battery',
+    'signals.noReviews': 'No reviews yet.',
+    'signals.noIncidents': 'No incidents… yet.',
+    'btn.copyRunJson': 'Copy run JSON',
+    'btn.clear': 'Clear',
+    'history.scoreboardHint': 'Top runs stored in localStorage.',
+    'history.noRun': 'No run yet.',
+    'history.noScores': 'No scores yet.',
+    'btn.applyNext': 'Apply next',
+    'history.roadmapHint': 'Suggested sequence to pay down architecture debt (Staff/Principal-style).',
+    'history.noRoadmap': 'No roadmap yet.',
+    'history.realismTitle': 'Android realism features (implemented)',
+    'history.realism.frameguard': 'frame budget and jank meter (16ms model)',
+    'history.realism.mainthread': 'IO on main strictness (adds ANR and jank)',
+    'history.realism.heapwatch': 'heap meter with GC pauses and OOM crashes',
+    'history.recoPrefix': 'Recommended starter graph:',
+    'history.recoAnd': 'and',
+    'history.recoAdd': 'Add',
+    'history.recoSuffix': 'to reduce blast radius',
+    'incident.label': 'Incident',
+    'incident.dismiss': 'Dismiss incident',
+    'incident.hint': 'Respond fast: fix or defer the top ticket to stop the bleed.',
+    'btn.openBacklog': 'Open backlog',
+    'btn.quickTriage': 'Quick triage',
+    'profile.close': 'Close profile',
+    'heapwatch.gc': 'HeapWatch GC',
+    'heapwatch.msOom': 'ms • OOM',
+    'history.copyPrompt': 'Copy run JSON:',
+    'build.info': 'Build {sha} • base {base}',
+    'coverage.below': 'Below {threshold}% increases regressions',
+    'coverage.target': 'Target {threshold}%+ for stable releases',
+    'advisory.active': 'Active: {title}',
+    'roadmap.action': 'Action',
+    'roadmap.why': 'Why',
+
+    'toast.achievementUnlocked': 'Achievement unlocked: {title}{tier}{reward}',
+    'toast.runCopied': 'Run JSON copied',
+    'toast.scoreboardCleared': 'Scoreboard cleared',
+    'toast.noRoadmapTicket': 'No architecture debt ticket to refactor',
+
+    'backlog.noTickets': 'No open tickets',
+    'ticket.fix': 'Fix ({effort})',
+    'ticket.need': 'Need {effort}',
+    'ticket.defer': 'Defer',
+    'ticket.undefer': 'Undefer',
+    'ticket.impact': 'impact {impact}',
+    'ticket.age': 'age {minutes}m',
+    'ticket.deferred': 'deferred',
+    'ticket.refactorOptions': 'Refactor options',
+    'ticket.autoTarget': 'Auto-target (worst violation)',
+
+    'shop.full': 'Full',
+    'shop.refillCost': 'Refill ($${cost})',
+    'shop.boostCost': 'Boost regen ($${cost})',
+    'shop.boostMax': 'Boost regen (max)',
+    'shop.hireCost': 'Hire (+2 max $${cost})',
+    'shop.hireMax': 'Hire (max)',
+    'shop.shieldReady': 'Shield ready',
+    'shop.shieldCost': 'Incident shield ($${cost})',
+    'shop.energyDrinkCharges': 'Energy drink x{n}',
+    'shop.energyDrinkCost': 'Energy drink ($${cost})',
+},
 
   es: {
     'app.title': 'Supervivencia App: Noche de Release Android',
@@ -196,8 +319,8 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'theme.system': 'Sistema',
     'theme.light': 'Claro',
     'theme.dark': 'Oscuro',
-    'glass.off': 'Off',
-    'glass.on': 'On',
+    'glass.off': 'Desactivado',
+    'glass.on': 'Activado',
     'canvas.zoomIn': 'Acercar',
     'canvas.zoomOut': 'Alejar',
     'canvas.fit': 'Ajustar',
@@ -278,8 +401,8 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'theme.system': 'Système',
     'theme.light': 'Clair',
     'theme.dark': 'Sombre',
-    'glass.off': 'Off',
-    'glass.on': 'On',
+    'glass.off': 'Désactivé',
+    'glass.on': 'Activé',
     'canvas.zoomIn': 'Zoom +',
     'canvas.zoomOut': 'Zoom −',
     'canvas.fit': 'Ajuster',
@@ -360,8 +483,8 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'theme.system': 'System',
     'theme.light': 'Hell',
     'theme.dark': 'Dunkel',
-    'glass.off': 'Off',
-    'glass.on': 'On',
+    'glass.off': 'Aus',
+    'glass.on': 'An',
     'canvas.zoomIn': 'Zoom +',
     'canvas.zoomOut': 'Zoom −',
     'canvas.fit': 'Einpassen',
@@ -442,8 +565,8 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'theme.system': 'Sistema',
     'theme.light': 'Claro',
     'theme.dark': 'Escuro',
-    'glass.off': 'Off',
-    'glass.on': 'On',
+    'glass.off': 'Desligado',
+    'glass.on': 'Ligado',
     'canvas.zoomIn': 'Zoom +',
     'canvas.zoomOut': 'Zoom −',
     'canvas.fit': 'Ajustar',
@@ -524,8 +647,8 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'theme.system': 'Система',
     'theme.light': 'Світла',
     'theme.dark': 'Темна',
-    'glass.off': 'Off',
-    'glass.on': 'On',
+    'glass.off': 'Вимкнено',
+    'glass.on': 'Увімкнено',
     'canvas.zoomIn': 'Збільшити',
     'canvas.zoomOut': 'Зменшити',
     'canvas.fit': 'Вмістити',
@@ -606,8 +729,8 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'theme.system': 'Система',
     'theme.light': 'Светлая',
     'theme.dark': 'Тёмная',
-    'glass.off': 'Off',
-    'glass.on': 'On',
+    'glass.off': 'Выкл.',
+    'glass.on': 'Вкл.',
     'canvas.zoomIn': 'Увеличить',
     'canvas.zoomOut': 'Уменьшить',
     'canvas.fit': 'Вписать',
@@ -710,7 +833,11 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'theme.system': 'Systeem',
     'theme.light': 'Licht',
     'theme.dark': 'Donker',
-  },
+  
+    'glass.off': 'Uit',
+
+    'glass.on': 'Aan',
+},
 
   it: {
     'app.title': 'Sopravvivenza App: Notte di release Android',
@@ -730,7 +857,12 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'theme.system': 'Sistema',
     'theme.light': 'Chiaro',
     'theme.dark': 'Scuro',
-  },
+  
+    'glass.off': 'Off',
+
+    'glass.on': 'On',
+    'glass.unsupported': 'Liquid glass not supported in this browser',
+},
 
   nb: {
     'app.title': 'App Survival: Android-releasekveld',
@@ -750,7 +882,11 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'theme.system': 'System',
     'theme.light': 'Lys',
     'theme.dark': 'Mørk',
-  },
+  
+    'glass.off': 'Av',
+
+    'glass.on': 'På',
+},
 
   af: {
     'app.title': 'App Survival: Android-vrystellingsnag',
@@ -766,7 +902,11 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': 'Instellings',
     'settings.language': 'Taal',
     'settings.theme': 'Tema',
-  },
+  
+    'glass.off': 'Af',
+
+    'glass.on': 'Aan',
+},
 
   zu: {
     'app.title': 'Ukusinda kwe-App: Ubusuku bokukhishwa kwe-Android',
@@ -778,7 +918,11 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'btn.profile': '👤 Iphrofayela',
     'settings.title': 'Izilungiselelo',
     'settings.language': 'Ulimi',
-  },
+  
+    'glass.off': 'Valiwe',
+
+    'glass.on': 'Vuliwe',
+},
 
   xh: {
     'app.title': 'Ukusinda kwe-App: Ubusuku bokukhutshwa kwe-Android',
@@ -790,7 +934,11 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'btn.profile': '👤 Iprofayile',
     'settings.title': 'Iisetingi',
     'settings.language': 'Ulwimi',
-  },
+  
+    'glass.off': 'Cima',
+
+    'glass.on': 'Vula',
+},
 
 };
 type LocaleGroup = 'core' | 'regional' | 'more';
@@ -1001,6 +1149,17 @@ export function applyTranslations(root: ParentNode = document) {
       el.placeholder = value;
     }
   }
+
+  const aria = Array.from(root.querySelectorAll<HTMLElement>('[data-i18n-aria-label]'));
+  for (const el of aria) {
+    const key = el.getAttribute('data-i18n-aria-label');
+    if (key) {
+      const value = t(key);
+      if (value === key) warnMissing(key);
+      el.setAttribute('aria-label', value);
+    }
+  }
+
   const title = Array.from(root.querySelectorAll<HTMLElement>('[data-i18n-title]'));
   for (const el of title) {
     const key = el.getAttribute('data-i18n-title');

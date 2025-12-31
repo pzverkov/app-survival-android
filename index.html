@@ -25,7 +25,7 @@
             <button id="btnStart" class="btn filled" data-i18n="btn.start">▶ Start</button>
             <button id="btnPause" class="btn tonal" data-i18n="btn.pause">⏸ Pause</button>
             <button id="btnReset" class="btn outlined" data-i18n="btn.reset">↺ Reset</button>
-            <button id="btnProfile" class="btn outlined" data-i18n="btn.profile" title="Profile & achievements">👤 Profile</button>
+            <button id="btnProfile" class="btn outlined" data-i18n="btn.profile" data-i18n-title="btn.profileTitle" title="Profile & achievements">👤 Profile</button>
           </div>
 
           <div class="row" style="margin-top:10px; align-items:center;">
@@ -45,23 +45,21 @@
           </div>
         </div>
 
-        <div class="sideBody">
+        <div id="sideBody" class="sideBody">
 
         <section id="tabOverview" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnOverview">
 
         <!-- Keep "Selected" high in the panel for fast diagnosis/repair cycles -->
         <section class="card" id="selCard">
-          <div class="k">Selected</div>
-          <div class="v mono" id="selName">None</div>
+          <div class="k" data-i18n="sel.title">Selected</div>
+          <div class="v mono" id="selName" data-i18n="sel.none">None</div>
           <pre class="small mono" id="selStats">—</pre>
           <div class="row" style="margin-top:10px;">
-            <button id="btnUpgrade" class="btn filled" disabled>Upgrade</button>
-            <button id="btnRepair" class="btn outlined" disabled>Repair</button>
-            <button id="btnDelete" class="btn error" disabled>Delete</button>
+            <button id="btnUpgrade" class="btn filled" disabled data-i18n="btn.upgrade">Upgrade</button>
+            <button id="btnRepair" class="btn outlined" disabled data-i18n="btn.repair">Repair</button>
+            <button id="btnDelete" class="btn error" disabled data-i18n="btn.delete">Delete</button>
           </div>
-          <div class="small" style="margin-top:8px;">
-            Upgrades raise capacity & reliability. Repairs restore health. Both cost budget
-          </div>
+          <div class="small" style="margin-top:8px;" data-i18n="sel.hint">Upgrades raise capacity & reliability. Repairs restore health. Both cost budget</div>
         </section>
 
         <!-- High-signal observability block -->
@@ -130,7 +128,7 @@
           <div class="card">
             <div class="k" data-i18n="lbl.heap">Heap</div>
             <div class="v mono" id="heap">64 MB</div>
-            <div class="small">HeapWatch GC <span class="mono" id="gc">0</span> ms • OOM <span class="mono" id="oom">0</span></div>
+            <div class="small"><span data-i18n="heapwatch.gc">HeapWatch GC</span> <span class="mono" id="gc">0</span> <span data-i18n="heapwatch.msOom">ms • OOM</span> <span class="mono" id="oom">0</span></div>
           </div>
         </section>
 
@@ -142,7 +140,7 @@
           </div>
           <div class="row" style="margin-top:8px; gap:8px;">
             <input id="seedInput" class="input" style="flex:1;" type="number" step="1" data-i18n-placeholder="seed.placeholder" placeholder="Seed (optional)" />
-            <button id="btnDailySeed" class="btn text" title="Use a deterministic daily seed" data-i18n="seed.daily">Daily</button>
+            <button id="btnDailySeed" class="btn text" title="Use a deterministic daily seed" data-i18n="seed.daily" data-i18n-title="seed.dailyTitle">Daily</button>
           </div>
           <div class="small muted" style="margin-top:8px;" data-i18n="seed.note">Reset uses the seed above (if set).</div>
         </section>
@@ -155,7 +153,7 @@
           </div>
           <div class="row" style="margin-top:10px;">
             <button id="btnOpenProfile" class="btn tonal" data-i18n="ach.openProfile">Open profile</button>
-            <div class="small muted" style="margin-left:auto;">Some are hidden 👀</div>
+            <div class="small muted" style="margin-left:auto;" data-i18n="ach.someHidden">Some are hidden 👀</div>
           </div>
         </section>
 
@@ -163,90 +161,90 @@
         <section class="card">
           <div class="k" data-i18n="card.trust">Trust &amp; accessibility</div>
           <div class="small" style="margin-top:8px;">
-            A11y: <span class="mono" id="a11yScore">100</span>/100 •
-            Privacy: <span class="mono" id="privacyTrust">100</span>/100 •
-            Security: <span class="mono" id="securityPosture">100</span>/100 •
-            Support load: <span class="mono" id="supportLoad">0</span>/100
+            <span data-i18n="trust.a11y">A11y</span>: <span class="mono" id="a11yScore">100</span>/100 •
+            <span data-i18n="trust.privacy">Privacy</span>: <span class="mono" id="privacyTrust">100</span>/100 •
+            <span data-i18n="trust.security">Security</span>: <span class="mono" id="securityPosture">100</span>/100 •
+            <span data-i18n="trust.supportLoad">Support load</span>: <span class="mono" id="supportLoad">0</span>/100
           </div>
         </section>
 
         <!-- Setup & controls: kept in overview because it's a primary interaction surface -->
         <div class="sideGroup">
           <section class="card">
-            <div class="k">Evaluation preset</div>
+            <div class="k" data-i18n="setup.evalPreset">Evaluation preset</div>
             <div class="row" style="margin-top:8px;">
               <select id="presetSelect">
-                <option value="JUNIOR_MID">Junior-Mid</option>
-                <option value="SENIOR">Senior</option>
-                <option value="STAFF">Staff</option>
-                <option value="PRINCIPAL">Principal</option>
+                <option value="JUNIOR_MID" data-i18n="preset.juniorMid">Junior-Mid</option>
+                <option value="SENIOR" data-i18n="preset.senior">Senior</option>
+                <option value="STAFF" data-i18n="preset.staff">Staff</option>
+                <option value="PRINCIPAL" data-i18n="preset.principal">Principal</option>
               </select>
             </div>
-            <div class="small muted" style="margin-top:8px;">CoverageGate and enforcement weight</div>
+            <div class="small muted" style="margin-top:8px;" data-i18n="setup.evalPresetHint">CoverageGate and enforcement weight</div>
           </section>
 
           <section class="card">
-            <div class="k">Place component</div>
+            <div class="k" data-i18n="setup.placeComponent">Place component</div>
             <div class="row" style="margin-top:8px;">
               <select id="componentType">
-                <option value="UI">UI</option>
-                <option value="VM">ViewModel</option>
-                <option value="DOMAIN">Domain</option>
-                <option value="REPO">Repository</option>
-                <option value="CACHE">Cache</option>
-                <option value="DB">Room DB</option>
-                <option value="NET">Network</option>
-                <option value="WORK">WorkManager</option>
-                <option value="OBS">Observability</option>
-                <option value="FLAGS">Feature Flags</option>
-                <option value="AUTH">Auth / Sessions</option>
-                <option value="PINNING">TLS Pinning</option>
-                <option value="KEYSTORE">Keystore / Crypto</option>
-                <option value="SANITIZER">Input Sanitizer</option>
-                <option value="ABUSE">Abuse Protection</option>
-                <option value="A11Y">Accessibility Layer</option>
+                <option value="UI" data-i18n="component.UI">UI</option>
+                <option value="VM" data-i18n="component.VM">ViewModel</option>
+                <option value="DOMAIN" data-i18n="component.DOMAIN">Domain</option>
+                <option value="REPO" data-i18n="component.REPO">Repository</option>
+                <option value="CACHE" data-i18n="component.CACHE">Cache</option>
+                <option value="DB" data-i18n="component.DB">Room DB</option>
+                <option value="NET" data-i18n="component.NET">Network</option>
+                <option value="WORK" data-i18n="component.WORK">WorkManager</option>
+                <option value="OBS" data-i18n="component.OBS">Observability</option>
+                <option value="FLAGS" data-i18n="component.FLAGS">Feature Flags</option>
+                <option value="AUTH" data-i18n="component.AUTH">Auth / Sessions</option>
+                <option value="PINNING" data-i18n="component.PINNING">TLS Pinning</option>
+                <option value="KEYSTORE" data-i18n="component.KEYSTORE">Keystore / Crypto</option>
+                <option value="SANITIZER" data-i18n="component.SANITIZER">Input Sanitizer</option>
+                <option value="ABUSE" data-i18n="component.ABUSE">Abuse Protection</option>
+                <option value="A11Y" data-i18n="component.A11Y">Accessibility Layer</option>
               </select>
-              <button id="btnAdd" class="btn tonal">+ Add</button>
+              <button id="btnAdd" class="btn tonal" data-i18n="btn.add">+ Add</button>
             </div>
             <div class="small" style="margin-top:8px;">
-              Drag components to rearrange. Link mode: click <span class="mono">source</span> → click <span class="mono">destination</span>
+              <span data-i18n="setup.dragHintPrefix">Drag components to rearrange. Link mode: click</span> <span class="mono" data-i18n="setup.dragHintSource">source</span> → <span data-i18n="setup.dragHintThen">click</span> <span class="mono" data-i18n="setup.dragHintDest">destination</span>
             </div>
           </section>
         </div>
 
         </section> <!-- /tabOverview -->
 
-        <section id="tabBacklog" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnBacklog" hidden>
+        <section id="tabBacklog" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnBacklog">
         <section class="card" id="backlogCard">
-          <div class="k">Backlog</div>
+          <div class="k" data-i18n="nav.backlog">Backlog</div>
           <div class="row capRow" style="margin-top:8px; align-items:center;">
-            <div class="pill">Capacity <span id="capVal" class="mono">0/0</span> <span id="capRegenHint" class="small muted mono">+0/min</span></div>
+            <div class="pill"><span data-i18n="backlog.capacity">Capacity</span> <span id="capVal" class="mono">0/0</span> <span id="capRegenHint" class="small muted mono">+0/min</span></div>
 
             <div class="capBtns" style="margin-left:auto;">
-              <button id="btnCapRefill" class="btn text">Refill</button>
-              <button id="btnCapBoost" class="btn text">Boost regen</button>
-              <button id="btnCapDrink" class="btn text" hidden title="Temporary regen booster (unlocks via achievements)">Energy drink</button>
-              <button id="btnCapShield" class="btn text" hidden title="Blocks the next incident penalty once (unlocks via achievements)">Incident shield</button>
-              <button id="btnCapHire" class="btn text">Hire</button>
+              <button id="btnCapRefill" class="btn text" data-i18n="btn.refill">Refill</button>
+              <button id="btnCapBoost" class="btn text" data-i18n="btn.boostRegen">Boost regen</button>
+              <button id="btnCapDrink" class="btn text" hidden title="Temporary regen booster (unlocks via achievements)" data-i18n="btn.energyDrink" data-i18n-title="btn.energyDrinkTitle">Energy drink</button>
+              <button id="btnCapShield" class="btn text" hidden title="Blocks the next incident penalty once (unlocks via achievements)" data-i18n="btn.incidentShield" data-i18n-title="btn.incidentShieldTitle">Incident shield</button>
+              <button id="btnCapHire" class="btn text" data-i18n="btn.hire">Hire</button>
             </div>
 
-            <div class="small muted capRight">Fix tickets or defer</div>
+            <div class="small muted capRight" data-i18n="backlog.fixOrDefer">Fix tickets or defer</div>
           </div>
           <div id="ticketList" class="ticketList" style="margin-top:10px;"></div>
         </section>
 
         </section> <!-- /tabBacklog -->
 
-        <section id="tabSignals" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnSignals" hidden>
+        <section id="tabSignals" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnSignals">
 
         <div class="sideGroup">
           <section class="card">
             <div class="k" data-i18n="card.platform">Platform</div>
             <div class="small" style="margin-top:8px;">
-              Latest API <span id="apiLatest" class="mono">0</span> • Min API <span id="apiMin" class="mono">0</span>
+              <span data-i18n="platform.latestApi">Latest API</span> <span id="apiLatest" class="mono">0</span> • <span data-i18n="platform.minApi">Min API</span> <span id="apiMin" class="mono">0</span>
             </div>
             <div class="small muted" style="margin-top:4px;">
-              Old devices <span id="oldShare" class="mono">0</span>% • Low RAM <span id="lowRamShare" class="mono">0</span>%
+              <span data-i18n="platform.oldDevices">Old devices</span> <span id="oldShare" class="mono">0</span>% • <span data-i18n="platform.lowRam">Low RAM</span> <span id="lowRamShare" class="mono">0</span>%
             </div>
             <div id="advisoryText" class="small" style="margin-top:8px;"></div>
           </section>
@@ -254,8 +252,8 @@
           <section class="card">
             <div class="k" data-i18n="card.regions">Regions</div>
             <div class="row" style="margin-top:8px; align-items:center;">
-              <div class="pill">Reg pressure <span id="regPressure" class="mono">0</span></div>
-              <div class="small muted" style="margin-left:auto;">Compliance and rollout gates</div>
+              <div class="pill"><span data-i18n="regions.regPressure">Reg pressure</span> <span id="regPressure" class="mono">0</span></div>
+              <div class="small muted" style="margin-left:auto;" data-i18n="regions.hint">Compliance and rollout gates</div>
             </div>
             <div id="regionList" class="regionList" style="margin-top:10px;"></div>
           </section>
@@ -264,67 +262,67 @@
         <section class="card">
           <div class="k" data-i18n="card.votes">User votes (live sentiment)</div>
           <div class="small" style="margin-top:8px;">
-            Perf: <span class="mono" id="votesPerf">0</span> •
-            Reliability: <span class="mono" id="votesReliability">0</span> •
-            Privacy: <span class="mono" id="votesPrivacy">0</span> •
-            A11y: <span class="mono" id="votesA11y">0</span> •
-            Battery: <span class="mono" id="votesBattery">0</span>
+            <span data-i18n="votes.perf">Perf</span>: <span class="mono" id="votesPerf">0</span> •
+            <span data-i18n="votes.reliability">Reliability</span>: <span class="mono" id="votesReliability">0</span> •
+            <span data-i18n="votes.privacy">Privacy</span>: <span class="mono" id="votesPrivacy">0</span> •
+            <span data-i18n="votes.a11y">A11y</span>: <span class="mono" id="votesA11y">0</span> •
+            <span data-i18n="votes.battery">Battery</span>: <span class="mono" id="votesBattery">0</span>
           </div>
-          <pre class="small" id="reviewLog" style="margin-top:8px;">No reviews yet.</pre>
+          <pre class="small" id="reviewLog" style="margin-top:8px;" data-i18n="signals.noReviews">No reviews yet.</pre>
         </section>
 
         <section class="card" id="incidentsCard">
           <div class="k" data-i18n="card.incidents">Incidents</div>
-          <pre class="small" id="eventLog">No incidents… yet.</pre>
+          <pre class="small" id="eventLog" data-i18n="signals.noIncidents">No incidents… yet.</pre>
         </section>
 
         </section> <!-- /tabSignals -->
 
-        <section id="tabHistory" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnHistory" hidden>
+        <section id="tabHistory" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnHistory">
         <section class="card">
           <div class="row" style="align-items:center;">
-            <div class="k">Postmortem</div>
+            <div class="k" data-i18n="card.postmortem">Postmortem</div>
             <div style="margin-left:auto;">
-              <button id="btnCopyRun" class="btn text">Copy run JSON</button>
+              <button id="btnCopyRun" class="btn text" data-i18n="btn.copyRunJson">Copy run JSON</button>
             </div>
           </div>
-          <pre class="small" id="postmortem">No run yet.</pre>
+          <pre class="small" id="postmortem" data-i18n="history.noRun">No run yet.</pre>
         </section>
 
         <section class="card">
           <div class="row" style="align-items:center;">
-            <div class="k">Scoreboard (local)</div>
+            <div class="k" data-i18n="card.scoreboard">Scoreboard (local)</div>
             <div style="margin-left:auto;">
-              <button id="btnClearScoreboard" class="btn text">Clear</button>
+              <button id="btnClearScoreboard" class="btn text" data-i18n="btn.clear">Clear</button>
             </div>
           </div>
-          <div class="small muted" style="margin-top:6px;">Top runs stored in localStorage.</div>
-          <pre class="small" id="scoreboardList" style="margin-top:8px;">No scores yet.</pre>
+          <div class="small muted" style="margin-top:6px;" data-i18n="history.scoreboardHint">Top runs stored in localStorage.</div>
+          <pre class="small" id="scoreboardList" style="margin-top:8px;" data-i18n="history.noScores">No scores yet.</pre>
         </section>
         <section class="card">
           <div class="row" style="align-items:center;">
-            <div class="k">Refactor Roadmap</div>
+            <div class="k" data-i18n="card.roadmap">Refactor Roadmap</div>
             <div style="margin-left:auto;">
-              <button id="btnApplyNextRoadmap" class="btn text">Apply next</button>
+              <button id="btnApplyNextRoadmap" class="btn text" data-i18n="btn.applyNext">Apply next</button>
             </div>
           </div>
-          <div class="small muted" style="margin-top:6px;">Suggested sequence to pay down architecture debt (Staff/Principal-style).</div>
-          <pre class="small" id="roadmap" style="margin-top:8px;">No roadmap yet.</pre>
+          <div class="small muted" style="margin-top:6px;" data-i18n="history.roadmapHint">Suggested sequence to pay down architecture debt (Staff/Principal-style).</div>
+          <pre class="small" id="roadmap" style="margin-top:8px;" data-i18n="history.noRoadmap">No roadmap yet.</pre>
         </section>
 
 
         <section class="card">
-          <div class="k">Android realism features (implemented)</div>
+          <div class="k" data-i18n="history.realismTitle">Android realism features (implemented)</div>
           <ol class="small" style="margin:8px 0 0; padding-left:18px;">
-            <li><b>FrameGuard</b> frame budget and jank meter (16ms model)</li>
-            <li><b>MainThreadGuard</b> IO on main strictness (adds ANR and jank)</li>
-            <li><b>HeapWatch</b> heap meter with GC pauses and OOM crashes</li>
+            <li><b>FrameGuard</b> <span data-i18n="history.realism.frameguard">frame budget and jank meter (16ms model)</span></li>
+            <li><b>MainThreadGuard</b> <span data-i18n="history.realism.mainthread">IO on main strictness (adds ANR and jank)</span></li>
+            <li><b>HeapWatch</b> <span data-i18n="history.realism.heapwatch">heap meter with GC pauses and OOM crashes</span></li>
           </ol>
         </section>
 
         <p class="small">
-          Recommended starter graph: <span class="mono">UI → VM → Domain → Repo → (Cache → DB)</span> and <span class="mono">Repo → Net</span>.
-          Add <span class="mono">Observability</span> + <span class="mono">Feature Flags</span> to reduce blast radius
+          <span data-i18n="history.recoPrefix">Recommended starter graph:</span> <span class="mono">UI → VM → Domain → Repo → (Cache → DB)</span> <span data-i18n="history.recoAnd">and</span> <span class="mono">Repo → Net</span>.
+          <span data-i18n="history.recoAdd">Add</span> <span class="mono">Observability</span> + <span class="mono">Feature Flags</span> <span data-i18n="history.recoSuffix">to reduce blast radius</span>
         </p>
 
         <div id="buildInfo" class="small mono" style="opacity:.75; margin-top:10px;"></div>
@@ -340,15 +338,15 @@
     <div id="incidentOverlay" class="incidentOverlay" hidden aria-live="polite" aria-atomic="true">
       <div class="card incidentOverlayInner">
         <div class="row" style="align-items:center;">
-          <div class="pill" style="border-color: color-mix(in oklab, var(--md-sys-color-error) 70%, transparent);">Incident</div>
+          <div class="pill" style="border-color: color-mix(in oklab, var(--md-sys-color-error) 70%, transparent);" data-i18n="incident.label">Incident</div>
           <div id="incidentOverlayTitle" class="small mono" style="margin-left:10px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</div>
-          <button id="incidentOverlayDismiss" class="btn text" aria-label="Dismiss incident">✕</button>
+          <button id="incidentOverlayDismiss" class="btn text" aria-label="Dismiss incident" data-i18n-aria-label="incident.dismiss">✕</button>
         </div>
-        <div id="incidentOverlayHint" class="small muted" style="margin-top:8px;">Respond fast: fix or defer the top ticket to stop the bleed.</div>
+        <div id="incidentOverlayHint" class="small muted" style="margin-top:8px;" data-i18n="incident.hint">Respond fast: fix or defer the top ticket to stop the bleed.</div>
         <div class="row" style="margin-top:10px; justify-content:flex-end; flex-wrap:wrap;">
-          <button id="incidentOverlayBacklog" class="btn outlined">Open backlog</button>
-          <button id="incidentOverlayRefill" class="btn outlined">Refill</button>
-          <button id="incidentOverlayTriage" class="btn filled">Quick triage</button>
+          <button id="incidentOverlayBacklog" class="btn outlined" data-i18n="btn.openBacklog">Open backlog</button>
+          <button id="incidentOverlayRefill" class="btn outlined" data-i18n="btn.refill">Refill</button>
+          <button id="incidentOverlayTriage" class="btn filled" data-i18n="btn.quickTriage">Quick triage</button>
         </div>
       </div>
     </div>
@@ -359,14 +357,14 @@
       <div class="modalPanel card">
         <div class="row" style="align-items:center; gap:10px;">
           <h2 id="profileTitle" style="margin:0; font-size:16px;" data-i18n="profile.title">Profile</h2>
-          <div class="pill" style="margin-left:auto;">Preset</div>
+          <div class="pill" style="margin-left:auto;" data-i18n="profile.preset">Preset</div>
           <select id="profilePresetSelect">
-            <option value="JUNIOR_MID">Junior-Mid</option>
-            <option value="SENIOR">Senior</option>
-            <option value="STAFF">Staff</option>
-            <option value="PRINCIPAL">Principal</option>
+            <option value="JUNIOR_MID" data-i18n="preset.juniorMid">Junior-Mid</option>
+            <option value="SENIOR" data-i18n="preset.senior">Senior</option>
+            <option value="STAFF" data-i18n="preset.staff">Staff</option>
+            <option value="PRINCIPAL" data-i18n="preset.principal">Principal</option>
           </select>
-          <button id="btnCloseProfile" class="btn text" aria-label="Close profile">✕</button>
+          <button id="btnCloseProfile" class="btn text" aria-label="Close profile" data-i18n-aria-label="profile.close">✕</button>
         </div>
 
         <div class="small" style="margin-top:10px;">

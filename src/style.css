@@ -220,9 +220,17 @@ button, input, select, textarea {
   /* Canvas + control surface. Side panel uses clamp so it can breathe on laptops
      and become a real dashboard on wide monitors without crushing the canvas. */
   /* Cap the dashboard width on ultrawide monitors so the canvas doesn't get starved. */
-  grid-template-columns: minmax(420px, 1fr) minmax(340px, clamp(360px, 28vw, 520px));
+  grid-template-columns: minmax(420px, 1fr) minmax(360px, clamp(380px, 30vw, 600px));
   height: 100vh;
 }
+
+/* Wide laptops/desktops: give the dashboard a bit more breathing room to reduce vertical scroll. */
+@media (min-width: 1100px) and (min-height: 700px) {
+  .wrap {
+    grid-template-columns: minmax(420px, 1fr) minmax(380px, clamp(420px, 32vw, 640px));
+  }
+}
+
 
 /* Small screens: stack canvas above the dashboard (single scroll surface). */
 @media (max-width: 900px) {
@@ -287,6 +295,7 @@ canvas {
 
 .sideBody {
   overflow: auto;
+  scroll-behavior: smooth;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -314,16 +323,27 @@ html[data-glass="on"] .side {
 }
 
 .tabBar {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
   gap: 6px;
   padding: 10px 12px 12px;
   border-top: 1px solid var(--md-sys-color-outline-variant);
   margin-top: 10px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
+
+.tabBar::-webkit-scrollbar { height: 8px; }
+.tabBar::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--md-sys-color-outline) 40%, transparent);
+  border-radius: 999px;
+}
+
 
 .tabBtn {
   appearance: none;
+  flex: 0 0 auto;
+  min-width: 88px;
   border: 1px solid var(--md-sys-color-outline-variant);
   background: transparent;
   color: var(--md-sys-color-on-surface-variant);
@@ -346,7 +366,7 @@ html[data-glass="on"] .side {
 
 /* Mobile polish: tabs remain usable even when the panel is narrow. */
 @media (max-width: 900px) {
-  .tabBar { grid-template-columns: repeat(2, 1fr); }
+  .tabBar { padding-bottom: 10px; }
   .canvasHud { top: 8px; right: 8px; }
 }
 
@@ -962,7 +982,8 @@ html.incident-hot #backlogCard {
 
 .incidentOverlay {
   position: fixed;
-  right: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   bottom: 16px;
   z-index: 9999;
   width: min(440px, calc(100vw - 32px));
@@ -1062,6 +1083,7 @@ html.incident-hot #backlogCard {
     top: 12px;
     bottom: auto;
     width: auto;
+    transform: none;
   }
 }
 
