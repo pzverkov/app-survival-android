@@ -1,4 +1,5 @@
 import { EVAL_PRESET, EvalPreset, TicketKind } from './types';
+import { t } from './i18n';
 
 export type AchievementId = string;
 
@@ -91,6 +92,19 @@ export class InMemoryAchStorage implements AchStorage {
 
 function storageKey(preset: EvalPreset) {
   return `${STORAGE_PREFIX}${preset}`;
+}
+
+function trOr(key: string, fallback: string): string {
+  const s = t(key);
+  return s === key ? fallback : s;
+}
+
+function achTitle(id: string, fallback: string): string {
+  return trOr(`achv.${id}.title`, fallback);
+}
+
+function achTierDesc(id: string, tier: 1 | 2 | 3, fallback: string): string {
+  return trOr(`achv.${id}.t${tier}`, fallback);
 }
 
 export function defaultPersisted(): AchPersisted {
@@ -436,17 +450,20 @@ export class AchievementsTracker {
       const unlocked = tier > 0;
 
       if (!unlocked && d.visibility === 'HIDDEN') {
+        const hiddenTitle = trOr('ach.hiddenTitle', 'Hidden achievement');
+        const hiddenDesc = trOr('ach.hiddenDesc', 'Keep playing to reveal this one.');
         return {
           id: d.id,
           tier,
           visibility: d.visibility,
-          title: 'Hidden achievement',
-          description: 'Keep playing to reveal this one.',
-          next: { label: 'BRONZE', description: 'Keep playing to reveal this one.' },
+          title: hiddenTitle,
+          description: hiddenDesc,
+          next: { label: 'BRONZE', description: hiddenDesc },
         };
       }
 
       const currentTierDef = tier > 0 ? d.tiers.find(x => x.tier === tier) : d.tiers[0];
+      const shownTier = (currentTierDef?.tier ?? 1) as 1 | 2 | 3;
       const nextTier = (tier < 3 ? (tier + 1) : 0) as AchievementTier;
       const nextDef = nextTier > 0 ? d.tiers.find(x => x.tier === nextTier) : undefined;
 
@@ -454,9 +471,9 @@ export class AchievementsTracker {
         id: d.id,
         tier,
         visibility: d.visibility,
-        title: d.title,
-        description: currentTierDef?.description ?? '',
-        next: nextDef ? { label: tierLabel(nextDef.tier), description: nextDef.description, reward: nextDef.reward } : undefined,
+        title: achTitle(d.id, d.title),
+        description: achTierDesc(d.id, shownTier, currentTierDef?.description ?? ''),
+        next: nextDef ? { label: tierLabel(nextDef.tier), description: achTierDesc(d.id, nextDef.tier, nextDef.description), reward: nextDef.reward } : undefined,
       };
     });
   }
@@ -511,10 +528,10 @@ export class AchievementsTracker {
           this.persisted.tiers[def.id] = next;
           unlockedNow.push({
             id: def.id,
-            title: def.title,
+            title: achTitle(def.id, def.title),
             tier: next as 1 | 2 | 3,
             label: tierLabel(next as 1 | 2 | 3),
-            description: tierDef.description,
+            description: achTierDesc(def.id, next as 1 | 2 | 3, tierDef.description),
             reward: tierDef.reward,
           });
 

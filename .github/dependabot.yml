@@ -1,0 +1,38 @@
+version: 2
+
+updates:
+  # Node / npm dependencies (root only)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      time: "02:20"
+      timezone: "UTC"
+    open-pull-requests-limit: 0  # disables version-update PRs; security PRs still happen (when alerts exist)
+    labels:
+      - "security"
+      - "dependencies"
+    allow:
+      - dependency-type: "production"
+    groups:
+      npm-security:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+
+  # GitHub Actions (workflow dependencies)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      time: "02:20"
+      timezone: "UTC"
+    open-pull-requests-limit: 0  # disables version-update PRs; security PRs still happen (when alerts exist)
+    labels:
+      - "security"
+      - "dependencies"
+    groups:
+      actions-security:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
