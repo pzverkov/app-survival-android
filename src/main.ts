@@ -188,6 +188,14 @@ type UIRefs = {
   profileTotal: HTMLElement;
   profileBest: HTMLElement;
   profileAchList: HTMLElement;
+
+  // Refactor modal (architecture debt)
+  refactorModal: HTMLElement;
+  refactorBackdrop: HTMLElement;
+  btnCloseRefactor: HTMLButtonElement;
+  refactorTicketTitle: HTMLElement;
+  refactorTargetSelect: HTMLSelectElement;
+  refactorOptions: HTMLElement;
 };
 
 
@@ -425,6 +433,10 @@ let lastRegionsSig = '';
 let lastTicketsRenderMs = 0;
 let lastRegionsRenderMs = 0;
 
+// Ticket title expand/collapse state (kept across re-renders).
+// Only used for non-architecture tickets (architecture debt titles are always fully visible).
+const expandedTicketTitles = new Set<number>();
+
 function setText(el: HTMLElement, v: string) { if (el.textContent !== v) el.textContent = v; }
 function setHTML(el: HTMLElement, v: string) { if (el.innerHTML !== v) el.innerHTML = v; }
 
@@ -468,6 +480,20 @@ function toast(msg: string) {
     el.style.opacity = '0';
     setTimeout(() => el.remove(), 260);
   }, 1100);
+}
+
+function renderTicketTitleHtml(ticket: Ticket): string {
+  const raw = (ticket.title ?? '').toString();
+  if (ticket.kind === 'ARCHITECTURE_DEBT') {
+    // Show the “reason” on its own line to avoid truncation (especially once localized).
+    const idx = raw.indexOf(':');
+    if (idx > 0 && idx < raw.length - 1) {
+      const prefix = raw.slice(0, idx).trim();
+      const reason = raw.slice(idx + 1).trim();
+      return `<span class="ticketTitlePrefix">${escapeHtml(prefix)}:</span><br><span class="ticketTitleReason mono">${escapeHtml(reason)}</span>`;
+    }
+  }
+  return escapeHtml(raw);
 }
 function requestUISync() {
   if (uiPending) return;
@@ -526,8 +552,11 @@ function renderProfile(preset: EvalPreset) {
   const views = ach.getViewsForPreset(preset);
   refs.profileAchList.innerHTML = views.map(v => {
     const icon = v.tier > 0 ? '✓' : '•';
-    const tierBadge = v.tier === 0 ? '' : (v.tier === 1 ? 'BRONZE' : v.tier === 2 ? 'SILVER' : 'GOLD');
-    const next = v.next ? `Next: ${v.next.label} - ${v.next.description}` : '';
+    const tierBadge = v.tier === 0 ? '' : (v.tier === 1 ? t('tier.bronze') : v.tier === 2 ? t('tier.silver') : t('tier.gold'));
+    const nextTierKey = v.next ? `tier.${String(v.next.label).toLowerCase()}` : '';
+    const nextTierTranslated = v.next ? t(nextTierKey) : '';
+    const nextTierLabel = v.next ? (nextTierTranslated === nextTierKey ? v.next.label : nextTierTranslated) : '';
+    const next = v.next ? `${t('profile.next')} ${nextTierLabel} — ${v.next.description}` : '';
     const reward = formatReward(v.next?.reward);
     return `
       <div class="achItem ${v.tier > 0 ? 'is-unlocked' : 'is-locked'}">
@@ -644,7 +673,9 @@ function renderTickets() {
   }
 
   const nowMs = performance.now();
-  const ticketsSig = tickets.map(t => `${t.id}:${t.severity}:${t.impact}:${Math.floor(t.ageSec)}:${t.deferred ? 1 : 0}`).join('|');
+  // Include UI locale in the signature so a language switch re-renders ticket copy immediately.
+  const langSig = getLanguage();
+  const ticketsSig = tickets.map(t => `${t.id}:${t.severity}:${t.impact}:${Math.floor(t.ageSec)}:${t.deferred ? 1 : 0}`).join('|') + `|lang:${langSig}`;
   // Throttle list DOM work even if we tick at 1Hz
   const allow = (nowMs - lastTicketsRenderMs) > 450;
   if (!allow && ticketsSig === lastTicketsSig) return;
@@ -668,32 +699,21 @@ function renderTickets() {
     const fixLabel = canFix ? t('ticket.fix', { effort: ticket.effort }) : t('ticket.need', { effort: ticket.effort });
     const deferLabel = ticket.deferred ? t('ticket.undefer') : t('ticket.defer');
     const isArch = ticket.kind === 'ARCHITECTURE_DEBT';
+    const isExpanded = !isArch && expandedTicketTitles.has(ticket.id);
+    const titleHtml = renderTicketTitleHtml(ticket);
     return `
-      <div class="ticket">
+      <div class="ticket ${isArch ? 'is-arch' : ''} ${isExpanded ? 'is-expanded' : ''}">
         <div class="ticketMain">
-          <div class="ticketTitle"><span class="badge ${ticket.severity === 3 ? 's3' : ticket.severity === 2 ? 's2' : ticket.severity === 1 ? 's1' : 's0'}">${sev}</span> ${ticket.title}</div>
+          <div class="ticketTitle"><span class="badge ${ticket.severity === 3 ? 's3' : ticket.severity === 2 ? 's2' : ticket.severity === 1 ? 's1' : 's0'}">${sev}</span> <span class="ticketTitleText" dir="auto">${titleHtml}</span></div>
+          ${!isArch ? `<button class="ticketTitleToggle" data-toggle-title="${ticket.id}" ${isExpanded ? '' : 'hidden'} aria-expanded="${isExpanded ? 'true' : 'false'}">${isExpanded ? t('ticket.collapseTitle') : t('ticket.expandTitle')}</button>` : ''}
           <div class="ticketMeta"><span>${ticket.category}</span><span>${t('ticket.impact', { impact: ticket.impact })}</span><span>${t('ticket.age', { minutes: age })}</span>${ticket.deferred ? `<span class="badge">${t('ticket.deferred')}</span>` : ''}</div>
         </div>
         <div class="ticketBtns">
           <button class="btn text ${canFix ? '' : 'is-disabled'}" data-fix="${ticket.id}" ${canFix ? '' : 'disabled'}>${fixLabel}</button>
           <button class="btn text" data-defer="${ticket.id}">${deferLabel}</button>
+          ${isArch ? `<button class="btn tonal" data-open-refactor="${ticket.id}">${t('ticket.refactorOptions')}</button>` : ''}
         </div>
       </div>
-      ${isArch ? `
-        <details class="ticketMore">
-          <summary><span class="ticketMoreSummary">${t('ticket.refactorOptions')}</span></summary>
-          <div class="ticketRefactors">
-            <select class="input mono" data-target="${ticket.id}">
-              <option value="">${t('ticket.autoTarget')}</option>
-              ${sim.getArchViolations().slice(0, 8).map(v => `<option value="${v.key}">${v.reason}</option>`).join('')}
-            </select>
-            ${sim.getRefactorOptions(ticket.id).map(o => `<button class="btn text" data-refactor="${ticket.id}" data-action="${o.action}" title="${o.title}
-$${o.cost} • ${o.debtDelta} debt • +${o.scoreBonus} score
-
-${o.description}">${o.action.replace('_',' ')} ($${o.cost}, ${o.debtDelta} debt)</button>`).join('')}
-          </div>
-        </details>
-      ` : ''}
     `;
   }).join('');
 
@@ -711,18 +731,63 @@ ${o.description}">${o.action.replace('_',' ')} ($${o.cost}, ${o.debtDelta} debt)
       syncUI();
     });
   });
-  refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-refactor]').forEach((btn) => {
+  refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-open-refactor]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
-      const el = e.currentTarget as HTMLElement;
-      const id = Number(el.getAttribute('data-refactor'));
-      const action = el.getAttribute('data-action') as RefactorAction;
-      const sel = refs.ticketList.querySelector<HTMLSelectElement>(`select[data-target="${id}"]`);
-      const targetKey = sel ? (sel.value || undefined) : undefined;
-      sim.applyRefactor(id, action, targetKey);
-      syncUI();
+      const id = Number((e.currentTarget as HTMLElement).getAttribute('data-open-refactor'));
+      openRefactor(id);
     });
   });
 
+  // Title expand/collapse (only shown when the 2-line clamp actually truncates)
+  refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-toggle-title]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const b = e.currentTarget as HTMLButtonElement;
+      const id = Number(b.getAttribute('data-toggle-title'));
+      const card = b.closest('.ticket') as HTMLElement | null;
+      if (!card) return;
+
+      const nowExpanded = !card.classList.contains('is-expanded');
+      card.classList.toggle('is-expanded', nowExpanded);
+      if (nowExpanded) expandedTicketTitles.add(id);
+      else expandedTicketTitles.delete(id);
+
+      b.textContent = nowExpanded ? t('ticket.collapseTitle') : t('ticket.expandTitle');
+      b.setAttribute('aria-expanded', nowExpanded ? 'true' : 'false');
+
+      // Re-evaluate truncation for other cards too (optional but keeps the UI tidy)
+      updateTicketTitleToggles();
+    });
+  });
+
+  updateTicketTitleToggles();
+
+}
+
+function updateTicketTitleToggles() {
+  const cards = Array.from(refs.ticketList.querySelectorAll<HTMLElement>('.ticket'));
+  for (const card of cards) {
+    if (card.classList.contains('is-arch')) continue;
+
+    const title = card.querySelector<HTMLElement>('.ticketTitle');
+    const toggle = card.querySelector<HTMLButtonElement>('button.ticketTitleToggle[data-toggle-title]');
+    if (!title || !toggle) continue;
+
+    const expanded = card.classList.contains('is-expanded');
+    if (expanded) {
+      toggle.hidden = false;
+      toggle.textContent = t('ticket.collapseTitle');
+      toggle.setAttribute('aria-expanded', 'true');
+      continue;
+    }
+
+    // Ensure label is correct even if language changed.
+    toggle.textContent = t('ticket.expandTitle');
+    toggle.setAttribute('aria-expanded', 'false');
+
+    // Detect line-clamp overflow.
+    const truncated = (title.scrollHeight - title.clientHeight) > 1;
+    toggle.hidden = !truncated;
+  }
 }
 
 function syncRunButtons() {
@@ -815,6 +880,8 @@ window.addEventListener('resize', () => {
   syncCanvasSize();
   fitToView();
   requestDraw();
+  // Layout changes can affect whether a title is truncated.
+  updateTicketTitleToggles();
 });
 
 syncCanvasSize();
@@ -877,6 +944,80 @@ function closeProfile() {
   refs.profileModal.hidden = true;
 }
 
+function renderRefactorModal(ticketId: number) {
+  const ticket = sim.getTickets().find(t => t.id === ticketId);
+  if (!ticket || ticket.kind !== 'ARCHITECTURE_DEBT') {
+    toast(t('toast.noRoadmapTicket'));
+    closeRefactor();
+    return;
+  }
+
+  const sev = ['S0', 'S1', 'S2', 'S3'][ticket.severity] ?? 'S?';
+  const badgeCls = (ticket.severity === 3 ? 's3' : ticket.severity === 2 ? 's2' : ticket.severity === 1 ? 's1' : 's0');
+  const age = Math.floor(ticket.ageSec / 60);
+  const titleHtml = renderTicketTitleHtml(ticket);
+  setHTML(refs.refactorTicketTitle, `
+    <div class="ticketTitle ticketTitleModal">
+      <span class="badge ${badgeCls}">${sev}</span>
+      <span class="ticketTitleText" dir="auto">${titleHtml}</span>
+    </div>
+    <div class="ticketMeta" style="margin-top:6px;">
+      <span>${escapeHtml(ticket.category)}</span>
+      <span>${t('ticket.impact', { impact: ticket.impact })}</span>
+      <span>${t('ticket.age', { minutes: age })}</span>
+    </div>
+  `);
+
+  // Target selector: worst violation by default, or user-selected.
+  const violations = sim.getArchViolations().slice(0, 8);
+  refs.refactorTargetSelect.innerHTML = [
+    `<option value="">${escapeHtml(t('ticket.autoTarget'))}</option>`,
+    ...violations.map(v => `<option value="${escapeHtml(v.key)}">${escapeHtml(v.reason)}</option>`)
+  ].join('');
+
+  const opts = sim.getRefactorOptions(ticketId);
+  if (!opts.length) {
+    setHTML(refs.refactorOptions, `<div class="small muted">${escapeHtml(t('toast.noRoadmapTicket'))}</div>`);
+    return;
+  }
+
+  refs.refactorOptions.innerHTML = opts.map(o => `
+    <button class="refactorOption" data-refactor="${ticketId}" data-action="${o.action}">
+      <div class="refactorOptionTop">
+        <div class="refactorOptionTitle">${escapeHtml(o.title)}</div>
+        <div class="refactorOptionChips">
+          <span class="chip mono">${escapeHtml(fmtMoneyUSD(o.cost))}</span>
+          <span class="chip mono">${escapeHtml(`${o.debtDelta} debt`)}</span>
+          <span class="chip mono">${escapeHtml(`+${o.scoreBonus} score`)}</span>
+        </div>
+      </div>
+      <div class="refactorOptionDesc small muted">${escapeHtml(o.description)}</div>
+    </button>
+  `).join('');
+
+  refs.refactorOptions.querySelectorAll<HTMLButtonElement>('button[data-refactor]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const el = e.currentTarget as HTMLElement;
+      const id = Number(el.getAttribute('data-refactor'));
+      const action = el.getAttribute('data-action') as RefactorAction;
+      const targetKey = refs.refactorTargetSelect.value || undefined;
+      const res = sim.applyRefactor(id, action, targetKey);
+      if (!res.ok) toast(res.reason || 'Refactor failed');
+      closeRefactor();
+      syncUI();
+    });
+  });
+}
+
+function openRefactor(ticketId: number) {
+  refs.refactorModal.hidden = false;
+  renderRefactorModal(ticketId);
+}
+
+function closeRefactor() {
+  refs.refactorModal.hidden = true;
+}
+
 refs.btnProfile.onclick = () => openProfile(refs.presetSelect.value as EvalPreset);
 refs.btnOpenProfile.onclick = () => openProfile(refs.presetSelect.value as EvalPreset);
 refs.btnCloseProfile.onclick = closeProfile;
@@ -885,8 +1026,13 @@ refs.profilePresetSelect.addEventListener('change', () => {
   renderProfile(refs.profilePresetSelect.value as EvalPreset);
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !refs.profileModal.hidden) closeProfile();
+  if (e.key !== 'Escape') return;
+  if (!refs.refactorModal.hidden) closeRefactor();
+  else if (!refs.profileModal.hidden) closeProfile();
 });
+
+refs.btnCloseRefactor.onclick = closeRefactor;
+refs.refactorBackdrop.onclick = closeRefactor;
 
 
 refs.btnSelect.onclick = () => setMode(MODE.SELECT);
@@ -1508,7 +1654,14 @@ function bindUI(): UIRefs {
     profileUnlocked: must('profileUnlocked'),
     profileTotal: must('profileTotal'),
     profileBest: must('profileBest'),
-    profileAchList: must('profileAchList')
+    profileAchList: must('profileAchList'),
+
+    refactorModal: must('refactorModal'),
+    refactorBackdrop: must('refactorBackdrop'),
+    btnCloseRefactor: must<HTMLButtonElement>('btnCloseRefactor'),
+    refactorTicketTitle: must('refactorTicketTitle'),
+    refactorTargetSelect: must<HTMLSelectElement>('refactorTargetSelect'),
+    refactorOptions: must('refactorOptions')
   };
 }
 

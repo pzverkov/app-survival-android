@@ -153,8 +153,7 @@
           </div>
           <div class="row" style="margin-top:10px;">
             <button id="btnOpenProfile" class="btn tonal" data-i18n="ach.openProfile">Open profile</button>
-            <div class="small muted" style="margin-left:auto;" data-i18n="ach.someHidden">Some are hidden 👀</div>
-          </div>
+</div>
         </section>
 
 
@@ -233,6 +232,25 @@
           <div id="ticketList" class="ticketList" style="margin-top:10px;"></div>
         </section>
 
+
+
+        
+        <section class="card">
+          <div class="row" style="align-items:center;">
+            <div class="k" data-i18n="card.roadmap">Refactor Roadmap</div>
+            <div style="margin-left:auto;">
+              <button id="btnApplyNextRoadmap" class="btn text" data-i18n="btn.applyNext">Apply next</button>
+            </div>
+          </div>
+          <div class="small muted" style="margin-top:6px;" data-i18n="history.roadmapHint">Suggested sequence to pay down architecture debt (Staff/Principal-style).</div>
+          <pre class="small" id="roadmap" style="margin-top:8px;" data-i18n="history.noRoadmap">No roadmap yet.</pre>
+        </section>
+
+
+        
+
+        
+
         </section> <!-- /tabBacklog -->
 
         <section id="tabSignals" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnSignals">
@@ -299,19 +317,8 @@
           <div class="small muted" style="margin-top:6px;" data-i18n="history.scoreboardHint">Top runs stored in localStorage.</div>
           <pre class="small" id="scoreboardList" style="margin-top:8px;" data-i18n="history.noScores">No scores yet.</pre>
         </section>
-        <section class="card">
-          <div class="row" style="align-items:center;">
-            <div class="k" data-i18n="card.roadmap">Refactor Roadmap</div>
-            <div style="margin-left:auto;">
-              <button id="btnApplyNextRoadmap" class="btn text" data-i18n="btn.applyNext">Apply next</button>
-            </div>
-          </div>
-          <div class="small muted" style="margin-top:6px;" data-i18n="history.roadmapHint">Suggested sequence to pay down architecture debt (Staff/Principal-style).</div>
-          <pre class="small" id="roadmap" style="margin-top:8px;" data-i18n="history.noRoadmap">No roadmap yet.</pre>
-        </section>
 
-
-        <section class="card">
+<section class="card">
           <div class="k" data-i18n="history.realismTitle">Android realism features (implemented)</div>
           <ol class="small" style="margin:8px 0 0; padding-left:18px;">
             <li><b>FrameGuard</b> <span data-i18n="history.realism.frameguard">frame budget and jank meter (16ms model)</span></li>
@@ -403,6 +410,30 @@
             <option value="off" data-i18n="glass.off">Off</option>
             <option value="on" data-i18n="glass.on">On</option>
           </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Refactor options (architecture debt) -->
+    <div id="refactorModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="refactorTitle">
+      <div class="modalBackdrop" id="refactorBackdrop"></div>
+      <div class="modalPanel card">
+        <div class="row" style="align-items:center; gap:10px;">
+          <h2 id="refactorTitle" style="margin:0; font-size:16px;" data-i18n="ticket.refactorOptions">Refactor options</h2>
+          <button id="btnCloseRefactor" class="btn text" aria-label="Close refactor options" data-i18n-aria-label="ticket.closeRefactor" style="margin-left:auto;">✕</button>
+        </div>
+
+        <div id="refactorTicketTitle" class="small" style="margin-top:10px;"></div>
+
+        <div class="row" style="margin-top:12px; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div class="pill" data-i18n="ticket.target">Target</div>
+          <select id="refactorTargetSelect" class="input mono" style="margin-left:auto; min-width:220px;"></select>
+        </div>
+
+        <div id="refactorOptions" class="refactorList" style="margin-top:12px;"></div>
+
+        <div class="small muted" style="margin-top:12px;" data-i18n="ticket.refactorHint">
+          Refactors spend budget and reduce architecture debt. Pick the cheapest thing that fixes the worst violation.
         </div>
       </div>
     </div>

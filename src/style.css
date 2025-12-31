@@ -696,6 +696,60 @@ select:focus-visible {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+
+/* User-triggered expansion for long non-arch ticket titles. */
+.ticket.is-expanded .ticketTitle {
+  overflow: visible;
+  text-overflow: unset;
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+/* Architecture debt titles are long and information-dense; show them in full. */
+.ticket.is-arch .ticketTitle {
+  overflow: visible;
+  text-overflow: unset;
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.ticketTitleText {
+  min-width: 0;
+}
+
+.ticketTitleToggle {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 2px 0;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--md-sys-color-primary);
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.ticketTitleToggle:hover {
+  text-decoration: underline;
+}
+
+.ticketTitlePrefix {
+  opacity: 0.86;
+}
+
+.ticketTitleReason {
+  opacity: 1;
+}
+
+.ticketTitleModal {
+  font-size: 14px;
+  font-weight: 700;
+  overflow: visible;
+  text-overflow: unset;
+  display: block;
+  -webkit-line-clamp: unset;
+}
 .ticketMeta { font-size: 11px; color: rgba(255,255,255,0.72); margin-top: 3px; }
 .ticketBtns {
   display: flex;
@@ -1024,6 +1078,68 @@ html.incident-hot #backlogCard {
   overflow: auto;
   padding: 14px;
   border-radius: 18px;
+}
+
+/* --- Refactor modal ----------------------------------------------------- */
+.refactorList {
+  display: grid;
+  gap: 10px;
+}
+
+.refactorOption {
+  text-align: left;
+  width: 100%;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--md-sys-color-outline) 35%, transparent);
+  background: color-mix(in oklab, var(--md-sys-color-surface-container) 80%, transparent);
+  color: var(--md-sys-color-on-surface);
+  cursor: pointer;
+}
+
+.refactorOption:hover {
+  background: color-mix(in oklab, var(--md-sys-color-surface-container-highest) 80%, transparent);
+}
+
+.refactorOption:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-sys-color-primary) 18%, transparent);
+  border-color: color-mix(in oklab, var(--md-sys-color-primary) 70%, white 30%);
+}
+
+.refactorOptionTop {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.refactorOptionTitle {
+  font-weight: 650;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.refactorOptionChips {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in oklab, var(--md-sys-color-outline-variant) 60%, transparent);
+  background: color-mix(in oklab, var(--md-sys-color-surface-variant) 55%, transparent);
+  font-size: 11px;
+}
+
+.refactorOptionDesc {
+  margin-top: 6px;
 }
 
 .achList {
