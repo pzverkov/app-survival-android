@@ -8,6 +8,7 @@ on:
     branches: [ main ]
 
 permissions:
+  actions: read
   contents: write
   pull-requests: write
   security-events: write
@@ -58,7 +59,7 @@ jobs:
       - name: OSV scan
         id: osv
         continue-on-error: true
-        uses: google/osv-scanner-action@v1
+        uses: google/osv-scanner-action@v2.3.1
         with:
           scan-args: |-
             -r
