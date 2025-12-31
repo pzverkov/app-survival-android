@@ -3,10 +3,12 @@ import { GameSim } from './sim';
 import { AchievementsTracker, LocalStorageAchStorage, AchEvent, AchievementUnlock } from './achievements';
 import { addScoreEntry, clearScoreboard, loadScoreboard } from './scoreboard';
 import { MODE, Mode, ComponentType, Ticket, EvalPreset, EVAL_PRESET, RefactorAction } from './types';
+import { applyTranslations, getLanguage, loadLanguage, populateLanguageSelect, setLanguage, t, type Lang } from './i18n';
 
 type ThemeMode = 'system' | 'light' | 'dark';
 const THEME_KEY = 'theme';
 const GLASS_KEY = 'glass';
+const TAB_KEY = 'tab';
 
 function supportsGlass(): boolean {
   return (window.CSS && (CSS.supports('backdrop-filter: blur(1px)') || CSS.supports('-webkit-backdrop-filter: blur(1px)')));
@@ -51,6 +53,7 @@ type UIRefs = {
 
   budget: HTMLElement;
   time: HTMLElement;
+  shift: HTMLElement;
   rating: HTMLElement;
   score: HTMLElement;
   archDebt: HTMLElement;
@@ -113,6 +116,20 @@ type UIRefs = {
   presetSelect: HTMLSelectElement;
   themeSelect: HTMLSelectElement;
   glassSelect: HTMLSelectElement;
+  langSelect: HTMLSelectElement;
+
+  btnZoomIn: HTMLButtonElement;
+  btnZoomOut: HTMLButtonElement;
+  btnZoomFit: HTMLButtonElement;
+
+  tabBtnOverview: HTMLButtonElement;
+  tabBtnBacklog: HTMLButtonElement;
+  tabBtnSignals: HTMLButtonElement;
+  tabBtnHistory: HTMLButtonElement;
+  tabOverview: HTMLElement;
+  tabBacklog: HTMLElement;
+  tabSignals: HTMLElement;
+  tabHistory: HTMLElement;
 
   btnStart: HTMLButtonElement;
   btnPause: HTMLButtonElement;
@@ -166,6 +183,14 @@ if (IS_E2E) document.documentElement.classList.add('e2e');
 const refs = bindUI();
 if (IS_E2E) refs.seedInput.value = '12345';
 
+// --- Localization ---------------------------------------------------------
+const initLang = loadLanguage();
+populateLanguageSelect(refs.langSelect, initLang);
+refs.langSelect.value = initLang;
+document.documentElement.lang = initLang;
+applyTranslations(document);
+document.title = t('app.title');
+
 // Build info (set by CI for GitHub Pages releases)
 const sha = (import.meta.env.VITE_COMMIT_SHA ?? 'dev').toString();
 const shortSha = sha === 'dev' ? 'dev' : sha.slice(0, 7);
@@ -193,6 +218,7 @@ function latestIncidentLine(eventsText: string): string {
 }
 
 function openBacklog() {
+  selectTab('backlog');
   const el = document.getElementById('backlogCard') ?? refs.ticketList;
   el.scrollIntoView({ behavior: IS_E2E ? 'auto' : 'smooth', block: 'start' });
 }
@@ -266,6 +292,37 @@ refs.presetSelect.addEventListener('change', () => {
   scheduleSync();
 });
 
+// Tabs --------------------------------------------------------------------
+type TabId = 'overview' | 'backlog' | 'signals' | 'history';
+
+function selectTab(id: TabId) {
+  try { localStorage.setItem(TAB_KEY, id); } catch { /* ignore */ }
+
+  refs.tabOverview.hidden = id !== 'overview';
+  refs.tabBacklog.hidden = id !== 'backlog';
+  refs.tabSignals.hidden = id !== 'signals';
+  refs.tabHistory.hidden = id !== 'history';
+
+  const setBtn = (btn: HTMLButtonElement, on: boolean) => {
+    btn.classList.toggle('is-selected', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  };
+  setBtn(refs.tabBtnOverview, id === 'overview');
+  setBtn(refs.tabBtnBacklog, id === 'backlog');
+  setBtn(refs.tabBtnSignals, id === 'signals');
+  setBtn(refs.tabBtnHistory, id === 'history');
+}
+
+const initialTab = (() => {
+  try { return (localStorage.getItem(TAB_KEY) as TabId) || 'overview'; } catch { return 'overview'; }
+})();
+selectTab(initialTab);
+
+refs.tabBtnOverview.addEventListener('click', () => selectTab('overview'));
+refs.tabBtnBacklog.addEventListener('click', () => selectTab('backlog'));
+refs.tabBtnSignals.addEventListener('click', () => selectTab('signals'));
+refs.tabBtnHistory.addEventListener('click', () => selectTab('history'));
+
 // Theme (System / Light / Dark)
 const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 const loadTheme = (): ThemeMode => ((localStorage.getItem(THEME_KEY) as ThemeMode) || 'system');
@@ -280,6 +337,16 @@ setTheme(loadTheme());
 
 refs.themeSelect.addEventListener('change', () => {
   setTheme(refs.themeSelect.value as ThemeMode);
+});
+
+// Language (stored in localStorage via i18n.ts)
+refs.langSelect.addEventListener('change', () => {
+  const l = refs.langSelect.value as Lang;
+  setLanguage(l);
+  document.documentElement.lang = getLanguage();
+  applyTranslations(document);
+  document.title = t('app.title');
+  scheduleSync();
 });
 
 // If user selected System, follow OS changes live
@@ -416,6 +483,13 @@ function renderProfile(preset: EvalPreset) {
 
 
 function clamp01(x: number) { return Math.max(0, Math.min(1, x)); }
+
+function fmtClock(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, '0')}`;
+}
 
 function renderRegions() {
   const pressure = sim.getRegPressure();
@@ -604,27 +678,84 @@ function startTickLoop() {
 }
 
 
-// canvas sizing
-function resize() {
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const r = refs.canvas.getBoundingClientRect();
-  refs.canvas.width = Math.floor(r.width * dpr);
-  refs.canvas.height = Math.floor(r.height * dpr);
-  refs.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+// --- Canvas viewport (pan/zoom) + sizing ---------------------------------
+// World coordinates are the same units as the original "px" layout; the view transform maps them into screen px.
+const view = { scale: 1, tx: 0, ty: 0 };
+let canvasCssW = 1;
+let canvasCssH = 1;
+let canvasDpr = 1;
 
-  // also reset the simulation layout when first load
-  // (but only if it hasn't been initialized)
+function syncCanvasSize() {
+  const r = refs.canvas.getBoundingClientRect();
+  canvasCssW = Math.max(1, r.width);
+  canvasCssH = Math.max(1, r.height);
+  // Cap DPR for perf on laptops + 4K screens.
+  canvasDpr = Math.min(Math.max(1, window.devicePixelRatio || 1), 1.5);
+  refs.canvas.width = Math.floor(canvasCssW * canvasDpr);
+  refs.canvas.height = Math.floor(canvasCssH * canvasDpr);
+  refs.ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function getCanvasBounds() {
+  return { width: canvasCssW, height: canvasCssH };
+}
+
+function fitToView(paddingPx = 56) {
+  if (!sim.components.length) {
+    view.scale = 1;
+    view.tx = 0;
+    view.ty = 0;
+    return;
+  }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of sim.components) {
+    minX = Math.min(minX, n.x - n.r);
+    minY = Math.min(minY, n.y - n.r);
+    maxX = Math.max(maxX, n.x + n.r);
+    maxY = Math.max(maxY, n.y + n.r);
+  }
+  const w = Math.max(1, maxX - minX);
+  const h = Math.max(1, maxY - minY);
+  const sx = (canvasCssW - paddingPx * 2) / w;
+  const sy = (canvasCssH - paddingPx * 2) / h;
+  const s = Math.max(0.35, Math.min(1.6, Math.min(sx, sy)));
+  view.scale = s;
+  view.tx = (canvasCssW - w * s) / 2 - minX * s;
+  view.ty = (canvasCssH - h * s) / 2 - minY * s;
+}
+
+let drawScheduled = false;
+let needsDraw = true;
+function requestDraw() {
+  needsDraw = true;
+  if (drawScheduled) return;
+  drawScheduled = true;
+
+  const run = () => {
+    drawScheduled = false;
+    if (!needsDraw) return;
+    needsDraw = false;
+    draw();
+  };
+
+  if (IS_E2E) setTimeout(run, 0);
+  else requestAnimationFrame(run);
 }
 
 window.addEventListener('resize', () => {
-  resize();
+  syncCanvasSize();
+  fitToView();
+  requestDraw();
 });
-resize();
+
+syncCanvasSize();
 
 // initialize game
-sim.reset({ width: refs.canvas.getBoundingClientRect().width, height: refs.canvas.getBoundingClientRect().height }, IS_E2E ? { seed: 12345 } : undefined);
+sim.reset(getCanvasBounds(), IS_E2E ? { seed: 12345 } : undefined);
+fitToView();
 startTickLoop();
 syncUI();
+requestDraw();
 
 // buttons
 refs.btnStart.onclick = () => {
@@ -648,9 +779,10 @@ refs.btnReset.onclick = () => {
   const seedStr = (refs.seedInput.value ?? '').trim();
   const seed = seedStr ? Number(seedStr) : undefined;
   sim.reset(
-    { width: refs.canvas.getBoundingClientRect().width, height: refs.canvas.getBoundingClientRect().height },
+    getCanvasBounds(),
     (seed !== undefined && Number.isFinite(seed)) ? { seed } : undefined
   );
+  fitToView();
   syncUI();
 };
 refs.btnDailySeed.onclick = () => {
@@ -662,7 +794,8 @@ refs.btnDailySeed.onclick = () => {
   const daily = (y * 10000 + m * 100 + day) >>> 0;
   refs.seedInput.value = String(daily);
   sim.running = false;
-  sim.reset({ width: refs.canvas.getBoundingClientRect().width, height: refs.canvas.getBoundingClientRect().height }, { seed: daily });
+  sim.reset(getCanvasBounds(), { seed: daily });
+  fitToView();
   syncUI();
 };
 
@@ -726,9 +859,10 @@ refs.btnApplyNextRoadmap.onclick = () => {  const steps = sim.getRefactorRoadmap
 
 refs.btnAdd.onclick = () => {
   const type = refs.componentType.value as ComponentType;
-  const r = refs.canvas.getBoundingClientRect();
-  const x = r.width * (0.2 + Math.random() * 0.55);
-  const y = r.height * (0.2 + Math.random() * 0.60);
+  const sx = canvasCssW * (0.2 + Math.random() * 0.55);
+  const sy = canvasCssH * (0.2 + Math.random() * 0.60);
+  const x = (sx - view.tx) / view.scale;
+  const y = (sy - view.ty) / view.scale;
   const res = sim.addComponent(type, x, y);
   if (!res.ok) {
     // light feedback via events panel
@@ -759,9 +893,25 @@ function setMode(m: Mode) {
 let draggingId: number | null = null;
 let dragOffX = 0;
 let dragOffY = 0;
+let panning = false;
+let panStartX = 0;
+let panStartY = 0;
+let panStartTx = 0;
+let panStartTy = 0;
 
 refs.canvas.addEventListener('mousedown', (e) => {
-  const pt = screenToCanvas(e);
+  // Alt/right/middle mouse => pan
+  if (e.button === 1 || e.button === 2 || e.altKey) {
+    panning = true;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    panStartTx = view.tx;
+    panStartTy = view.ty;
+    e.preventDefault();
+    return;
+  }
+
+  const pt = screenToWorld(e);
   const hit = hitComponent(pt.x, pt.y);
 
   if (!hit) {
@@ -802,18 +952,68 @@ refs.canvas.addEventListener('mousedown', (e) => {
 });
 
 window.addEventListener('mousemove', (e) => {
+  if (panning) {
+    const dx = e.clientX - panStartX;
+    const dy = e.clientY - panStartY;
+    view.tx = panStartTx + dx;
+    view.ty = panStartTy + dy;
+    requestDraw();
+    return;
+  }
   if (!draggingId) return;
-  const pt = screenToCanvas(e);
+  const pt = screenToWorld(e);
   sim.moveComponent(draggingId, pt.x - dragOffX, pt.y - dragOffY);
+  requestDraw();
 });
 
 window.addEventListener('mouseup', () => {
   draggingId = null;
+  panning = false;
 });
 
-function screenToCanvas(e: MouseEvent) {
+refs.canvas.addEventListener('contextmenu', (e) => {
+  // Allow right-drag to pan without popping the menu.
+  e.preventDefault();
+});
+
+const ZOOM_MIN = 0.35;
+const ZOOM_MAX = 2.2;
+
+function zoomAt(factor: number, sx: number, sy: number) {
+  const old = view.scale;
+  const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, old * factor));
+  if (Math.abs(next - old) < 1e-6) return;
+
+  const wx = (sx - view.tx) / old;
+  const wy = (sy - view.ty) / old;
+
+  view.scale = next;
+  view.tx = sx - wx * next;
+  view.ty = sy - wy * next;
+  requestDraw();
+}
+
+refs.btnZoomIn.addEventListener('click', () => zoomAt(1.15, canvasCssW / 2, canvasCssH / 2));
+refs.btnZoomOut.addEventListener('click', () => zoomAt(1 / 1.15, canvasCssW / 2, canvasCssH / 2));
+refs.btnZoomFit.addEventListener('click', () => {
+  fitToView();
+  requestDraw();
+});
+
+refs.canvas.addEventListener('wheel', (e) => {
+  // Zoom with mouse wheel/trackpad while keeping the cursor world point stable.
+  // (Ctrl+wheel is often "pinch" on trackpads; treat it the same.)
+  const pt = screenToWorld(e);
+  const factor = Math.pow(1.0015, -e.deltaY);
+  zoomAt(factor, pt.sx, pt.sy);
+  e.preventDefault();
+}, { passive: false });
+
+function screenToWorld(e: MouseEvent | WheelEvent) {
   const r = refs.canvas.getBoundingClientRect();
-  return { x: e.clientX - r.left, y: e.clientY - r.top };
+  const sx = e.clientX - r.left;
+  const sy = e.clientY - r.top;
+  return { x: (sx - view.tx) / view.scale, y: (sy - view.ty) / view.scale, sx, sy };
 }
 
 function hitComponent(x: number, y: number) {
@@ -828,20 +1028,30 @@ function hitComponent(x: number, y: number) {
 
 // render
 function draw() {
-  const r = refs.canvas.getBoundingClientRect();
-  refs.ctx.clearRect(0, 0, r.width, r.height);
+  // Clear in device pixels.
+  refs.ctx.setTransform(1, 0, 0, 1, 0, 0);
+  refs.ctx.clearRect(0, 0, refs.canvas.width, refs.canvas.height);
+
+  // World transform (world px -> screen px -> device px).
+  const s = view.scale * canvasDpr;
+  refs.ctx.setTransform(s, 0, 0, s, view.tx * canvasDpr, view.ty * canvasDpr);
+
+  // Build an id->node map once per frame (cheap) to avoid O(n^2) find() calls.
+  const byId = new Map<number, typeof sim.components[number]>();
+  for (const n of sim.components) byId.set(n.id, n);
 
   // links
   for (const l of sim.links) {
-    const a = sim.components.find(n => n.id === l.from);
-    const b = sim.components.find(n => n.id === l.to);
+    const a = byId.get(l.from);
+    const b = byId.get(l.to);
     if (!a || !b) continue;
 
     const selectedPath =
       (sim.selectedId === a.id || sim.selectedId === b.id) ||
       (sim.linkFromId === a.id);
 
-    refs.ctx.lineWidth = selectedPath ? 2.2 : 1.4;
+    // Keep link strokes roughly constant in screen px.
+    refs.ctx.lineWidth = (selectedPath ? 2.2 : 1.4) / view.scale;
     refs.ctx.strokeStyle = selectedPath ? 'rgba(200,220,255,.65)' : 'rgba(255,255,255,.18)';
 
     refs.ctx.beginPath();
@@ -887,7 +1097,7 @@ function draw() {
     refs.ctx.fillStyle = n.down ? 'rgba(120,60,80,.55)' : `rgba(30,44,74,${0.55 + health * 0.25})`;
     refs.ctx.fill();
 
-    refs.ctx.lineWidth = sel ? 2.2 : 1.2;
+    refs.ctx.lineWidth = (sel ? 2.2 : 1.2) / view.scale;
     refs.ctx.strokeStyle = n.down ? 'rgba(255,120,160,.50)' : 'rgba(255,255,255,.22)';
     refs.ctx.stroke();
 
@@ -907,25 +1117,20 @@ function draw() {
     refs.ctx.fillRect(n.x - 18, n.y + 20, 36 * health, 4);
   }
 
-  // hint
+  // UI overlay layer in screen px.
+  refs.ctx.setTransform(canvasDpr, 0, 0, canvasDpr, 0, 0);
   refs.ctx.fillStyle = 'rgba(255,255,255,.28)';
   refs.ctx.font = '12px system-ui';
-  // The component labels set textAlign = 'center' above.
-  // Reset to left here so the hint doesn't get clipped off-screen.
   refs.ctx.textAlign = 'left';
   refs.ctx.textBaseline = 'top';
   const hint =
     sim.mode === MODE.LINK
-      ? 'Link mode: click source → destination'
+      ? t('hint.link')
       : sim.mode === MODE.UNLINK
-        ? 'Unlink mode: click source → destination'
-        : 'Select mode: drag components, click to select';
+        ? t('hint.unlink')
+        : t('hint.select');
   refs.ctx.fillText(hint, 16, 12);
-
-  requestAnimationFrame(draw);
 }
-
-requestAnimationFrame(draw);
 
 
 function renderScoreboard() {
@@ -992,9 +1197,12 @@ function syncUI() {
   refs.btnLink.classList.toggle('is-selected', s.mode === MODE.LINK);
   refs.btnUnlink.classList.toggle('is-selected', s.mode === MODE.UNLINK);
 
-  refs.modePill.innerHTML = `Mode: <b>${s.mode === MODE.SELECT ? 'Select' : s.mode === MODE.LINK ? 'Link' : 'Unlink'}</b>`;
+  const modeLabel = s.mode === MODE.SELECT ? t('mode.select') : (s.mode === MODE.LINK ? t('mode.link') : t('mode.unlink'));
+  refs.modePill.innerHTML = `${t('mode.label')} <b>${modeLabel}</b>`;
   setText(refs.budget, `$${s.budget.toFixed(0)}`);
-  setText(refs.time, `${s.timeSec}s`);
+  setText(refs.time, fmtClock(s.timeSec));
+  const shiftTotal = sim.getShiftDurationSec();
+  setText(refs.shift, `${fmtClock(s.timeSec)} / ${fmtClock(shiftTotal)}`);
   setText(refs.rating, `${s.rating.toFixed(1)} ★`);
   setText(refs.seedVal, `${s.seed}`);
   setText(refs.score, `${Math.round(s.score)}`);
@@ -1103,6 +1311,7 @@ function syncUI() {
   renderTickets();
   renderRegions();
   syncRunButtons();
+  requestDraw();
 }
 function bindUI(): UIRefs {
   const canvas = must<HTMLCanvasElement>('c');
@@ -1116,6 +1325,7 @@ function bindUI(): UIRefs {
     modePill: must('modePill'),
     budget: must('budget'),
     time: must('time'),
+    shift: must('shift'),
     rating: must('rating'),
     score: must('score'),
     archDebt: must('archDebt'),
@@ -1154,6 +1364,20 @@ function bindUI(): UIRefs {
     presetSelect: must('presetSelect') as HTMLSelectElement,
     themeSelect: must('themeSelect') as HTMLSelectElement,
     glassSelect: must('glassSelect') as HTMLSelectElement,
+    langSelect: must('langSelect') as HTMLSelectElement,
+
+    btnZoomIn: must('btnZoomIn') as HTMLButtonElement,
+    btnZoomOut: must('btnZoomOut') as HTMLButtonElement,
+    btnZoomFit: must('btnZoomFit') as HTMLButtonElement,
+
+    tabBtnOverview: must('tabBtnOverview') as HTMLButtonElement,
+    tabBtnBacklog: must('tabBtnBacklog') as HTMLButtonElement,
+    tabBtnSignals: must('tabBtnSignals') as HTMLButtonElement,
+    tabBtnHistory: must('tabBtnHistory') as HTMLButtonElement,
+    tabOverview: must('tabOverview'),
+    tabBacklog: must('tabBacklog'),
+    tabSignals: must('tabSignals'),
+    tabHistory: must('tabHistory'),
 
     coverage: must('coverage'),
     coverageHint: must('coverageHint'),

@@ -8,28 +8,46 @@
   </head>
   <body>
     <div id="app" class="wrap">
-      <canvas id="c"></canvas>
+      <div class="canvasWrap" aria-label="Architecture canvas">
+        <canvas id="c"></canvas>
+        <div class="canvasHud" role="group" aria-label="Canvas controls">
+          <button id="btnZoomOut" class="btn hud" data-i18n-title="canvas.zoomOut" title="Zoom out">−</button>
+          <button id="btnZoomIn" class="btn hud" data-i18n-title="canvas.zoomIn" title="Zoom in">+</button>
+          <button id="btnZoomFit" class="btn hud" data-i18n-title="canvas.fit" title="Fit">⤢</button>
+        </div>
+      </div>
 
-      <aside class="side">
+      <aside class="side" aria-label="Dashboard">
         <div class="sideHeader">
-          <h1>App Survival: Android Release Night <span class="badge">M3 • TS + Vite</span></h1>
+          <h1><span data-i18n="app.title">App Survival: Android Release Night</span> <span class="badge" data-i18n="app.badge">M3 • TS + Vite</span></h1>
 
           <div class="row">
-            <button id="btnStart" class="btn filled">▶ Start</button>
-            <button id="btnPause" class="btn tonal">⏸ Pause</button>
-            <button id="btnReset" class="btn error">↺ Reset</button>
-            <button id="btnProfile" class="btn outlined" title="Profile & achievements">👤 Profile</button>
+            <button id="btnStart" class="btn filled" data-i18n="btn.start">▶ Start</button>
+            <button id="btnPause" class="btn tonal" data-i18n="btn.pause">⏸ Pause</button>
+            <button id="btnReset" class="btn outlined" data-i18n="btn.reset">↺ Reset</button>
+            <button id="btnProfile" class="btn outlined" data-i18n="btn.profile" title="Profile & achievements">👤 Profile</button>
           </div>
 
           <div class="row" style="margin-top:10px; align-items:center;">
-            <span class="pill" id="modePill">Mode: <b>Select</b></span>
+            <span class="pill" id="modePill"><span data-i18n="mode.label">Mode:</span> <b data-i18n="mode.select">Select</b></span>
             <div class="row segmented" role="group" aria-label="Mode" style="margin-left:auto;">
-              <button id="btnSelect" class="btn text is-selected">Select</button>
-              <button id="btnLink" class="btn text">Link</button>
-              <button id="btnUnlink" class="btn text">Unlink</button>
+              <button id="btnSelect" class="btn text is-selected" data-i18n="mode.select">Select</button>
+              <button id="btnLink" class="btn text" data-i18n="mode.link">Link</button>
+              <button id="btnUnlink" class="btn text" data-i18n="mode.unlink">Unlink</button>
             </div>
           </div>
+
+          <div class="tabBar" role="tablist" aria-label="Sections">
+            <button class="tabBtn is-selected" id="tabBtnOverview" role="tab" aria-selected="true" aria-controls="tabOverview" data-tab="overview" data-i18n="nav.overview">Overview</button>
+            <button class="tabBtn" id="tabBtnBacklog" role="tab" aria-selected="false" aria-controls="tabBacklog" data-tab="backlog" data-i18n="nav.backlog">Backlog</button>
+            <button class="tabBtn" id="tabBtnSignals" role="tab" aria-selected="false" aria-controls="tabSignals" data-tab="signals" data-i18n="nav.signals">Signals</button>
+            <button class="tabBtn" id="tabBtnHistory" role="tab" aria-selected="false" aria-controls="tabHistory" data-tab="history" data-i18n="nav.history">History</button>
+          </div>
         </div>
+
+        <div class="sideBody">
+
+        <section id="tabOverview" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnOverview">
 
         <!-- Keep "Selected" high in the panel for fast diagnosis/repair cycles -->
         <section class="card" id="selCard">
@@ -47,65 +65,70 @@
         </section>
 
         <!-- High-signal observability block -->
-        <section class="metricsGrid">
+        <section class="metricsGrid" aria-label="Key metrics">
           <div class="card">
-            <div class="k">Budget</div>
+            <div class="k" data-i18n="lbl.budget">Budget</div>
             <div class="v mono" id="budget">$500</div>
-            <div class="small">Run dies at $0 or rating 1.0★</div>
+            <div class="small" data-i18n="hint.budget">Run ends at $0 or rating 1.0★</div>
           </div>
           <div class="card">
-            <div class="k">Time</div>
+            <div class="k" data-i18n="lbl.time">Time</div>
             <div class="v mono" id="time">0s</div>
-            <div class="small">Sim time</div>
+            <div class="small" data-i18n="hint.time">Sim time</div>
           </div>
           <div class="card">
-            <div class="k">Rating</div>
+            <div class="k" data-i18n="lbl.shift">Shift</div>
+            <div class="v mono" id="shift">0:00 / 9:00</div>
+            <div class="small" data-i18n="hint.shift">Target session length</div>
+          </div>
+          <div class="card">
+            <div class="k" data-i18n="lbl.rating">Rating</div>
             <div class="v mono" id="rating">5.0 ★</div>
-            <div class="small">Drops from failures / ANRs / slow</div>
+            <div class="small" data-i18n="hint.rating">Drops from failures / ANRs / slow</div>
           </div>
           <div class="card">
-            <div class="k">Score</div>
+            <div class="k" data-i18n="lbl.score">Score</div>
             <div class="v mono" id="score">0</div>
-            <div class="small">Deterministic per seed</div>
+            <div class="small" data-i18n="hint.score">Deterministic per seed</div>
           </div>
           <div class="card">
-            <div class="k">Architecture</div>
+            <div class="k" data-i18n="lbl.arch">Architecture</div>
             <div class="v mono" id="archDebt">0</div>
-            <div class="small">Debt (0..100)</div>
+            <div class="small" data-i18n="hint.arch">Debt (0..100)</div>
           </div>
           <div class="card">
-            <div class="k">Failures</div>
+            <div class="k" data-i18n="lbl.failures">Failures</div>
             <div class="v mono" id="fail">0.0%</div>
-            <div class="small">Too many = review bombs</div>
+            <div class="small" data-i18n="hint.failures">Too many = review bombs</div>
           </div>
           <div class="card">
-            <div class="k">Coverage</div>
+            <div class="k" data-i18n="lbl.coverage">Coverage</div>
             <div class="v mono" id="coverage">78%</div>
             <div class="small" id="coverageHint">Target 70%+</div>
           </div>
           <div class="card">
-            <div class="k">ANR Risk</div>
+            <div class="k" data-i18n="lbl.anr">ANR Risk</div>
             <div class="v mono" id="anr">0.0%</div>
-            <div class="small">Main thread pain</div>
+            <div class="small" data-i18n="hint.anr">Main thread pain</div>
           </div>
           <div class="card">
-            <div class="k">p95 Latency</div>
+            <div class="k" data-i18n="lbl.latency">p95 Latency</div>
             <div class="v mono" id="lat">0 ms</div>
-            <div class="small">Queueing makes it worse</div>
+            <div class="small" data-i18n="hint.latency">Queueing makes it worse</div>
           </div>
           <div class="card">
-            <div class="k">Battery</div>
+            <div class="k" data-i18n="lbl.battery">Battery</div>
             <div class="v mono" id="bat">100</div>
-            <div class="small">Work spam drains</div>
+            <div class="small" data-i18n="hint.battery">Work spam drains</div>
           </div>
 
           <div class="card">
-            <div class="k">Jank</div>
+            <div class="k" data-i18n="lbl.jank">Jank</div>
             <div class="v mono" id="jank">0%</div>
-            <div class="small">FrameGuard 16ms</div>
+            <div class="small" data-i18n="hint.jank">FrameGuard 16ms</div>
           </div>
           <div class="card">
-            <div class="k">Heap</div>
+            <div class="k" data-i18n="lbl.heap">Heap</div>
             <div class="v mono" id="heap">64 MB</div>
             <div class="small">HeapWatch GC <span class="mono" id="gc">0</span> ms • OOM <span class="mono" id="oom">0</span></div>
           </div>
@@ -113,32 +136,32 @@
 
         <!-- Seed controls (required by src/main.ts). Kept lightweight so runs can be shared/replayed. -->
         <section class="card">
-          <div class="k">Seed</div>
+          <div class="k" data-i18n="card.seed">Seed</div>
           <div class="small" style="margin-top:8px;">
-            Active: <span id="seedVal" class="mono">0</span>
+            <span data-i18n="seed.active">Active:</span> <span id="seedVal" class="mono">0</span>
           </div>
           <div class="row" style="margin-top:8px; gap:8px;">
-            <input id="seedInput" class="input" style="flex:1;" type="number" step="1" placeholder="Seed (optional)" />
-            <button id="btnDailySeed" class="btn text" title="Use a deterministic daily seed">Daily</button>
+            <input id="seedInput" class="input" style="flex:1;" type="number" step="1" data-i18n-placeholder="seed.placeholder" placeholder="Seed (optional)" />
+            <button id="btnDailySeed" class="btn text" title="Use a deterministic daily seed" data-i18n="seed.daily">Daily</button>
           </div>
-          <div class="small muted" style="margin-top:8px;">Reset uses the seed above (if set).</div>
+          <div class="small muted" style="margin-top:8px;" data-i18n="seed.note">Reset uses the seed above (if set).</div>
         </section>
 
         <section class="card">
-          <div class="k">Achievements</div>
+          <div class="k" data-i18n="card.achievements">Achievements</div>
           <div class="small" style="margin-top:8px;">
-            Preset: <span id="achPreset" class="mono">SENIOR</span> •
-            Unlocked: <span id="achUnlocked" class="mono">0</span>/<span id="achTotal" class="mono">0</span>
+            <span data-i18n="ach.preset">Preset:</span> <span id="achPreset" class="mono">SENIOR</span> •
+            <span data-i18n="ach.unlocked">Unlocked:</span> <span id="achUnlocked" class="mono">0</span>/<span id="achTotal" class="mono">0</span>
           </div>
           <div class="row" style="margin-top:10px;">
-            <button id="btnOpenProfile" class="btn tonal">Open profile</button>
+            <button id="btnOpenProfile" class="btn tonal" data-i18n="ach.openProfile">Open profile</button>
             <div class="small muted" style="margin-left:auto;">Some are hidden 👀</div>
           </div>
         </section>
 
 
         <section class="card">
-          <div class="k">Trust &amp; accessibility</div>
+          <div class="k" data-i18n="card.trust">Trust &amp; accessibility</div>
           <div class="small" style="margin-top:8px;">
             A11y: <span class="mono" id="a11yScore">100</span>/100 •
             Privacy: <span class="mono" id="privacyTrust">100</span>/100 •
@@ -147,7 +170,7 @@
           </div>
         </section>
 
-        <!-- Setup & controls: these become a 2-col grid on wider viewports -->
+        <!-- Setup & controls: kept in overview because it's a primary interaction surface -->
         <div class="sideGroup">
           <section class="card">
             <div class="k">Evaluation preset</div>
@@ -191,6 +214,9 @@
           </section>
         </div>
 
+        </section> <!-- /tabOverview -->
+
+        <section id="tabBacklog" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnBacklog" hidden>
         <section class="card" id="backlogCard">
           <div class="k">Backlog</div>
           <div class="row capRow" style="margin-top:8px; align-items:center;">
@@ -209,9 +235,13 @@
           <div id="ticketList" class="ticketList" style="margin-top:10px;"></div>
         </section>
 
+        </section> <!-- /tabBacklog -->
+
+        <section id="tabSignals" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnSignals" hidden>
+
         <div class="sideGroup">
           <section class="card">
-            <div class="k">Platform</div>
+            <div class="k" data-i18n="card.platform">Platform</div>
             <div class="small" style="margin-top:8px;">
               Latest API <span id="apiLatest" class="mono">0</span> • Min API <span id="apiMin" class="mono">0</span>
             </div>
@@ -222,7 +252,7 @@
           </section>
 
           <section class="card">
-            <div class="k">Regions</div>
+            <div class="k" data-i18n="card.regions">Regions</div>
             <div class="row" style="margin-top:8px; align-items:center;">
               <div class="pill">Reg pressure <span id="regPressure" class="mono">0</span></div>
               <div class="small muted" style="margin-left:auto;">Compliance and rollout gates</div>
@@ -232,7 +262,7 @@
         </div>
 
         <section class="card">
-          <div class="k">User votes (live sentiment)</div>
+          <div class="k" data-i18n="card.votes">User votes (live sentiment)</div>
           <div class="small" style="margin-top:8px;">
             Perf: <span class="mono" id="votesPerf">0</span> •
             Reliability: <span class="mono" id="votesReliability">0</span> •
@@ -244,9 +274,13 @@
         </section>
 
         <section class="card" id="incidentsCard">
-          <div class="k">Incidents</div>
+          <div class="k" data-i18n="card.incidents">Incidents</div>
           <pre class="small" id="eventLog">No incidents… yet.</pre>
         </section>
+
+        </section> <!-- /tabSignals -->
+
+        <section id="tabHistory" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnHistory" hidden>
         <section class="card">
           <div class="row" style="align-items:center;">
             <div class="k">Postmortem</div>
@@ -293,27 +327,11 @@
           Add <span class="mono">Observability</span> + <span class="mono">Feature Flags</span> to reduce blast radius
         </p>
 
-        <!-- Footer: keep theme controls at the bottom, away from the "hot path" -->
-        <div class="sideFooter">
-          <div class="row" style="align-items:center;">
-            <div class="pill">Theme</div>
-            <select id="themeSelect" style="margin-left:auto;">
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </div>
+        <div id="buildInfo" class="small mono" style="opacity:.75; margin-top:10px;"></div>
 
-          <div class="row" style="margin-top:10px; align-items:center;">
-            <div class="pill">Glass</div>
-            <select id="glassSelect" style="margin-left:auto;">
-              <option value="off">Off</option>
-              <option value="on">On</option>
-            </select>
-          </div>
+        </section> <!-- /tabHistory -->
 
-          <div id="buildInfo" class="small mono" style="opacity:.75; margin-top:10px;"></div>
-        </div>
+        </div> <!-- /sideBody -->
 
       </aside>
     </div>
@@ -340,7 +358,7 @@
       <div class="modalBackdrop" id="profileBackdrop"></div>
       <div class="modalPanel card">
         <div class="row" style="align-items:center; gap:10px;">
-          <h2 id="profileTitle" style="margin:0; font-size:16px;">Profile</h2>
+          <h2 id="profileTitle" style="margin:0; font-size:16px;" data-i18n="profile.title">Profile</h2>
           <div class="pill" style="margin-left:auto;">Preset</div>
           <select id="profilePresetSelect">
             <option value="JUNIOR_MID">Junior-Mid</option>
@@ -352,14 +370,41 @@
         </div>
 
         <div class="small" style="margin-top:10px;">
-          Unlocked: <span id="profileUnlocked" class="mono">0</span>/<span id="profileTotal" class="mono">0</span>
-          • Best survival: <span id="profileBest" class="mono">0s</span>
+          <span data-i18n="profile.unlocked">Unlocked:</span> <span id="profileUnlocked" class="mono">0</span>/<span id="profileTotal" class="mono">0</span>
+          • <span data-i18n="profile.best">Best survival:</span> <span id="profileBest" class="mono">0s</span>
         </div>
 
         <div id="profileAchList" class="achList" style="margin-top:12px;"></div>
 
-        <div class="small muted" style="margin-top:12px;">
+        <div class="small muted" style="margin-top:12px;" data-i18n="profile.hiddenNote">
           Hidden achievements show up as “Hidden achievement” until you unlock them.
+        </div>
+
+        <hr class="sep" />
+
+        <div class="k" data-i18n="settings.title">Settings</div>
+        <div class="row" style="margin-top:10px; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div class="pill" data-i18n="settings.language">Language</div>
+          <select id="langSelect" style="margin-left:auto; min-width:180px;">
+            <!-- options populated by src/i18n.ts (production locale list) -->
+          </select>
+        </div>
+
+        <div class="row" style="margin-top:10px; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div class="pill" data-i18n="settings.theme">Theme</div>
+          <select id="themeSelect" style="margin-left:auto; min-width:180px;">
+            <option value="system" data-i18n="theme.system">System</option>
+            <option value="light" data-i18n="theme.light">Light</option>
+            <option value="dark" data-i18n="theme.dark">Dark</option>
+          </select>
+        </div>
+
+        <div class="row" style="margin-top:10px; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div class="pill" data-i18n="settings.glass">Glass</div>
+          <select id="glassSelect" style="margin-left:auto; min-width:180px;">
+            <option value="off" data-i18n="glass.off">Off</option>
+            <option value="on" data-i18n="glass.on">On</option>
+          </select>
         </div>
       </div>
     </div>

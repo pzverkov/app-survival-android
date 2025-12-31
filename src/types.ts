@@ -206,7 +206,8 @@ export type RefactorOption = {
 
 export type EndReason =
   | 'BUDGET_DEPLETED'
-  | 'RATING_COLLAPSED';
+  | 'RATING_COLLAPSED'
+  | 'SHIFT_COMPLETE';
 
 export type RunResult = {
   runId: string;
