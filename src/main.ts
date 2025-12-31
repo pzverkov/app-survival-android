@@ -49,6 +49,7 @@ type UIRefs = {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
 
+  sideBody: HTMLElement;
   modePill: HTMLElement;
 
   budget: HTMLElement;
@@ -194,7 +195,7 @@ document.title = t('app.title');
 // Build info (set by CI for GitHub Pages releases)
 const sha = (import.meta.env.VITE_COMMIT_SHA ?? 'dev').toString();
 const shortSha = sha === 'dev' ? 'dev' : sha.slice(0, 7);
-refs.buildInfo.textContent = `Build ${shortSha} • base ${import.meta.env.BASE_URL}`;
+refs.buildInfo.textContent = t('build.info', { sha: shortSha, base: String(import.meta.env.BASE_URL) });
 
 let lastSavedRunId: string | null = null;
 
@@ -213,12 +214,13 @@ function setIncidentHot(active: boolean) {
 }
 
 function latestIncidentLine(eventsText: string): string {
-  if (!eventsText || eventsText.startsWith('No incidents')) return '';
+  const none = t('signals.noIncidents');
+  if (!eventsText || eventsText.startsWith(none)) return '';
   return eventsText.split('\n')[0] ?? '';
 }
 
 function openBacklog() {
-  selectTab('backlog');
+  scrollToTab('backlog', IS_E2E ? 'auto' : 'smooth');
   const el = document.getElementById('backlogCard') ?? refs.ticketList;
   el.scrollIntoView({ behavior: IS_E2E ? 'auto' : 'smooth', block: 'start' });
 }
@@ -295,33 +297,66 @@ refs.presetSelect.addEventListener('change', () => {
 // Tabs --------------------------------------------------------------------
 type TabId = 'overview' | 'backlog' | 'signals' | 'history';
 
-function selectTab(id: TabId) {
+const tabSections: Record<TabId, HTMLElement> = {
+  overview: refs.tabOverview,
+  backlog: refs.tabBacklog,
+  signals: refs.tabSignals,
+  history: refs.tabHistory,
+};
+
+const tabButtons: Record<TabId, HTMLButtonElement> = {
+  overview: refs.tabBtnOverview,
+  backlog: refs.tabBtnBacklog,
+  signals: refs.tabBtnSignals,
+  history: refs.tabBtnHistory,
+};
+
+function setActiveTab(id: TabId) {
   try { localStorage.setItem(TAB_KEY, id); } catch { /* ignore */ }
-
-  refs.tabOverview.hidden = id !== 'overview';
-  refs.tabBacklog.hidden = id !== 'backlog';
-  refs.tabSignals.hidden = id !== 'signals';
-  refs.tabHistory.hidden = id !== 'history';
-
-  const setBtn = (btn: HTMLButtonElement, on: boolean) => {
+  for (const k of Object.keys(tabButtons) as TabId[]) {
+    const btn = tabButtons[k];
+    const on = k === id;
     btn.classList.toggle('is-selected', on);
     btn.setAttribute('aria-selected', on ? 'true' : 'false');
-  };
-  setBtn(refs.tabBtnOverview, id === 'overview');
-  setBtn(refs.tabBtnBacklog, id === 'backlog');
-  setBtn(refs.tabBtnSignals, id === 'signals');
-  setBtn(refs.tabBtnHistory, id === 'history');
+  }
+}
+
+function scrollToTab(id: TabId, behavior: ScrollBehavior = 'smooth') {
+  const section = tabSections[id];
+  if (!section) return;
+  setActiveTab(id);
+  const top = Math.max(0, section.offsetTop - 8);
+  refs.sideBody.scrollTo({ top, behavior });
 }
 
 const initialTab = (() => {
   try { return (localStorage.getItem(TAB_KEY) as TabId) || 'overview'; } catch { return 'overview'; }
 })();
-selectTab(initialTab);
 
-refs.tabBtnOverview.addEventListener('click', () => selectTab('overview'));
-refs.tabBtnBacklog.addEventListener('click', () => selectTab('backlog'));
-refs.tabBtnSignals.addEventListener('click', () => selectTab('signals'));
-refs.tabBtnHistory.addEventListener('click', () => selectTab('history'));
+// highlight based on scroll position
+let tabRAF = 0;
+refs.sideBody.addEventListener('scroll', () => {
+  if (tabRAF) return;
+  tabRAF = window.requestAnimationFrame(() => {
+    tabRAF = 0;
+    const st = refs.sideBody.scrollTop;
+    let best: TabId = 'overview';
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (const id of Object.keys(tabSections) as TabId[]) {
+      const dist = Math.abs(tabSections[id].offsetTop - st);
+      if (dist < bestDist) { bestDist = dist; best = id; }
+    }
+    setActiveTab(best);
+  });
+}, { passive: true });
+
+refs.tabBtnOverview.addEventListener('click', () => scrollToTab('overview'));
+refs.tabBtnBacklog.addEventListener('click', () => scrollToTab('backlog'));
+refs.tabBtnSignals.addEventListener('click', () => scrollToTab('signals'));
+refs.tabBtnHistory.addEventListener('click', () => scrollToTab('history'));
+
+// Initial jump (no smooth) once layout is ready
+requestAnimationFrame(() => scrollToTab(initialTab, 'auto'));
 
 // Theme (System / Light / Dark)
 const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
@@ -443,7 +478,8 @@ function applyAchievementRewards(unlocked: AchievementUnlock[]) {
     if (a.reward?.score) sim.score += a.reward.score;
     const reward = formatReward(a.reward);
     const tier = a.label ? ` ${a.label}` : '';
-    toast(reward ? `Achievement unlocked: ${a.title}${tier} (${reward})` : `Achievement unlocked: ${a.title}${tier}`);
+    const rewardSuffix = reward ? ` (${reward})` : '';
+    toast(t('toast.achievementUnlocked', { title: a.title, tier, reward: rewardSuffix }));
   }
 }
 
@@ -539,15 +575,15 @@ function renderTickets() {
 
   const canRefill = (cap.cur < cap.max - 1e-6) && (sim.budget >= shop.refillCost);
   refs.btnCapRefill.disabled = !canRefill;
-  refs.btnCapRefill.textContent = cap.cur >= cap.max - 1e-6 ? 'Full' : `Refill ($${shop.refillCost})`;
+  refs.btnCapRefill.textContent = cap.cur >= cap.max - 1e-6 ? t('shop.full') : t('shop.refillCost', { cost: shop.refillCost });
 
   const canBoost = shop.canRegenUpgrade && (sim.budget >= shop.regenUpgradeCost);
   refs.btnCapBoost.disabled = !canBoost;
-  refs.btnCapBoost.textContent = shop.canRegenUpgrade ? `Boost regen ($${shop.regenUpgradeCost})` : 'Boost regen (max)';
+  refs.btnCapBoost.textContent = shop.canRegenUpgrade ? t('shop.boostCost', { cost: shop.regenUpgradeCost }) : t('shop.boostMax');
 
   const canHire = shop.canHire && (sim.budget >= shop.hireCost);
   refs.btnCapHire.disabled = !canHire;
-  refs.btnCapHire.textContent = shop.canHire ? `Hire (+2 max $${shop.hireCost})` : 'Hire (max)';
+  refs.btnCapHire.textContent = shop.canHire ? t('shop.hireCost', { cost: shop.hireCost }) : t('shop.hireMax');
 
   // Unlockable (achievement-gated) shop items.
   refs.btnCapDrink.hidden = !unlocks.booster;
@@ -564,14 +600,14 @@ function renderTickets() {
     const canShield = shop.canBuyShield && (sim.budget >= shop.shieldCost);
     refs.btnCapShield.disabled = !canShield;
     refs.btnCapShield.textContent = shop.shieldCharges > 0
-      ? 'Shield ready'
-      : `Incident shield ($${shop.shieldCost})`;
+      ? t('shop.shieldReady')
+      : t('shop.shieldCost', { cost: shop.shieldCost });
   }
 
   // Keep overlay action in sync (incident response quick button)
   if ((refs as any).incidentOverlayRefill) {
     (refs as any).incidentOverlayRefill.disabled = !canRefill;
-    (refs as any).incidentOverlayRefill.textContent = `Refill ($${shop.refillCost})`;
+    (refs as any).incidentOverlayRefill.textContent = t('shop.refillCost', { cost: shop.refillCost });
   }
 
   const nowMs = performance.now();
@@ -584,7 +620,7 @@ function renderTickets() {
   if (!tickets.length) {
     lastTicketsSig = 'empty';
     lastTicketsRenderMs = nowMs;
-    setHTML(refs.ticketList, `<div class="small muted">No open tickets</div>`);
+    setHTML(refs.ticketList, `<div class="small muted">${t('backlog.noTickets')}</div>`);
     return;
   }
 
@@ -592,33 +628,33 @@ function renderTickets() {
   lastTicketsSig = ticketsSig;
   lastTicketsRenderMs = nowMs;
 
-  refs.ticketList.innerHTML = tickets.map(t => {
-    const sev = ['S0', 'S1', 'S2', 'S3'][t.severity] ?? 'S?';
-    const age = Math.floor(t.ageSec / 60);
-    const canFix = cap.cur + 1e-9 >= t.effort;
-    const fixLabel = canFix ? `Fix (${t.effort})` : `Need ${t.effort}`;
-    const deferLabel = t.deferred ? 'Undefer' : 'Defer';
-    const isArch = t.kind === 'ARCHITECTURE_DEBT';
+  refs.ticketList.innerHTML = tickets.map(ticket => {
+    const sev = ['S0', 'S1', 'S2', 'S3'][ticket.severity] ?? 'S?';
+    const age = Math.floor(ticket.ageSec / 60);
+    const canFix = cap.cur + 1e-9 >= ticket.effort;
+    const fixLabel = canFix ? t('ticketicket.fix', { effort: ticket.effort }) : t('ticketicket.need', { effort: ticket.effort });
+    const deferLabel = ticket.deferred ? t('ticketicket.undefer') : t('ticketicket.defer');
+    const isArch = ticket.kind === 'ARCHITECTURE_DEBT';
     return `
       <div class="ticket">
         <div class="ticketMain">
-          <div class="ticketTitle"><span class="badge ${t.severity === 3 ? 's3' : t.severity === 2 ? 's2' : t.severity === 1 ? 's1' : 's0'}">${sev}</span> ${t.title}</div>
-          <div class="ticketMeta"><span>${t.category}</span><span>impact ${t.impact}</span><span>age ${age}m</span>${t.deferred ? '<span class="badge">deferred</span>' : ''}</div>
+          <div class="ticketTitle"><span class="badge ${ticket.severity === 3 ? 's3' : ticket.severity === 2 ? 's2' : ticket.severity === 1 ? 's1' : 's0'}">${sev}</span> ${ticket.title}</div>
+          <div class="ticketMeta"><span>${ticket.category}</span><span>${t('ticketicket.impact', { impact: ticket.impact })}</span><span>${t('ticketicket.age', { minutes: age })}</span>${ticket.deferred ? `<span class="badge">${t('ticketicket.deferred')}</span>` : ''}</div>
         </div>
         <div class="ticketBtns">
-          <button class="btn text ${canFix ? '' : 'is-disabled'}" data-fix="${t.id}" ${canFix ? '' : 'disabled'}>${fixLabel}</button>
-          <button class="btn text" data-defer="${t.id}">${deferLabel}</button>
+          <button class="btn text ${canFix ? '' : 'is-disabled'}" data-fix="${ticket.id}" ${canFix ? '' : 'disabled'}>${fixLabel}</button>
+          <button class="btn text" data-defer="${ticket.id}">${deferLabel}</button>
         </div>
       </div>
       ${isArch ? `
         <details class="ticketMore">
-          <summary><span class="ticketMoreSummary">Refactor options</span></summary>
+          <summary><span class="ticketMoreSummary">${t('ticketicket.refactorOptions')}</span></summary>
           <div class="ticketRefactors">
-            <select class="input mono" data-target="${t.id}">
-              <option value="">Auto-target (worst violation)</option>
+            <select class="input mono" data-target="${ticket.id}">
+              <option value="">${t('ticketicket.autoTarget')}</option>
               ${sim.getArchViolations().slice(0, 8).map(v => `<option value="${v.key}">${v.reason}</option>`).join('')}
             </select>
-            ${sim.getRefactorOptions(t.id).map(o => `<button class="btn text" data-refactor="${t.id}" data-action="${o.action}" title="${o.title}
+            ${sim.getRefactorOptions(ticket.id).map(o => `<button class="btn text" data-refactor="${ticket.id}" data-action="${o.action}" title="${o.title}
 $${o.cost} • ${o.debtDelta} debt • +${o.scoreBonus} score
 
 ${o.description}">${o.action.replace('_',' ')} ($${o.cost}, ${o.debtDelta} debt)</button>`).join('')}
@@ -830,17 +866,17 @@ refs.btnCopyRun.onclick = async () => {
   const txt = JSON.stringify(s.lastRun, null, 2);
   try {
     await navigator.clipboard.writeText(txt);
-    toast('Run JSON copied');
+    toast(t('toast.runCopied'));
   } catch {
     // Fallback: prompt
-    window.prompt('Copy run JSON:', txt);
+    window.prompt(t('history.copyPrompt'), txt);
   }
 };
 
 refs.btnClearScoreboard.onclick = () => {
   clearScoreboard();
   renderScoreboard();
-  toast('Scoreboard cleared');
+  toast(t('toast.scoreboardCleared'));
 };
 
 refs.btnApplyNextRoadmap.onclick = () => {  const steps = sim.getRefactorRoadmap();
@@ -849,7 +885,7 @@ refs.btnApplyNextRoadmap.onclick = () => {  const steps = sim.getRefactorRoadmap
   // Apply the first step using any open ARCHITECTURE_DEBT ticket.
   const ticketId = sim.getFirstArchitectureDebtTicketId();
   if (!ticketId) {
-    toast('No architecture debt ticket to refactor');
+    toast(t('toast.noRoadmapTicket'));
     return;
   }
   const next = steps[0];
@@ -1136,7 +1172,7 @@ function draw() {
 function renderScoreboard() {
   const entries = loadScoreboard();
   if (!entries.length) {
-    refs.scoreboardList.textContent = 'No scores yet.';
+    refs.scoreboardList.textContent = t('history.noScores');
     return;
   }
   const lines = entries.slice(0, 12).map((e, i) => {
@@ -1227,7 +1263,7 @@ function syncUI() {
   setText(refs.votesA11y, `${s.votes.a11y}`);
   setText(refs.votesBattery, `${s.votes.battery}`);
 
-  setText(refs.reviewLog, s.recentReviews.length ? s.recentReviews.join('\n') : 'No reviews yet.');
+  setText(refs.reviewLog, s.recentReviews.length ? s.recentReviews.join('\n') : t('signals.noReviews'));
 
   setText(refs.eventLog, s.eventsText);
 
@@ -1249,9 +1285,9 @@ function syncUI() {
   // Refactor roadmap (high-signal Staff/Principal mechanic)
   const steps = sim.getRefactorRoadmap();
   if (!steps.length) {
-    refs.roadmap.textContent = 'No roadmap yet.';
+    refs.roadmap.textContent = t('history.noRoadmap');
   } else {
-    refs.roadmap.textContent = steps.map((s, i) => `${i + 1}. ${s.title}\n   - Action: ${s.action.replace('_',' ')}\n   - Why: ${s.rationale}`).join('\n\n');
+    refs.roadmap.textContent = steps.map((s, i) => `${i + 1}. ${s.title}\n   - ${t('roadmap.action')}: ${s.action.replace('_',' ')}\n   - ${t('roadmap.why')}: ${s.rationale}`).join('\n\n');
   }
 
   // Postmortem + persistence
@@ -1275,12 +1311,12 @@ function syncUI() {
       renderScoreboard();
     }
   } else {
-    refs.postmortem.textContent = 'No run yet.';
+    refs.postmortem.textContent = t('history.noRun');
   }
   refs.eventLog.classList.add('mono');
 
   if (!s.selected) {
-    setText(refs.selName, 'None');
+    setText(refs.selName, t('sel.none'));
     setText(refs.selStats, '—');
     refs.btnUpgrade.disabled = true;
     refs.btnRepair.disabled = true;
@@ -1295,7 +1331,7 @@ function syncUI() {
   // CoverageGate
   const cov = sim.getCoverage();
   setText(refs.coverage, `${Math.round(cov.pct)}%`);
-  setText(refs.coverageHint, cov.pct < cov.threshold ? `Below ${cov.threshold}% increases regressions` : `Target ${cov.threshold}%+ for stable releases`);
+  setText(refs.coverageHint, cov.pct < cov.threshold ? t('coverage.below', { threshold: cov.threshold }) : t('coverage.target', { threshold: cov.threshold }));
 
   // PlatformPulse
   const p = sim.getPlatform();
@@ -1306,7 +1342,7 @@ function syncUI() {
 
   // ZeroDayPulse
   const adv = sim.getAdvisories().filter(a => !a.mitigated).slice(0, 1);
-  setText(refs.advisoryText, adv.length ? `Active: ${adv[0].title}` : '');
+  setText(refs.advisoryText, adv.length ? t('advisory.active', { title: adv[0].title }) : '');
 
   renderTickets();
   renderRegions();
@@ -1316,11 +1352,14 @@ function syncUI() {
 function bindUI(): UIRefs {
   const canvas = must<HTMLCanvasElement>('c');
   const ctx = canvas.getContext('2d');
+
+  const sideBody = must<HTMLElement>('sideBody');
   if (!ctx) throw new Error('2D context not available');
 
   return {
     canvas,
     ctx,
+    sideBody,
 
     modePill: must('modePill'),
     budget: must('budget'),
@@ -1451,7 +1490,7 @@ const savedGlass = (localStorage.getItem(GLASS_KEY) as ('on' | 'off')) || 'off';
 refs.glassSelect.value = supportsGlass() ? savedGlass : 'off';
 if (!supportsGlass()) {
   refs.glassSelect.disabled = true;
-  refs.glassSelect.title = 'Liquid glass not supported in this browser';
+  refs.glassSelect.title = t('glass.unsupported');
 }
 applyGlass(refs.glassSelect.value as ('on' | 'off'));
 refs.glassSelect.addEventListener('change', () => {
