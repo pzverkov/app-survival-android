@@ -53,7 +53,7 @@
         <section class="card" id="selCard">
           <div class="k" data-i18n="sel.title">Selected</div>
           <div class="v mono" id="selName" data-i18n="sel.none">None</div>
-          <pre class="small mono" id="selStats">—</pre>
+          <pre class="small mono" id="selStats">-</pre>
           <div class="row" style="margin-top:10px;">
             <button id="btnUpgrade" class="btn filled" disabled data-i18n="btn.upgrade">Upgrade</button>
             <button id="btnRepair" class="btn outlined" disabled data-i18n="btn.repair">Repair</button>
@@ -346,7 +346,7 @@
       <div class="card incidentOverlayInner">
         <div class="row" style="align-items:center;">
           <div class="pill" style="border-color: color-mix(in oklab, var(--md-sys-color-error) 70%, transparent);" data-i18n="incident.label">Incident</div>
-          <div id="incidentOverlayTitle" class="small mono" style="margin-left:10px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</div>
+          <div id="incidentOverlayTitle" class="small mono" style="margin-left:10px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">-</div>
           <button id="incidentOverlayDismiss" class="btn text" aria-label="Dismiss incident" data-i18n-aria-label="incident.dismiss">✕</button>
         </div>
         <div id="incidentOverlayHint" class="small muted" style="margin-top:8px;" data-i18n="incident.hint">Respond fast: fix or defer the top ticket to stop the bleed.</div>
@@ -404,13 +404,7 @@
           </select>
         </div>
 
-        <div class="row" style="margin-top:10px; align-items:center; gap:10px; flex-wrap:wrap;">
-          <div class="pill" data-i18n="settings.glass">Glass</div>
-          <select id="glassSelect" style="margin-left:auto; min-width:180px;">
-            <option value="off" data-i18n="glass.off">Off</option>
-            <option value="on" data-i18n="glass.on">On</option>
-          </select>
-        </div>
+        <!-- Glass mode removed: low-transparency UI read as "disabled" and caused confusion. -->
       </div>
     </div>
 
