@@ -1918,7 +1918,7 @@ private tickCoverageGate() {
         'Smooth and stable lately. Nice.',
         'Fast, reliable, no drama. Keep it up.',
         'Works great on my device. Finally.',
-        'No crashes, no battery drain — chef’s kiss.'
+        'No crashes, no battery drain - chef’s kiss.'
       ];
       const snippet = positives[this.rng.int(0, positives.length - 1)];
       this.recentReviews.unshift(snippet);

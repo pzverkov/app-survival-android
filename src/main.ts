@@ -7,7 +7,6 @@ import { applyTranslations, getLanguage, loadLanguage, populateLanguageSelect, s
 
 type ThemeMode = 'system' | 'light' | 'dark';
 const THEME_KEY = 'theme';
-const GLASS_KEY = 'glass';
 const TAB_KEY = 'tab';
 
 // Currency formatting (the in-game economy is USD by design, but we format
@@ -27,17 +26,6 @@ function fmtMoneyUSD(amount: number): string {
   }
   return fmt.format(amount);
 }
-
-function supportsGlass(): boolean {
-  return (window.CSS && (CSS.supports('backdrop-filter: blur(1px)') || CSS.supports('-webkit-backdrop-filter: blur(1px)')));
-}
-
-function applyGlass(mode: 'on' | 'off') {
-  const root = document.documentElement;
-  if (mode === 'on' && supportsGlass()) root.setAttribute('data-glass', 'on');
-  else root.removeAttribute('data-glass');
-}
-
 
 function getSystemIsDark(): boolean {
   return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -134,7 +122,6 @@ type UIRefs = {
   componentType: HTMLSelectElement;
   presetSelect: HTMLSelectElement;
   themeSelect: HTMLSelectElement;
-  glassSelect: HTMLSelectElement;
   langSelect: HTMLSelectElement;
 
   btnZoomIn: HTMLButtonElement;
@@ -556,7 +543,7 @@ function renderProfile(preset: EvalPreset) {
     const nextTierKey = v.next ? `tier.${String(v.next.label).toLowerCase()}` : '';
     const nextTierTranslated = v.next ? t(nextTierKey) : '';
     const nextTierLabel = v.next ? (nextTierTranslated === nextTierKey ? v.next.label : nextTierTranslated) : '';
-    const next = v.next ? `${t('profile.next')} ${nextTierLabel} — ${v.next.description}` : '';
+    const next = v.next ? `${t('profile.next')} ${nextTierLabel} - ${v.next.description}` : '';
     const reward = formatReward(v.next?.reward);
     return `
       <div class="achItem ${v.tier > 0 ? 'is-unlocked' : 'is-locked'}">
@@ -1496,7 +1483,7 @@ function syncUI() {
 
   if (!s.selected) {
     setText(refs.selName, t('sel.none'));
-    setText(refs.selStats, '—');
+    setText(refs.selStats, '-');
     refs.btnUpgrade.disabled = true;
     refs.btnRepair.disabled = true;
     refs.btnDelete.disabled = true;
@@ -1581,7 +1568,6 @@ function bindUI(): UIRefs {
 
     presetSelect: must('presetSelect') as HTMLSelectElement,
     themeSelect: must('themeSelect') as HTMLSelectElement,
-    glassSelect: must('glassSelect') as HTMLSelectElement,
     langSelect: must('langSelect') as HTMLSelectElement,
 
     btnZoomIn: must('btnZoomIn') as HTMLButtonElement,
@@ -1671,16 +1657,4 @@ function must<T extends HTMLElement>(id: string): T {
   return el as T;
 }
 
-// LiquidGlass
-const savedGlass = (localStorage.getItem(GLASS_KEY) as ('on' | 'off')) || 'off';
-refs.glassSelect.value = supportsGlass() ? savedGlass : 'off';
-if (!supportsGlass()) {
-  refs.glassSelect.disabled = true;
-  refs.glassSelect.title = t('glass.unsupported');
-}
-applyGlass(refs.glassSelect.value as ('on' | 'off'));
-refs.glassSelect.addEventListener('change', () => {
-  const g = refs.glassSelect.value as ('on' | 'off');
-  localStorage.setItem(GLASS_KEY, g);
-  applyGlass(g);
-});
+// Glass mode removed: low-transparency UI read as "disabled" and caused confusion.

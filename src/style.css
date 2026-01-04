@@ -1,5 +1,5 @@
 :root {
-  /* Material 3-ish design tokens (dark). Not official M3 CSS—this is a faithful vibe. */
+  /* Material 3-ish design tokens (dark). Not official M3 CSS - this is a faithful vibe. */
   color-scheme: light dark;
 
   /* Typography */
@@ -46,24 +46,23 @@
   --md-sys-color-outline: var(--app-border-strong);
   --md-sys-color-outline-variant: var(--app-border);
 
-  /* Surface containers (M3 concept) */
-  --md-sys-color-surface-container-low: rgba(255,255,255,0.03);
-  --md-sys-color-surface-container: rgba(255,255,255,0.045);
-  --md-sys-color-surface-container-high: rgba(255,255,255,0.06);
-  --md-sys-color-surface-container-highest: rgba(255,255,255,0.075);
+  /* Surface containers (M3 concept)
+     NOTE: keep these opaque-ish. Ultra-transparent surfaces read as "disabled". */
+  --card: rgba(17, 24, 39, 0.88);
+  --card-low: rgba(17, 24, 39, 0.76);
+  --card-high: rgba(17, 24, 39, 0.94);
+  --code-bg: rgba(10, 14, 22, 0.92);
 
-  /* App neutrals (for borders, muted text, glass effects) */
+  --md-sys-color-surface-container-low: var(--card-low);
+  --md-sys-color-surface-container: var(--card);
+  --md-sys-color-surface-container-high: var(--card-high);
+  --md-sys-color-surface-container-highest: color-mix(in oklab, var(--card-high) 92%, white 8%);
+
+  /* App neutrals (borders, muted text) */
   --app-ink-muted: rgba(255,255,255,0.74);
   --app-ink-muted-2: rgba(255,255,255,0.62);
-  --app-border: rgba(255,255,255,0.10);
-  --app-border-strong: rgba(255,255,255,0.16);
-  /* Liquid glass surfaces */
-  --glass-bg: rgba(20, 24, 32, 0.62);
-  --glass-bg-2: rgba(20, 24, 32, 0.48);
-  --glass-border: rgba(255,255,255,0.16);
-  --glass-highlight: rgba(255,255,255,0.14);
-  /* Softer by default to avoid looking clipped inside scroll containers. */
-  --glass-shadow: 0 14px 44px rgba(0,0,0,0.40);
+  --app-border: rgba(255,255,255,0.14);
+  --app-border-strong: rgba(255,255,255,0.20);
   /* State layers */
   --md-state-hover: rgba(255,255,255,0.06);
   --md-state-press: var(--app-border);
@@ -129,16 +128,12 @@ html, body {
     --md-sys-color-surface-container-high: #ECE6F0;
     --md-sys-color-surface-container-highest: #E6E0E9;
 
+    --code-bg: #EEE7F3;
+
     --app-ink-muted: rgba(0,0,0,0.68);
     --app-ink-muted-2: rgba(0,0,0,0.54);
     --app-border: rgba(0,0,0,0.12);
     --app-border-strong: rgba(0,0,0,0.16);
-    --glass-bg: rgba(255, 255, 255, 0.66);
-    --glass-bg-2: rgba(255, 255, 255, 0.54);
-    --glass-border: rgba(0,0,0,0.14);
-    --glass-highlight: rgba(255,255,255,0.68);
-    --glass-shadow: 0 18px 60px rgba(0,0,0,0.12);
-
     --canvas-bg-1: #e9e2f5;
     --canvas-bg-2: #faf7ff;
   }
@@ -186,16 +181,12 @@ html[data-theme="light"] {
   --md-sys-color-surface-container-high: #ECE6F0;
   --md-sys-color-surface-container-highest: #E6E0E9;
 
+  --code-bg: #EEE7F3;
+
   --app-ink-muted: rgba(0,0,0,0.68);
   --app-ink-muted-2: rgba(0,0,0,0.54);
   --app-border: rgba(0,0,0,0.12);
   --app-border-strong: rgba(0,0,0,0.16);
-  --glass-bg: rgba(255, 255, 255, 0.66);
-  --glass-bg-2: rgba(255, 255, 255, 0.54);
-  --glass-border: rgba(0,0,0,0.14);
-  --glass-highlight: rgba(255,255,255,0.68);
-  --glass-shadow: 0 18px 60px rgba(0,0,0,0.12);
-
   --canvas-bg-1: #e9e2f5;
   --canvas-bg-2: #faf7ff;
 }
@@ -262,13 +253,12 @@ button, input, select, textarea {
   min-width: 34px;
   height: 34px;
   border-radius: 12px;
-  background: var(--glass-bg);
+  background: var(--md-sys-color-surface-container-high);
   border: 1px solid var(--md-sys-color-outline-variant);
   box-shadow: var(--md-elevation-1);
-  backdrop-filter: blur(10px);
 }
 
-.btn.hud:hover { background: color-mix(in oklab, var(--glass-bg) 80%, white); }
+.btn.hud:hover { background: var(--md-sys-color-surface-container-highest); }
 
 canvas {
   display: block;
@@ -287,10 +277,7 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background:
-    linear-gradient(180deg,
-      rgba(255,255,255,0.025) 0%,
-      rgba(255,255,255,0.020) 100%);
+  background: var(--md-sys-color-surface);
 }
 
 .sideBody {
@@ -303,23 +290,15 @@ canvas {
   padding-top: 12px;
 }
 
-/* On glass mode, big shadows + scroll containers can look "clipped".
-   Give the panel a tiny extra inset and slightly soften shadows. */
-html[data-glass="on"] .side {
-  padding-left: calc(var(--md-pad-3) + 2px);
-  padding-right: calc(var(--md-pad-3) + 2px);
-}
-
 .sideHeader {
   position: sticky;
   top: 0;
   z-index: 5;
   padding-bottom: 10px;
-  background: var(--glass-bg);
+  background: var(--md-sys-color-surface-container-high);
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: var(--md-sys-shape-corner-large);
   box-shadow: var(--md-elevation-1);
-  backdrop-filter: blur(10px);
 }
 
 .tabBar {
@@ -597,7 +576,7 @@ select:hover {
 pre {
   margin: 6px 0 0;
   white-space: pre-wrap;
-  background: var(--md-sys-color-surface-container-low);
+  background: var(--code-bg);
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: var(--md-sys-shape-corner-medium);
   padding: 10px;
@@ -789,11 +768,11 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: -2;
-  background: radial-gradient(1200px 800px at 15% 10%, rgba(103,80,164,0.35), transparent 60%),
-              radial-gradient(900px 600px at 85% 20%, rgba(0,210,255,0.22), transparent 55%),
-              radial-gradient(900px 900px at 50% 110%, rgba(255,200,0,0.10), transparent 55%),
-              linear-gradient(180deg, rgba(10,10,12,1), rgba(8,8,10,1));
-  animation: bgDrift 14s ease-in-out infinite alternate;
+  /* Subtle, readable background. No "glassy" vibes or distracting drift. */
+  background:
+    radial-gradient(1200px 800px at 18% 8%, rgba(138,180,248,0.14), transparent 60%),
+    radial-gradient(1000px 700px at 82% 18%, rgba(255,180,171,0.08), transparent 55%),
+    linear-gradient(180deg, #0b0e14, #070a10);
 }
 
 body::after {
@@ -802,19 +781,18 @@ body::after {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  opacity: 0.12;
+  opacity: 0.06;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
   mix-blend-mode: overlay;
 }
 
 @keyframes bgDrift {
-  from { transform: translate3d(0,0,0) scale(1); filter: saturate(1.0); }
-  to   { transform: translate3d(0,-10px,0) scale(1.03); filter: saturate(1.08); }
+  from { transform: translate3d(0,0,0) scale(1); }
+  to   { transform: translate3d(0,0,0) scale(1); }
 }
 
 .card {
   box-shadow: var(--wow-glow);
-  backdrop-filter: blur(10px);
   transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
 }
 
@@ -929,50 +907,7 @@ html[data-theme="light"] body::after {
 }
 
 
-/* LiquidGlass */
-html[data-glass="on"] .card,
-html[data-glass="on"] .pill,
-html[data-glass="on"] .ticket {
-  background: var(--glass-bg);
-  border-color: var(--glass-border);
-  box-shadow: var(--glass-shadow);
-}
-
-html[data-glass="on"] .card::after,
-html[data-glass="on"] .ticket::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background: linear-gradient(180deg, var(--glass-highlight), transparent 40%);
-  opacity: 0.55;
-}
-
-html[data-glass="on"] .ticket {
-  position: relative;
-  overflow: hidden;
-}
-
-@supports ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
-  html[data-glass="on"] .card,
-  html[data-glass="on"] .pill,
-  html[data-glass="on"] .ticket {
-    -webkit-backdrop-filter: blur(14px) saturate(1.18);
-    backdrop-filter: blur(14px) saturate(1.18);
-  }
-}
-
-/* Reduce transparency for users who prefer it */
-@media (prefers-reduced-transparency: reduce) {
-  html[data-glass="on"] .card,
-  html[data-glass="on"] .pill,
-  html[data-glass="on"] .ticket {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    background: var(--md-sys-color-surface-container);
-  }
-}
+/* Glass mode intentionally removed: low-transparency UI read as "disabled" and caused confusion. */
 
 
 /* Minimal input styling matching the buttons/selects */
