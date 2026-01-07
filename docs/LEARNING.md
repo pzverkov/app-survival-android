@@ -24,7 +24,3 @@ A pragmatic learning path that usually works:
 3) Architecture (state, DI, data layer) + testing  
 4) Performance/UX (jank, startup, memory) + observability  
 5) Security/privacy basics (secrets, storage, network, permissions)
-
-## Seed
-
-Use the **Seed** card in the sidebar to replay/share deterministic runs. Enter a number and press **Reset**, or use **Daily**.
