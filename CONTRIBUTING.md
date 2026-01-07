@@ -31,7 +31,7 @@ Issues
 
 Use GitHub Issues for bug reports, feature requests, and balancing feedback.
 Include reproduction steps and expected versus actual behavior.
-If reporting a security concern, follow SECURITY.md.
+If reporting a security concern, follow [SECURITY.md](./SECURITY.md).
 
 Pull requests
 
@@ -48,7 +48,7 @@ PR checklist
 3. If adding a new node or incident, include:
 a. Node definition or incident definition
 b. Rationale for effects and costs
-c. Any new UI text kept short and neutral
+c. Any new UI text is kept short and neutral
 
 Code style
 
@@ -65,11 +65,11 @@ If randomness is used, keep it centralized so it can be seeded later.
 
 Licensing
 
-By contributing, you agree that your contributions are licensed under the Apache License 2.0, the same as this repository.
+By contributing, you agree that your contributions are licensed under the Apache License 2.0, which is the same as the license for this repository.
 
 No guarantee of support
 
-This is an open source project maintained on a best effort basis. Issues and pull requests may not receive immediate responses.
+This is an open-source project maintained on a best-effort basis. Issues and pull requests may not receive immediate responses.
 
 Thank you
 
