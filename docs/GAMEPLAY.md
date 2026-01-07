@@ -5,11 +5,6 @@ Start a run
 1) Pick a preset (Junior Mid / Senior / Staff / Principal), then press **Start**.
 2) Place components, link dependencies, upgrade, and fix tickets to keep the app alive.
 
-Deterministic seeds (reproducible runs)
-- Set a **Seed** (number) and press **Reset** to start a deterministic run.
-- Press **Daily** to use a deterministic UTC date seed so multiple people can compare the same challenge.
-- The current seed is shown next to the controls.
-
 Scoring
 - You earn **Score** continuously while the run is alive.
 - Score rewards stability (low failure rate / ANR risk / jank / latency) and “realism” metrics (privacy, security, accessibility, regional compliance).
@@ -17,8 +12,13 @@ Scoring
 
 Incidents, tickets, and postmortems
 - Incidents are appended to the **Incidents** log.
-- When a run ends, a **Postmortem** appears with a short summary and key metrics.
+- When a run ends, a **Postmortem** appears with a brief summary and key metrics.
 - Use **Copy run JSON** to export a structured run report (seed, duration, score, end reason, etc.).
+
+Deterministic seeds (reproducible runs)
+- Set a **Seed** (number) and press **Reset** to start a deterministic run.
+- Press **Daily** to use a deterministic UTC date seed so multiple people can compare the same challenge.
+- The current seed is shown next to the controls.
 
 Local scoreboard
 - The game stores top runs in your browser (**localStorage**) under `asr:scoreboard:v1`.
@@ -41,4 +41,4 @@ Some shop items are unlocked via achievements and are tuned to avoid snowballing
 - Incident shield: **single charge max**, expensive, mitigates the next incident spike rather than deleting risk entirely.
 
 Architecture rules, debt, and refactors
-See docs/ARCHITECTURE_RULES.md for the layer rules, architecture debt, refactor quests, and the refactor roadmap.
+See [ARCHITECTURE_RULES.md](./docs/ARCHITECTURE_RULES.md) for the layer rules, architecture debt, refactor quests, and the refactor roadmap.
