@@ -7,13 +7,14 @@
     <title>App Survival: Android Release Night</title>
   </head>
   <body>
+    <a href="#sideBody" class="skip-link">Skip to dashboard</a>
     <div id="app" class="wrap">
       <div class="canvasWrap" aria-label="Architecture canvas">
-        <canvas id="c"></canvas>
+        <canvas id="c" aria-label="Component dependency graph. Use the dashboard to add and manage components."></canvas>
         <div class="canvasHud" role="group" aria-label="Canvas controls">
-          <button id="btnZoomOut" class="btn hud" data-i18n-title="canvas.zoomOut" title="Zoom out">−</button>
-          <button id="btnZoomIn" class="btn hud" data-i18n-title="canvas.zoomIn" title="Zoom in">+</button>
-          <button id="btnZoomFit" class="btn hud" data-i18n-title="canvas.fit" title="Fit">⤢</button>
+          <button id="btnZoomOut" class="btn hud" data-i18n-title="canvas.zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+          <button id="btnZoomIn" class="btn hud" data-i18n-title="canvas.zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+          <button id="btnZoomFit" class="btn hud" data-i18n-title="canvas.fit" title="Fit" aria-label="Fit to view">⤢</button>
         </div>
       </div>
 
@@ -63,7 +64,7 @@
         </section>
 
         <!-- High-signal observability block -->
-        <section class="metricsGrid" aria-label="Key metrics">
+        <section class="metricsGrid" aria-label="Key metrics" aria-live="polite" aria-atomic="false">
           <div class="card">
             <div class="k" data-i18n="lbl.budget">Budget</div>
             <div class="v mono" id="budget">$500</div>
@@ -143,7 +144,7 @@
             <span data-i18n="seed.active">Active:</span> <span id="seedVal" class="mono">0</span>
           </div>
           <div class="row" style="margin-top:8px; gap:8px;">
-            <input id="seedInput" class="input" style="flex:1;" type="number" step="1" data-i18n-placeholder="seed.placeholder" placeholder="Seed (optional)" />
+            <input id="seedInput" class="input" style="flex:1;" type="number" step="1" data-i18n-placeholder="seed.placeholder" placeholder="Seed (optional)" aria-label="Seed value" />
             <button id="btnDailySeed" class="btn text" title="Use a deterministic daily seed" data-i18n="seed.daily" data-i18n-title="seed.dailyTitle">Daily</button>
           </div>
           <div class="small muted" style="margin-top:8px;" data-i18n="seed.note">Reset uses the seed above (if set).</div>
@@ -174,7 +175,7 @@
         <!-- Setup & controls: kept in overview because it's a primary interaction surface -->
         <div class="sideGroup">
           <section class="card">
-            <div class="k" data-i18n="setup.evalPreset">Evaluation preset</div>
+            <label for="presetSelect" class="k" data-i18n="setup.evalPreset">Evaluation preset</label>
             <div class="row" style="margin-top:8px;">
               <select id="presetSelect">
                 <option value="JUNIOR_MID" data-i18n="preset.juniorMid">Junior-Mid</option>
@@ -187,7 +188,7 @@
           </section>
 
           <section class="card">
-            <div class="k" data-i18n="setup.placeComponent">Place component</div>
+            <label for="componentType" class="k" data-i18n="setup.placeComponent">Place component</label>
             <div class="row" style="margin-top:8px;">
               <select id="componentType">
                 <option value="UI" data-i18n="component.UI">UI</option>
@@ -394,14 +395,14 @@
 
         <div class="k" data-i18n="settings.title">Settings</div>
         <div class="row" style="margin-top:10px; align-items:center; gap:10px; flex-wrap:wrap;">
-          <div class="pill" data-i18n="settings.language">Language</div>
+          <label for="langSelect" class="pill" data-i18n="settings.language">Language</label>
           <select id="langSelect" style="margin-left:auto; min-width:180px;">
             <!-- options populated by src/i18n.ts (production locale list) -->
           </select>
         </div>
 
         <div class="row" style="margin-top:10px; align-items:center; gap:10px; flex-wrap:wrap;">
-          <div class="pill" data-i18n="settings.theme">Theme</div>
+          <label for="themeSelect" class="pill" data-i18n="settings.theme">Theme</label>
           <select id="themeSelect" style="margin-left:auto; min-width:180px;">
             <option value="system" data-i18n="theme.system">System</option>
             <option value="light" data-i18n="theme.light">Light</option>

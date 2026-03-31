@@ -1,3 +1,19 @@
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  padding: 8px 16px;
+  z-index: 100;
+  font-size: 14px;
+  text-decoration: none;
+  border-radius: 0 0 8px 0;
+}
+.skip-link:focus {
+  top: 0;
+}
+
 :root {
   /* Material 3-ish design tokens (dark). Not official M3 CSS - this is a faithful vibe. */
   color-scheme: light dark;
@@ -626,7 +642,11 @@ ol { margin: 8px 0 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .btn, select { transition: none; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 
 /* Dropdown options (improves dark mode menus on some browsers) */
