@@ -71,7 +71,10 @@ type IncidentKind =
   | 'CRED_STUFFING'
   | 'DEEP_LINK_ABUSE'
   | 'A11Y_REGRESSION'
-  | 'SDK_SCANDAL';
+  | 'SDK_SCANDAL'
+  | 'MEMORY_LEAK'
+  | 'REGION_OUTAGE'
+  | 'ANR_ESCALATION';
 
 export type Bounds = { width: number; height: number };
 
@@ -212,6 +215,7 @@ export class GameSim {
 
   private lastEventAt = 0;
   private incidentCount = 0;
+  private recentIncidentTimes: number[] = [];
   private eventLines: string[] = [];
   private eventStream: SimEvent[] = [];
 
@@ -317,6 +321,7 @@ export class GameSim {
 
     this.lastEventAt = 0;
     this.incidentCount = 0;
+    this.recentIncidentTimes = [];
     this.eventLines = [];
 
     this.queues.clear();
@@ -1353,14 +1358,15 @@ private tickCoverageGate() {
       this.heapMb = this.heapMb * 0.72;
     }
 
-    // OOM crash
+    // OOM crash (cascades into ANR spike)
     if (this.heapMb > this.heapMaxMb) {
       this.oomCount += 1;
       this.reqFail += 6;
+      this.anrPoints = clamp(this.anrPoints + 20, 0, 120);
       this.rating = clamp(this.rating - 0.20, 1.0, 5.0);
       this.budget = Math.max(0, this.budget - 25);
       this.heapMb = this.heapMaxMb * 0.55;
-      this.addEvent('OOM crash');
+      this.addEvent('OOM crash (ANR spike triggered)');
     }
 
     // FrameGuard: jank estimate (how far over 16ms we go), include GC pause
@@ -1936,6 +1942,16 @@ private tickCoverageGate() {
     // On-call adrenaline: a brief capacity regen burst when incidents hit.
     this.engAdrenalineUntil = this.timeSec + 22;
 
+    // Compound damage: incidents within 60s of each other hit harder.
+    this.recentIncidentTimes = this.recentIncidentTimes.filter(t => this.timeSec - t < 60);
+    this.recentIncidentTimes.push(this.timeSec);
+    const compoundCount = this.recentIncidentTimes.length;
+    if (compoundCount >= 3) {
+      const compoundPenalty = (compoundCount - 2) * 0.04;
+      this.rating = clamp(this.rating - compoundPenalty, 1.0, 5.0);
+      this.supportLoad = clamp(this.supportLoad + compoundCount * 2, 0, 100);
+    }
+
     const authTier = this.tierOf('AUTH');
     const pinTier = this.tierOf('PINNING');
     const keyTier = this.tierOf('KEYSTORE');
@@ -1948,16 +1964,19 @@ private tickCoverageGate() {
     // Weighted roll across incident types
     const roll = this.rand();
     const table: Array<[IncidentKind, number]> = [
-      ['TRAFFIC_SPIKE',    0.18],
-      ['NET_WOBBLE',       0.16],
-      ['OEM_RESTRICTION',  0.14],
-      ['CRED_STUFFING',    0.08],
-      ['TOKEN_THEFT',      0.10],
-      ['DEEP_LINK_ABUSE',  0.08],
-      ['MITM',             0.10],
-      ['CERT_ROTATION',    0.06],
-      ['A11Y_REGRESSION',  0.06],
-      ['SDK_SCANDAL',      0.04]
+      ['TRAFFIC_SPIKE',    0.15],
+      ['NET_WOBBLE',       0.13],
+      ['OEM_RESTRICTION',  0.11],
+      ['CRED_STUFFING',    0.07],
+      ['TOKEN_THEFT',      0.09],
+      ['DEEP_LINK_ABUSE',  0.07],
+      ['MITM',             0.09],
+      ['CERT_ROTATION',    0.05],
+      ['A11Y_REGRESSION',  0.05],
+      ['SDK_SCANDAL',      0.04],
+      ['MEMORY_LEAK',      0.06],
+      ['REGION_OUTAGE',    0.05],
+      ['ANR_ESCALATION',   0.04],
     ];
 
     let acc = 0;
@@ -2111,6 +2130,57 @@ private tickCoverageGate() {
           bumpSupport(6);
           this.rating = clamp(this.rating - 0.08 * blast, 1.0, 5.0);
           this.log('3rd-party SDK issue: reduced impact due to crypto hardening.');
+        }
+        break;
+      }
+
+      case 'MEMORY_LEAK': {
+        // Gradual heap creep over time without triggering OOM immediately.
+        // Cache tier mitigates (better memory management).
+        const cacheTier = this.tierOf('CACHE');
+        const severity = cacheTier >= 2 ? 0.5 : (cacheTier >= 1 ? 0.75 : 1.0);
+        this.heapMb = clamp(this.heapMb + 30 * severity, 0, this.heapMaxMb);
+        this.jankPct = clamp(this.jankPct + 8 * severity, 0, 100);
+        this.gcPauseMs = clamp(this.gcPauseMs + 12 * severity, 0, 80);
+        bumpSupport(4);
+        if (cacheTier === 0) {
+          this.log('Memory leak detected: heap growing, jank increasing (add Cache).');
+        } else {
+          this.log('Memory leak detected: cache layer limiting impact.');
+        }
+        break;
+      }
+
+      case 'REGION_OUTAGE': {
+        // Freeze a random region for 60s. Compliance cannot improve during freeze.
+        const regionIdx = this.rng.int(0, this.regions.length - 1);
+        const region = this.regions[regionIdx];
+        region.frozenSec = Math.max(region.frozenSec, 60);
+        region.compliance = clamp(region.compliance - 8, 0, 100);
+        bumpSupport(6);
+        this.rating = clamp(this.rating - 0.06, 1.0, 5.0);
+        this.log(`Regional outage: ${region.code} store frozen for 60s.`);
+        break;
+      }
+
+      case 'ANR_ESCALATION': {
+        // If ANR risk is already high, this compounds it into crashes.
+        // OBS tier helps detect and recover faster.
+        const anrRisk = clamp(this.anrPoints / 120, 0, 1);
+        if (anrRisk > 0.30) {
+          // Cascading: ANR -> crashes -> rating damage
+          this.reqFail += 4;
+          this.rating = clamp(this.rating - 0.15, 1.0, 5.0);
+          this.jankPct = clamp(this.jankPct + 12, 0, 100);
+          bumpSupport(10);
+          this.log('ANR escalation: watchdog killed process, crash storm triggered.');
+          this.createTicket('CRASH_SPIKE', 'ANR watchdog crash cascade', 'Reliability', 3, 90, 6);
+        } else {
+          // Low ANR: minor ANR bump
+          this.anrPoints = clamp(this.anrPoints + 15, 0, 120);
+          bumpSupport(3);
+          const damp = obsTier > 0 ? ' (OBS helping)' : '';
+          this.log(`ANR warning: main thread under pressure${damp}.`);
         }
         break;
       }
