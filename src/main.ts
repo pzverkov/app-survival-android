@@ -197,6 +197,9 @@ type UIRefs = {
   sparkJank: HTMLElement;
   sparkHeap: HTMLElement;
 
+  // Combo
+  comboIndicator: HTMLElement;
+
   // Challenges
   challengeDaily: HTMLElement;
   challengeWeekly: HTMLElement;
@@ -1508,6 +1511,10 @@ function syncUI() {
   setText(refs.rating, `${s.rating.toFixed(1)} ★`);
   setText(refs.seedVal, `${s.seed}`);
   setText(refs.score, `${Math.round(s.score)}`);
+  refs.comboIndicator.hidden = !s.comboActive;
+  if (s.comboActive) {
+    refs.comboIndicator.textContent = `COMBO x${s.comboCount}`;
+  }
   setText(refs.archDebt, `${Math.round(s.architectureDebt)}`);
   setText(refs.fail, `${(s.failureRate * 100).toFixed(1)}%`);
   setText(refs.anr, `${(s.anrRisk * 100).toFixed(1)}%`);
@@ -1791,6 +1798,8 @@ function bindUI(): UIRefs {
     sparkFail: must('sparkFail'),
     sparkJank: must('sparkJank'),
     sparkHeap: must('sparkHeap'),
+
+    comboIndicator: must('comboIndicator'),
 
     challengeDaily: must('challengeDaily'),
     challengeWeekly: must('challengeWeekly'),

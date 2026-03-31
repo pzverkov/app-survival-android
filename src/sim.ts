@@ -216,6 +216,13 @@ export class GameSim {
   private lastEventAt = 0;
   private incidentCount = 0;
   private recentIncidentTimes: number[] = [];
+
+  // Combo system: track recent ticket fix times for combo multiplier.
+  private recentFixTimes: number[] = [];
+  comboActive = false;
+  comboCount = 0;
+  comboUntil = 0;
+  comboBonusAccum = 0;
   private eventLines: string[] = [];
   private eventStream: SimEvent[] = [];
 
@@ -322,6 +329,11 @@ export class GameSim {
     this.lastEventAt = 0;
     this.incidentCount = 0;
     this.recentIncidentTimes = [];
+    this.recentFixTimes = [];
+    this.comboActive = false;
+    this.comboCount = 0;
+    this.comboUntil = 0;
+    this.comboBonusAccum = 0;
     this.eventLines = [];
 
     this.queues.clear();
@@ -537,6 +549,15 @@ export class GameSim {
     this.tickets = this.tickets.filter(x => x.id !== id);
     this.addEvent(`Fixed ticket: ${t.title}`);
     this.eventStream.push({ type: 'TICKET_FIXED', atSec: this.timeSec, kind: t.kind, effort: t.effort });
+
+    // Combo tracking: 3 fixes within 60s triggers a combo.
+    this.recentFixTimes = this.recentFixTimes.filter(ft => this.timeSec - ft < 60);
+    this.recentFixTimes.push(this.timeSec);
+    if (this.recentFixTimes.length >= 3 && !this.comboActive) {
+      this.comboActive = true;
+      this.comboCount++;
+      this.comboUntil = this.timeSec + 30;
+    }
   }
 
   deferTicket(id: number) {
@@ -1435,7 +1456,14 @@ private tickCoverageGate() {
     this.battery = clamp(this.battery + (this.running ? 0.06 : 0.12), 0, 100);
 
     // Score: accumulate per tick while the run is alive.
-    this.score += this.calcTickScore(failureRate, anrRisk, p95);
+    // Combo multiplier: +20% score per tick while combo is active.
+    if (this.comboActive && this.timeSec > this.comboUntil) {
+      this.comboActive = false;
+    }
+    const comboMul = this.comboActive ? 1.20 : 1.0;
+    const tickScore = this.calcTickScore(failureRate, anrRisk, p95) * comboMul;
+    if (this.comboActive) this.comboBonusAccum += tickScore - this.calcTickScore(failureRate, anrRisk, p95);
+    this.score += tickScore;
 
     // Shift complete: end the run in the target 8–10 minute window (per preset).
     // Only applies to active runs so unit tests that call tick() directly remain deterministic.
@@ -1502,7 +1530,11 @@ private tickCoverageGate() {
         canDelete: true
       } : undefined,
 
-      eventsText: this.eventLines.length ? this.eventLines.join('\n') : 'No incidents… yet.'
+      eventsText: this.eventLines.length ? this.eventLines.join('\n') : 'No incidents… yet.',
+
+      comboActive: this.comboActive,
+      comboCount: this.comboCount,
+      comboUntilSec: this.comboUntil,
     };
   }
 
