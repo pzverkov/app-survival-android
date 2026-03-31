@@ -82,6 +82,7 @@
           <div class="card">
             <div class="k" data-i18n="lbl.rating">Rating</div>
             <div class="v mono" id="rating">5.0 ★</div>
+            <svg id="sparkRating" class="sparkline" aria-hidden="true"></svg>
             <div class="small" data-i18n="hint.rating">Drops from failures / ANRs / slow</div>
           </div>
           <div class="card">
@@ -97,6 +98,7 @@
           <div class="card">
             <div class="k" data-i18n="lbl.failures">Failures</div>
             <div class="v mono" id="fail">0.0%</div>
+            <svg id="sparkFail" class="sparkline" aria-hidden="true"></svg>
             <div class="small" data-i18n="hint.failures">Too many = review bombs</div>
           </div>
           <div class="card">
@@ -123,11 +125,13 @@
           <div class="card">
             <div class="k" data-i18n="lbl.jank">Jank</div>
             <div class="v mono" id="jank">0%</div>
+            <svg id="sparkJank" class="sparkline" aria-hidden="true"></svg>
             <div class="small" data-i18n="hint.jank">FrameGuard 16ms</div>
           </div>
           <div class="card">
             <div class="k" data-i18n="lbl.heap">Heap</div>
             <div class="v mono" id="heap">64 MB</div>
+            <svg id="sparkHeap" class="sparkline" aria-hidden="true"></svg>
             <div class="small"><span data-i18n="heapwatch.gc">HeapWatch GC</span> <span class="mono" id="gc">0</span> <span data-i18n="heapwatch.msOom">ms • OOM</span> <span class="mono" id="oom">0</span></div>
           </div>
         </section>
