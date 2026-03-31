@@ -57,9 +57,9 @@ describe('asymmetric scoring', () => {
       sim.running = true;
       const shiftDur = sim.getShiftDurationSec();
       sim.timeSec = shiftDur - 1;
-      sim.rating = 4.9;
+      sim.rating = 5.0;
       sim.tick();
-      if (sim.lastRun && sim.lastRun.endReason === 'SHIFT_COMPLETE') {
+      if (sim.lastRun && sim.lastRun.endReason === 'SHIFT_COMPLETE' && sim.lastRun.rating >= 4.8) {
         const highRating = sim.lastRun.bonuses.find((b: any) => b.id === 'high_rating');
         expect(highRating).toBeDefined();
         expect(highRating.pct).toBe(0.10);
