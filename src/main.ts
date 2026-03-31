@@ -6,6 +6,7 @@ import { MODE, Mode, ComponentType, Ticket, EvalPreset, EVAL_PRESET, RefactorAct
 import { deriveKey, sealStorageKey, verifyStorageKey, markTampered, getTamperState, isScoreSane, needsMigration, setMigrationDone } from './integrity';
 import './entropy';
 import { Sparkline } from './sparkline';
+import { getDailyChallenge, getWeeklyChallenge, evaluateChallenge, saveChallengeResult, loadChallengeResults, type ChallengeDef } from './challenges';
 import { applyTranslations, getLanguage, loadLanguage, populateLanguageSelect, setLanguage, t, type Lang } from './i18n';
 
 type ThemeMode = 'system' | 'light' | 'dark';
@@ -195,6 +196,13 @@ type UIRefs = {
   sparkFail: HTMLElement;
   sparkJank: HTMLElement;
   sparkHeap: HTMLElement;
+
+  // Challenges
+  challengeDaily: HTMLElement;
+  challengeWeekly: HTMLElement;
+  btnStartDaily: HTMLButtonElement;
+  btnStartWeekly: HTMLButtonElement;
+  challengeResults: HTMLElement;
 };
 
 
@@ -972,6 +980,46 @@ refs.btnDailySeed.onclick = () => {
   syncUI();
 };
 
+// --- Challenges -------------------------------------------------------------
+let activeChallenge: ChallengeDef | null = null;
+
+function renderChallenges() {
+  const daily = getDailyChallenge();
+  const weekly = getWeeklyChallenge();
+  refs.challengeDaily.textContent = `${daily.title} (${daily.preset}, seed ${daily.seed})`;
+  refs.challengeWeekly.textContent = `${weekly.title} (${weekly.preset}, seed ${weekly.seed})`;
+
+  const results = loadChallengeResults().slice(0, 5);
+  if (results.length) {
+    refs.challengeResults.textContent = results.map(r =>
+      `${r.challengeId}: ${r.completed ? 'COMPLETED' : 'FAILED'} (${r.finalScore} pts)`
+    ).join('\n');
+  } else {
+    refs.challengeResults.textContent = '';
+  }
+}
+
+function startChallenge(challenge: ChallengeDef) {
+  activeChallenge = challenge;
+  sim.running = false;
+  refs.presetSelect.value = challenge.preset;
+  sim.setPreset(challenge.preset);
+  ach.setPreset(challenge.preset);
+  refs.seedInput.value = String(challenge.seed);
+  sim.reset(getCanvasBounds(), { seed: challenge.seed });
+  if (challenge.constraint === 'LOW_BUDGET') {
+    sim.budget = 1500;
+  }
+  sparkRating.reset(); sparkFail.reset(); sparkJank.reset(); sparkHeap.reset();
+  fitToView();
+  syncUI();
+}
+
+refs.btnStartDaily.onclick = () => startChallenge(getDailyChallenge());
+refs.btnStartWeekly.onclick = () => startChallenge(getWeeklyChallenge());
+
+renderChallenges();
+
 function openProfile(preset: EvalPreset) {
   refs.profileModal.hidden = false;
   refs.profilePresetSelect.value = preset;
@@ -1539,6 +1587,15 @@ function syncUI() {
       });
       integrityKeyPromise.then(key => sealScoreboard(key));
       renderScoreboard();
+
+      // Evaluate active challenge
+      if (activeChallenge && s.lastRun.seed === activeChallenge.seed) {
+        const maxTier = sim.components.reduce((mx, c) => Math.max(mx, c.tier), 0);
+        const result = evaluateChallenge(activeChallenge, s.lastRun, sim.engRefillsUsed, maxTier > 1 ? 1 : 0);
+        saveChallengeResult(result);
+        activeChallenge = null;
+        renderChallenges();
+      }
     }
   } else {
     refs.postmortem.textContent = t('history.noRun');
@@ -1734,6 +1791,12 @@ function bindUI(): UIRefs {
     sparkFail: must('sparkFail'),
     sparkJank: must('sparkJank'),
     sparkHeap: must('sparkHeap'),
+
+    challengeDaily: must('challengeDaily'),
+    challengeWeekly: must('challengeWeekly'),
+    btnStartDaily: must<HTMLButtonElement>('btnStartDaily'),
+    btnStartWeekly: must<HTMLButtonElement>('btnStartWeekly'),
+    challengeResults: must('challengeResults'),
   };
 }
 
