@@ -5,6 +5,7 @@ import { addScoreEntry, clearScoreboard, loadScoreboard, sealScoreboard, verifyS
 import { MODE, Mode, ComponentType, Ticket, EvalPreset, EVAL_PRESET, RefactorAction } from './types';
 import { deriveKey, sealStorageKey, verifyStorageKey, markTampered, getTamperState, isScoreSane, needsMigration, setMigrationDone } from './integrity';
 import './entropy';
+import { Sparkline } from './sparkline';
 import { applyTranslations, getLanguage, loadLanguage, populateLanguageSelect, setLanguage, t, type Lang } from './i18n';
 
 type ThemeMode = 'system' | 'light' | 'dark';
@@ -188,6 +189,12 @@ type UIRefs = {
 
   // Integrity
   integrityBadge: HTMLElement;
+
+  // Sparklines
+  sparkRating: HTMLElement;
+  sparkFail: HTMLElement;
+  sparkJank: HTMLElement;
+  sparkHeap: HTMLElement;
 };
 
 
@@ -201,6 +208,16 @@ if (IS_E2E) document.documentElement.classList.add('e2e');
 
 const refs = bindUI();
 if (IS_E2E) refs.seedInput.value = '12345';
+
+// --- Sparklines -----------------------------------------------------------
+const sparkRating = new Sparkline();
+const sparkFail = new Sparkline();
+const sparkJank = new Sparkline();
+const sparkHeap = new Sparkline();
+sparkRating.bind(refs.sparkRating);
+sparkFail.bind(refs.sparkFail);
+sparkJank.bind(refs.sparkJank);
+sparkHeap.bind(refs.sparkHeap);
 
 // --- Localization ---------------------------------------------------------
 const initLang = loadLanguage();
@@ -937,6 +954,7 @@ refs.btnReset.onclick = () => {
     getCanvasBounds(),
     (seed !== undefined && Number.isFinite(seed)) ? { seed } : undefined
   );
+  sparkRating.reset(); sparkFail.reset(); sparkJank.reset(); sparkHeap.reset();
   fitToView();
   syncUI();
 };
@@ -1452,6 +1470,14 @@ function syncUI() {
   setText(refs.gc, `${Math.round(s.gcPauseMs)}`);
   setText(refs.oom, `${s.oomCount}`);
 
+  // Sparklines: push samples each tick while running.
+  if (sim.running) {
+    sparkRating.push(s.rating);
+    sparkFail.push(s.failureRate * 100);
+    sparkJank.push(s.jankPct);
+    sparkHeap.push(s.heapMb);
+  }
+
   setText(refs.a11yScore, `${Math.round(s.a11yScore)}`);
   setText(refs.privacyTrust, `${Math.round(s.privacyTrust)}`);
   setText(refs.securityPosture, `${Math.round(s.securityPosture)}`);
@@ -1703,6 +1729,11 @@ function bindUI(): UIRefs {
     refactorOptions: must('refactorOptions'),
 
     integrityBadge: must('integrityBadge'),
+
+    sparkRating: must('sparkRating'),
+    sparkFail: must('sparkFail'),
+    sparkJank: must('sparkJank'),
+    sparkHeap: must('sparkHeap'),
   };
 }
 
