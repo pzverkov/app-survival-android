@@ -18,7 +18,7 @@ const COMPONENT_DEPS: Record<string, Array<'net' | 'image' | 'json' | 'auth' | '
   A11Y: [],
 };
 
-import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request, Ticket, TicketKind, TicketSeverity, Advisory, PlatformState, RegionState, RegionCode, EvalPreset, EVAL_PRESET, RunResult, EndReason, RefactorOption, RefactorAction, ArchViolation, RefactorRoadmapStep } from './types';
+import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request, Ticket, TicketKind, TicketSeverity, Advisory, PlatformState, RegionState, RegionCode, EvalPreset, EVAL_PRESET, RunResult, EndReason, ScoreBonus, RefactorOption, RefactorAction, ArchViolation, RefactorRoadmapStep } from './types';
 import { Rng } from './rng';
 import { entropyPool } from './entropy';
 
@@ -210,6 +210,7 @@ export class GameSim {
   traffic = 0;
 
   private lastEventAt = 0;
+  private incidentCount = 0;
   private eventLines: string[] = [];
   private eventStream: SimEvent[] = [];
 
@@ -314,6 +315,7 @@ export class GameSim {
     this.traffic = 0;
 
     this.lastEventAt = 0;
+    this.incidentCount = 0;
     this.eventLines = [];
 
     this.queues.clear();
@@ -1586,6 +1588,7 @@ private tickCoverageGate() {
     this.eventLines.unshift(`${tag}  ${msg}`);
     if (this.eventLines.length > 18) this.eventLines.length = 18;
     this.lastEventAt = this.timeSec;
+    if (category === 'INCIDENT') this.incidentCount++;
     // On-call adrenaline: a brief capacity regen burst when incidents hit.
     this.engAdrenalineUntil = this.timeSec + 22;
 
@@ -2200,12 +2203,53 @@ private tickCoverageGate() {
     return 1.0;
   }
 
+  private evaluateBonuses(reason: EndReason): ScoreBonus[] {
+    const bonuses: ScoreBonus[] = [];
+    if (reason !== 'SHIFT_COMPLETE') return bonuses;
+
+    // Preset-specific bonus objectives
+    if (this.preset === EVAL_PRESET.JUNIOR_MID) {
+      bonuses.push({ id: 'survived', label: 'Survived the shift', pct: 0.15 });
+    }
+    if (this.preset === EVAL_PRESET.SENIOR && this.engRefillsUsed === 0) {
+      bonuses.push({ id: 'no_refills', label: 'Zero refills used', pct: 0.20 });
+    }
+    if (this.preset === EVAL_PRESET.STAFF && Math.round(this.architectureDebt) === 0) {
+      bonuses.push({ id: 'zero_debt', label: 'Zero architecture debt', pct: 0.25 });
+    }
+    if (this.preset === EVAL_PRESET.PRINCIPAL && this.incidentCount === 0 && this.rating >= 4.8) {
+      bonuses.push({ id: 'flawless', label: 'Flawless (zero incidents, rating >= 4.8)', pct: 0.30 });
+    }
+
+    // Universal bonuses (any preset, SHIFT_COMPLETE only)
+    if (this.tickets.length === 0) {
+      bonuses.push({ id: 'clean_desk', label: 'Clean desk (zero open tickets)', pct: 0.10 });
+    }
+    if (this.rating >= 4.8) {
+      bonuses.push({ id: 'high_rating', label: 'High rating (>= 4.8)', pct: 0.10 });
+    }
+
+    return bonuses;
+  }
+
+  private endRunMultiplier(reason: EndReason): number {
+    if (reason === 'BUDGET_DEPLETED') return 0.70;
+    if (reason === 'RATING_COLLAPSED') return 0.50;
+    return 1.0;
+  }
+
   private endRun(reason: EndReason, failureRate: number, anrRisk: number, p95: number) {
     this.running = false;
     this.eventStream.push({ type: 'RUN_END', atSec: this.timeSec, reason });
-    const mult = this.scoreMultiplier();
+
+    const baseMult = this.scoreMultiplier();
+    const endMult = this.endRunMultiplier(reason);
+    const bonuses = this.evaluateBonuses(reason);
+    const bonusMult = 1 + bonuses.reduce((sum, b) => sum + b.pct, 0);
+    const totalMult = baseMult * endMult * bonusMult;
+
     const raw = Math.max(0, this.score);
-    const finalScore = Math.round(raw * mult);
+    const finalScore = Math.round(raw * totalMult);
     const runId = `${this.seed}-${Date.now()}`;
 
     const summary: string[] = [
@@ -2213,12 +2257,20 @@ private tickCoverageGate() {
       `Preset: ${this.preset}`,
       `Seed: ${this.seed}`,
       `Duration: ${Math.floor(this.timeSec)}s`,
-      `Final score: ${finalScore} (x${mult.toFixed(2)})`,
+      `Final score: ${finalScore} (x${totalMult.toFixed(2)})`,
       `Rating: ${this.rating.toFixed(1)}★ • Budget: $${Math.round(this.budget)}`,
       `Failure: ${(failureRate * 100).toFixed(1)}% • ANR: ${(anrRisk * 100).toFixed(1)}% • P95: ${Math.round(p95)}ms`,
       `Jank: ${Math.round(this.jankPct)}% • Heap: ${Math.round(this.heapMb)}MB`,
       `Architecture debt: ${Math.round(this.architectureDebt)}/100 • Tickets open: ${this.tickets.length}`,
     ];
+
+    if (reason !== 'SHIFT_COMPLETE') {
+      summary.push(`Failure penalty: x${endMult.toFixed(2)}`);
+    }
+    if (bonuses.length) {
+      summary.push('Bonuses:');
+      for (const b of bonuses) summary.push(`  +${Math.round(b.pct * 100)}% ${b.label}`);
+    }
 
     const top = this.tickets
       .slice()
@@ -2238,7 +2290,8 @@ private tickCoverageGate() {
       durationSec: Math.floor(this.timeSec),
       rawScore: Math.round(raw),
       finalScore,
-      multiplier: mult,
+      multiplier: totalMult,
+      bonuses,
       rating: this.rating,
       budget: this.budget,
       failureRate,
