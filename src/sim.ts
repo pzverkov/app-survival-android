@@ -21,6 +21,7 @@ const COMPONENT_DEPS: Record<string, Array<'net' | 'image' | 'json' | 'auth' | '
 import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request, Ticket, TicketKind, TicketSeverity, Advisory, PlatformState, RegionState, RegionCode, EvalPreset, EVAL_PRESET, RunResult, EndReason, ScoreBonus, RefactorOption, RefactorAction, ArchViolation, RefactorRoadmapStep } from './types';
 import { Rng } from './rng';
 import { entropyPool } from './entropy';
+import { tickPlatformPulse as platformPulseTick, tickCoverageGate as coverageGateTick, computeRegionTarget, type CoverageGateInput } from './subsystems';
 
 export const ComponentDefs: Record<ComponentType, ComponentDef> = {
   // Core layers (Android mental model, not backend microservices)
@@ -1013,32 +1014,13 @@ export class GameSim {
   }
 
   private tickPlatformPulse() {
-    // Market shifts slowly away from old devices
-    this.platform.oldDeviceShare = clamp(this.platform.oldDeviceShare - 0.00018, 0.06, 0.40);
-    this.platform.lowRamShare = clamp(this.platform.lowRamShare - 0.00015, 0.08, 0.45);
-
-    // New Android release event occasionally (kept frequent for game pacing)
-    if (this.timeSec > 0 && this.timeSec % 180 === 0) {
-      if (this.rand() < 0.35) {
-        this.platform.latestApi += 1;
-        this.platform.pressure = clamp(this.platform.pressure + 0.65, 0, 1);
-        this.addEvent(`New Android API ${this.platform.latestApi} released`);
-      }
+    const result = platformPulseTick(this.platform, this.timeSec, () => this.rand());
+    this.platform = result.platform;
+    if (result.newApiReleased) {
+      this.addEvent(`New Android API ${this.platform.latestApi} released`);
     }
-
-    // Pressure decays as teams patch and users update
-    this.platform.pressure = clamp(this.platform.pressure * 0.985 - 0.0005, 0, 1);
-
-    // Optional deprecation hint: if old share is small, dropping min SDK becomes tempting
-    if (this.timeSec % 240 === 0 && this.platform.oldDeviceShare < 0.12 && this.platform.minApi < this.platform.latestApi - 9) {
-      this.createTicket(
-        'COMPAT_ANDROID',
-        `Consider dropping API ${this.platform.minApi} support`,
-        'Platform',
-        1,
-        35,
-        3
-      );
+    if (result.deprecationTicket) {
+      this.createTicket('COMPAT_ANDROID', `Consider dropping API ${this.platform.minApi} support`, 'Platform', 1, 35, 3);
     }
   }
 
@@ -1093,29 +1075,17 @@ export class GameSim {
 
 
   private regionTarget(code: RegionCode) {
-    const base = (
-      0.45 * this.privacyTrust +
-      0.40 * this.securityPosture +
-      0.15 * this.a11yScore
-    );
-
-    let strictPrivacy = 0;
-    let strictSecurity = 0;
-    if (code === 'EU') { strictPrivacy = 10; strictSecurity = 4; }
-    if (code === 'UK') { strictPrivacy = 8; strictSecurity = 4; }
-    if (code === 'US') { strictPrivacy = 2; strictSecurity = 10; }
-    if (code === 'IN') { strictPrivacy = 4; strictSecurity = 6; }
-    if (code === 'BR') { strictPrivacy = 6; strictSecurity = 6; }
-
-    const hasFlags = this.tierOf('FLAGS') >= 1 ? 1 : 0;
-    const hasObs = this.tierOf('OBS') >= 1 ? 1 : 0;
-    const hasKeystore = this.tierOf('KEYSTORE') >= 1 ? 1 : 0;
-    const hasSan = this.tierOf('SANITIZER') >= 1 ? 1 : 0;
-
-    const controlBoost = 2.0 * hasFlags + 1.5 * hasObs + 2.0 * hasKeystore + 1.5 * hasSan;
-    const platformPenalty = this.platform.pressure * 8;
-
-    return clamp(base + controlBoost - platformPenalty - strictPrivacy - strictSecurity, 35, 98);
+    return computeRegionTarget({
+      code,
+      privacyTrust: this.privacyTrust,
+      securityPosture: this.securityPosture,
+      a11yScore: this.a11yScore,
+      flagsTier: this.tierOf('FLAGS'),
+      obsTier: this.tierOf('OBS'),
+      keystoreTier: this.tierOf('KEYSTORE'),
+      sanitizerTier: this.tierOf('SANITIZER'),
+      platformPressure: this.platform.pressure,
+    });
   }
 
   private tickRegMatrix() {
@@ -1178,52 +1148,30 @@ export class GameSim {
   }
 
 private tickCoverageGate() {
-  // Track recent coverage so we can detect sharp drops ("escaped regressions").
-  // Important: compute drop against the *previous* recent max (pre-current-tick mutations),
-  // otherwise an instantaneous drop (e.g., adding many components at once) won't be visible.
-  if (this.coverageHist.length === 0) this.coverageHist.push(this.coveragePct);
-  if (this.coverageHist.length > 90) this.coverageHist.shift();
-  const maxRecentBefore = Math.max(...this.coverageHist);
-
-  const compCount = this.components.length;
-  const added = Math.max(0, compCount - this.lastCompCount);
-  this.lastCompCount = compCount;
-
-  const addTax =
-    (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.35 :
-    (this.preset === EVAL_PRESET.SENIOR) ? 0.55 :
-    (this.preset === EVAL_PRESET.STAFF) ? 0.70 : 0.85;
-  if (added > 0) this.coveragePct = clamp(this.coveragePct - added * addTax, 0, 100);
-
-  const baseDecay =
-    (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.010 :
-    (this.preset === EVAL_PRESET.SENIOR) ? 0.016 :
-    (this.preset === EVAL_PRESET.STAFF) ? 0.022 : 0.026;
-  const churn = (this.platform.pressure * 0.030) + (this.regPressure / 100) * 0.010;
-  const complexity = clamp(compCount / 30, 0, 1) * 0.020;
-  const decay = (baseDecay + churn + complexity) * (1 - this.qualityProcess * 0.55);
-  this.coveragePct = clamp(this.coveragePct - decay, 0, 100);
-
-  const below = Math.max(0, this.coverageThreshold - this.coveragePct);
-  const severityW =
-    (this.preset === EVAL_PRESET.JUNIOR_MID) ? 0.55 :
-    (this.preset === EVAL_PRESET.SENIOR) ? 1.0 :
-    (this.preset === EVAL_PRESET.STAFF) ? 1.20 : 1.35;
-  const penalty = clamp(below / this.coverageThreshold, 0, 1) * severityW;
-  this.coverageRiskMult = 1 + penalty * 0.40;
-
-  if (this.coveragePct < this.coverageThreshold) {
+  const input: CoverageGateInput = {
+    coveragePct: this.coveragePct,
+    coverageHist: this.coverageHist,
+    lastCompCount: this.lastCompCount,
+    componentCount: this.components.length,
+    preset: this.preset,
+    platformPressure: this.platform.pressure,
+    regPressure: this.regPressure,
+    qualityProcess: this.qualityProcess,
+    coverageThreshold: this.coverageThreshold,
+    timeSec: this.timeSec,
+  };
+  const result = coverageGateTick(input);
+  this.coveragePct = result.coveragePct;
+  this.coverageHist = result.coverageHist;
+  this.lastCompCount = result.lastCompCount;
+  this.coverageRiskMult = result.coverageRiskMult;
+  if (result.belowThresholdTicket) {
     this.createTicket('TEST_COVERAGE', `Test coverage below ${this.coverageThreshold}%`, 'Reliability', 2, 68, 4);
   }
-
-  const drop = maxRecentBefore - this.coveragePct;
-  if (drop >= 10 && this.timeSec % 30 === 0) {
+  if (result.regressionCrash) {
     this.addEvent('Escaped regression due to low coverage');
     this.createTicket('CRASH_SPIKE', 'Regression crash spike', 'Reliability', 3, 85, 5);
   }
-
-  this.coverageHist.push(this.coveragePct);
-  if (this.coverageHist.length > 90) this.coverageHist.shift();
 }
 
 
