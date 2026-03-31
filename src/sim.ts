@@ -20,6 +20,7 @@ const COMPONENT_DEPS: Record<string, Array<'net' | 'image' | 'json' | 'auth' | '
 
 import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request, Ticket, TicketKind, TicketSeverity, Advisory, PlatformState, RegionState, RegionCode, EvalPreset, EVAL_PRESET, RunResult, EndReason, RefactorOption, RefactorAction, ArchViolation, RefactorRoadmapStep } from './types';
 import { Rng } from './rng';
+import { entropyPool } from './entropy';
 
 export const ComponentDefs: Record<ComponentType, ComponentDef> = {
   // Core layers (Android mental model, not backend microservices)
@@ -224,7 +225,7 @@ export class GameSim {
     this.eventStream.push({ type: 'RUN_RESET', atSec: 0 });
 
     // Deterministic seed: same seed => same run.
-    const s = (opts?.seed ?? (Date.now() & 0xffffffff)) >>> 0;
+    const s = (opts?.seed ?? entropyPool.seed()) >>> 0;
     this.seed = s;
     this.rng = new Rng(s);
     this.score = 0;

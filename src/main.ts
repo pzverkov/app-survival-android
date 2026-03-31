@@ -4,6 +4,7 @@ import { AchievementsTracker, LocalStorageAchStorage, AchEvent, AchievementUnloc
 import { addScoreEntry, clearScoreboard, loadScoreboard, sealScoreboard, verifyScoreboard } from './scoreboard';
 import { MODE, Mode, ComponentType, Ticket, EvalPreset, EVAL_PRESET, RefactorAction } from './types';
 import { deriveKey, sealStorageKey, verifyStorageKey, markTampered, getTamperState, isScoreSane, needsMigration, setMigrationDone } from './integrity';
+import './entropy';
 import { applyTranslations, getLanguage, loadLanguage, populateLanguageSelect, setLanguage, t, type Lang } from './i18n';
 
 type ThemeMode = 'system' | 'light' | 'dark';
