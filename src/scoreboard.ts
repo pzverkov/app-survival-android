@@ -1,4 +1,5 @@
 import type { ScoreEntry } from './types';
+import { sealStorageKey, verifyStorageKey } from './integrity';
 
 const KEY = 'asr:scoreboard:v1';
 const MAX = 20;
@@ -37,7 +38,16 @@ export function addScoreEntry(entry: ScoreEntry): ScoreEntry[] {
 export function clearScoreboard(): void {
   try {
     localStorage.removeItem(KEY);
+    localStorage.removeItem(KEY + ':sig');
   } catch {
     // ignore
   }
+}
+
+export async function sealScoreboard(key: CryptoKey): Promise<void> {
+  return sealStorageKey(KEY, key);
+}
+
+export async function verifyScoreboard(key: CryptoKey): Promise<boolean | null> {
+  return verifyStorageKey(KEY, key);
 }

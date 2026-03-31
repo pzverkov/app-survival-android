@@ -1,8 +1,9 @@
 import './style.css';
 import { GameSim } from './sim';
 import { AchievementsTracker, LocalStorageAchStorage, AchEvent, AchievementUnlock } from './achievements';
-import { addScoreEntry, clearScoreboard, loadScoreboard } from './scoreboard';
+import { addScoreEntry, clearScoreboard, loadScoreboard, sealScoreboard, verifyScoreboard } from './scoreboard';
 import { MODE, Mode, ComponentType, Ticket, EvalPreset, EVAL_PRESET, RefactorAction } from './types';
+import { deriveKey, sealStorageKey, verifyStorageKey, markTampered, getTamperState, isScoreSane, needsMigration, setMigrationDone } from './integrity';
 import { applyTranslations, getLanguage, loadLanguage, populateLanguageSelect, setLanguage, t, type Lang } from './i18n';
 
 type ThemeMode = 'system' | 'light' | 'dark';
@@ -183,6 +184,9 @@ type UIRefs = {
   refactorTicketTitle: HTMLElement;
   refactorTargetSelect: HTMLSelectElement;
   refactorOptions: HTMLElement;
+
+  // Integrity
+  integrityBadge: HTMLElement;
 };
 
 
@@ -211,6 +215,31 @@ const shortSha = sha === 'dev' ? 'dev' : sha.slice(0, 7);
 refs.buildInfo.textContent = t('build.info', { sha: shortSha, base: String(import.meta.env.BASE_URL) });
 
 let lastSavedRunId: string | null = null;
+
+// --- Integrity (tamper protection v1) -------------------------------------
+const ACH_PREFIX = 'survival.achievements.';
+const integrityKeyPromise = deriveKey(sha);
+
+integrityKeyPromise.then(async (key) => {
+  if (needsMigration()) {
+    // First load with integrity — seal existing data silently.
+    await sealScoreboard(key);
+    for (const p of Object.values(EVAL_PRESET)) {
+      await sealStorageKey(ACH_PREFIX + p, key);
+    }
+    setMigrationDone();
+  } else {
+    const sbOk = await verifyScoreboard(key);
+    if (sbOk === false) markTampered('scoreboard');
+    for (const p of Object.values(EVAL_PRESET)) {
+      const achOk = await verifyStorageKey(ACH_PREFIX + p, key);
+      if (achOk === false) markTampered('achievements');
+    }
+  }
+});
+
+// Paused-state snapshot for runtime tamper detection.
+let pausedSnapshot: { budget: number; score: number; rating: number } | null = null;
 
 // Achievements are stored per preset.
 const ach = new AchievementsTracker(EVAL_PRESET.SENIOR, new LocalStorageAchStorage());
@@ -886,6 +915,7 @@ refs.btnStart.onclick = () => {
   if (ach.getPreset() !== preset) ach.setPreset(preset);
   achLastTickSec = -1;
   applyAchievementRewards(ach.onEvents([{ type: 'RUN_START', atSec: sim.timeSec, budget: sim.budget, architectureDebt: sim.architectureDebt }]));
+  integrityKeyPromise.then(key => sealStorageKey(ACH_PREFIX + preset, key));
   sim.running = true;
   startTickLoop();
   syncUI();
@@ -897,6 +927,7 @@ refs.btnPause.onclick = () => {
 refs.btnReset.onclick = () => {
   // Treat reset as run end for achievements tracking.
   applyAchievementRewards(ach.onEvents([{ type: 'RUN_END', atSec: sim.timeSec, reason: 'RESET' }]));
+  integrityKeyPromise.then(key => sealStorageKey(ACH_PREFIX + (refs.presetSelect.value as EvalPreset), key));
   sim.running = false;
   achLastTickSec = -1;
   const seedStr = (refs.seedInput.value ?? '').trim();
@@ -1041,6 +1072,7 @@ refs.btnCopyRun.onclick = async () => {
 
 refs.btnClearScoreboard.onclick = () => {
   clearScoreboard();
+  integrityKeyPromise.then(key => sealScoreboard(key));
   renderScoreboard();
   toast(t('toast.scoreboardCleared'));
 };
@@ -1387,6 +1419,7 @@ function syncUI() {
   if (achEvents.length) {
     const unlocked = ach.onEvents(achEvents);
     applyAchievementRewards(unlocked);
+    integrityKeyPromise.then(key => sealStorageKey(ACH_PREFIX + currentPreset, key));
   }
 
   renderAchievementSummary(currentPreset);
@@ -1462,6 +1495,9 @@ function syncUI() {
 
     if (s.lastRun.runId && s.lastRun.runId !== lastSavedRunId) {
       lastSavedRunId = s.lastRun.runId;
+      if (!isScoreSane(s.lastRun.finalScore, s.lastRun.durationSec, s.lastRun.multiplier)) {
+        markTampered('score');
+      }
       addScoreEntry({
         runId: s.lastRun.runId,
         seed: s.lastRun.seed,
@@ -1474,6 +1510,7 @@ function syncUI() {
         architectureDebt: s.lastRun.architectureDebt,
         rating: s.lastRun.rating,
       });
+      integrityKeyPromise.then(key => sealScoreboard(key));
       renderScoreboard();
     }
   } else {
@@ -1509,6 +1546,21 @@ function syncUI() {
   // ZeroDayPulse
   const adv = sim.getAdvisories().filter(a => !a.mitigated).slice(0, 1);
   setText(refs.advisoryText, adv.length ? t('advisory.active', { title: adv[0].title }) : '');
+
+  // --- Integrity: paused-state tamper check --------------------------------
+  if (!sim.running && sim.timeSec > 0) {
+    if (pausedSnapshot) {
+      if (sim.budget !== pausedSnapshot.budget ||
+          sim.score !== pausedSnapshot.score ||
+          sim.rating !== pausedSnapshot.rating) {
+        markTampered('runtime');
+      }
+    }
+    pausedSnapshot = { budget: sim.budget, score: sim.score, rating: sim.rating };
+  } else {
+    pausedSnapshot = null;
+  }
+  refs.integrityBadge.hidden = !getTamperState().tampered;
 
   renderTickets();
   renderRegions();
@@ -1647,7 +1699,9 @@ function bindUI(): UIRefs {
     btnCloseRefactor: must<HTMLButtonElement>('btnCloseRefactor'),
     refactorTicketTitle: must('refactorTicketTitle'),
     refactorTargetSelect: must<HTMLSelectElement>('refactorTargetSelect'),
-    refactorOptions: must('refactorOptions')
+    refactorOptions: must('refactorOptions'),
+
+    integrityBadge: must('integrityBadge'),
   };
 }
 
