@@ -106,15 +106,10 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': 'Settings',
     'settings.language': 'Language',
     'settings.theme': 'Theme',
-    'settings.glass': 'Glass',
 
     'theme.system': 'System',
     'theme.light': 'Light',
     'theme.dark': 'Dark',
-
-    'glass.off': 'Off',
-    'glass.on': 'On',
-    'glass.unsupported': 'Liquid glass not supported in this browser',
 
     'canvas.zoomIn': 'Zoom in',
     'canvas.zoomOut': 'Zoom out',
@@ -387,12 +382,9 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': 'Ajustes',
     'settings.language': 'Idioma',
     'settings.theme': 'Tema',
-    'settings.glass': 'Cristal',
     'theme.system': 'Sistema',
     'theme.light': 'Claro',
     'theme.dark': 'Oscuro',
-    'glass.off': 'Desactivado',
-    'glass.on': 'Activado',
     'canvas.zoomIn': 'Acercar',
     'canvas.zoomOut': 'Alejar',
     'canvas.fit': 'Ajustar',
@@ -535,12 +527,9 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': 'Réglages',
     'settings.language': 'Langue',
     'settings.theme': 'Thème',
-    'settings.glass': 'Verre',
     'theme.system': 'Système',
     'theme.light': 'Clair',
     'theme.dark': 'Sombre',
-    'glass.off': 'Désactivé',
-    'glass.on': 'Activé',
     'canvas.zoomIn': 'Zoom +',
     'canvas.zoomOut': 'Zoom −',
     'canvas.fit': 'Ajuster',
@@ -617,12 +606,9 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': 'Einstellungen',
     'settings.language': 'Sprache',
     'settings.theme': 'Theme',
-    'settings.glass': 'Glass',
     'theme.system': 'System',
     'theme.light': 'Hell',
     'theme.dark': 'Dunkel',
-    'glass.off': 'Aus',
-    'glass.on': 'An',
     'canvas.zoomIn': 'Zoom +',
     'canvas.zoomOut': 'Zoom −',
     'canvas.fit': 'Einpassen',
@@ -699,12 +685,9 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': 'Configurações',
     'settings.language': 'Idioma',
     'settings.theme': 'Tema',
-    'settings.glass': 'Glass',
     'theme.system': 'Sistema',
     'theme.light': 'Claro',
     'theme.dark': 'Escuro',
-    'glass.off': 'Desligado',
-    'glass.on': 'Ligado',
     'canvas.zoomIn': 'Zoom +',
     'canvas.zoomOut': 'Zoom −',
     'canvas.fit': 'Ajustar',
@@ -781,12 +764,9 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': 'Налаштування',
     'settings.language': 'Мова',
     'settings.theme': 'Тема',
-    'settings.glass': 'Glass',
     'theme.system': 'Система',
     'theme.light': 'Світла',
     'theme.dark': 'Темна',
-    'glass.off': 'Вимкнено',
-    'glass.on': 'Увімкнено',
     'canvas.zoomIn': 'Збільшити',
     'canvas.zoomOut': 'Зменшити',
     'canvas.fit': 'Вмістити',
@@ -863,12 +843,9 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': 'Настройки',
     'settings.language': 'Язык',
     'settings.theme': 'Тема',
-    'settings.glass': 'Glass',
     'theme.system': 'Система',
     'theme.light': 'Светлая',
     'theme.dark': 'Тёмная',
-    'glass.off': 'Выкл.',
-    'glass.on': 'Вкл.',
     'canvas.zoomIn': 'Увеличить',
     'canvas.zoomOut': 'Уменьшить',
     'canvas.fit': 'Вписать',
@@ -892,12 +869,9 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': '设置',
     'settings.language': '语言',
     'settings.theme': '主题',
-    'settings.glass': '玻璃效果',
     'theme.system': '跟随系统',
     'theme.light': '浅色',
     'theme.dark': '深色',
-    'glass.off': '关闭',
-    'glass.on': '开启',
     'canvas.zoomIn': '放大',
     'canvas.zoomOut': '缩小',
     'canvas.fit': '适配',
@@ -917,12 +891,9 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': '設定',
     'settings.language': '言語',
     'settings.theme': 'テーマ',
-    'settings.glass': 'ガラス',
     'theme.system': 'システム',
     'theme.light': 'ライト',
     'theme.dark': 'ダーク',
-    'glass.off': 'オフ',
-    'glass.on': 'オン',
     'canvas.zoomIn': 'ズームイン',
     'canvas.zoomOut': 'ズームアウト',
     'canvas.fit': '全体表示',
@@ -942,12 +913,9 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': 'सेटिंग्स',
     'settings.language': 'भाषा',
     'settings.theme': 'थीम',
-    'settings.glass': 'ग्लास',
     'theme.system': 'सिस्टम',
     'theme.light': 'लाइट',
     'theme.dark': 'डार्क',
-    'glass.off': 'ऑफ',
-    'glass.on': 'ऑन',
     'canvas.zoomIn': 'ज़ूम इन',
     'canvas.zoomOut': 'ज़ूम आउट',
     'canvas.fit': 'फिट',
@@ -967,14 +935,10 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': 'Instellingen',
     'settings.language': 'Taal',
     'settings.theme': 'Thema',
-    'settings.glass': 'Glas',
     'theme.system': 'Systeem',
     'theme.light': 'Licht',
     'theme.dark': 'Donker',
   
-    'glass.off': 'Uit',
-
-    'glass.on': 'Aan',
 },
 
   it: {
@@ -991,15 +955,10 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': 'Impostazioni',
     'settings.language': 'Lingua',
     'settings.theme': 'Tema',
-    'settings.glass': 'Vetro',
     'theme.system': 'Sistema',
     'theme.light': 'Chiaro',
     'theme.dark': 'Scuro',
   
-    'glass.off': 'Off',
-
-    'glass.on': 'On',
-    'glass.unsupported': 'Liquid glass not supported in this browser',
 },
 
   nb: {
@@ -1016,14 +975,10 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': 'Innstillinger',
     'settings.language': 'Språk',
     'settings.theme': 'Tema',
-    'settings.glass': 'Glass',
     'theme.system': 'System',
     'theme.light': 'Lys',
     'theme.dark': 'Mørk',
   
-    'glass.off': 'Av',
-
-    'glass.on': 'På',
 },
 
   af: {
@@ -1041,9 +996,6 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.language': 'Taal',
     'settings.theme': 'Tema',
   
-    'glass.off': 'Af',
-
-    'glass.on': 'Aan',
 },
 
   zu: {
@@ -1057,9 +1009,6 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': 'Izilungiselelo',
     'settings.language': 'Ulimi',
   
-    'glass.off': 'Valiwe',
-
-    'glass.on': 'Vuliwe',
 },
 
   xh: {
@@ -1073,9 +1022,6 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'settings.title': 'Iisetingi',
     'settings.language': 'Ulwimi',
   
-    'glass.off': 'Cima',
-
-    'glass.on': 'Vula',
 },
 
 };
