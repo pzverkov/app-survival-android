@@ -209,6 +209,12 @@ export type EndReason =
   | 'RATING_COLLAPSED'
   | 'SHIFT_COMPLETE';
 
+export type ScoreBonus = {
+  id: string;
+  label: string;
+  pct: number; // e.g. 0.15 = +15%
+};
+
 export type RunResult = {
   runId: string;
   seed: number;
@@ -220,6 +226,7 @@ export type RunResult = {
   rawScore: number;
   finalScore: number;
   multiplier: number;
+  bonuses: ScoreBonus[];
 
   // End-of-run snapshot
   rating: number;
