@@ -1711,5 +1711,3 @@ function must<T extends HTMLElement>(id: string): T {
   if (!el) throw new Error(`Missing element #${id}`);
   return el as T;
 }
-
-// Glass mode removed: low-transparency UI read as "disabled" and caused confusion.
