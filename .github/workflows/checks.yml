@@ -32,8 +32,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # Vite requires Node 20.19+ (or 22.12+). Keep this pinned so CI is deterministic.
-          node-version: 20.19.1
+          # Vite 8 requires Node ^20.19 || >=22.12. Pin to LTS 22 for CI determinism.
+          node-version: 22.16.0
           cache: npm
           cache-dependency-path: package-lock.json
 
