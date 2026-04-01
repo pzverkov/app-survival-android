@@ -777,16 +777,18 @@ function renderTickets() {
     const isArch = ticket.kind === 'ARCHITECTURE_DEBT';
     const isExpanded = !isArch && expandedTicketTitles.has(ticket.id);
     const titleHtml = renderTicketTitleHtml(ticket);
+    const sevClass = ticket.severity === 3 ? 'sev-critical' : ticket.severity === 2 ? 'sev-medium' : 'sev-low';
+    const deferredClass = ticket.deferred ? 'is-deferred' : '';
     return `
-      <div class="ticket ${isArch ? 'is-arch' : ''} ${isExpanded ? 'is-expanded' : ''}">
+      <div class="ticket ${isArch ? 'is-arch' : ''} ${isExpanded ? 'is-expanded' : ''} ${sevClass} ${deferredClass}">
         <div class="ticketMain">
           <div class="ticketTitle"><span class="badge ${ticket.severity === 3 ? 's3' : ticket.severity === 2 ? 's2' : ticket.severity === 1 ? 's1' : 's0'}">${sev}</span> <span class="ticketTitleText" dir="auto">${titleHtml}</span></div>
           ${!isArch ? `<button class="ticketTitleToggle" data-toggle-title="${ticket.id}" ${isExpanded ? '' : 'hidden'} aria-expanded="${isExpanded ? 'true' : 'false'}">${isExpanded ? t('ticket.collapseTitle') : t('ticket.expandTitle')}</button>` : ''}
           <div class="ticketMeta"><span>${ticket.category}</span><span>${t('ticket.impact', { impact: ticket.impact })}</span><span>${t('ticket.age', { minutes: age })}</span>${ticket.deferred ? `<span class="badge">${t('ticket.deferred')}</span>` : ''}</div>
         </div>
         <div class="ticketBtns">
-          <button class="btn text ${canFix ? '' : 'is-disabled'}" data-fix="${ticket.id}" ${canFix ? '' : 'disabled'}>${fixLabel}</button>
-          <button class="btn text" data-defer="${ticket.id}">${deferLabel}</button>
+          <button class="btn filled ${canFix ? '' : 'is-disabled'}" data-fix="${ticket.id}" ${canFix ? '' : 'disabled'}>${fixLabel}</button>
+          <button class="btn outlined" data-defer="${ticket.id}">${deferLabel}</button>
           ${isArch ? `<button class="btn tonal" data-open-refactor="${ticket.id}">${t('ticket.refactorOptions')}</button>` : ''}
         </div>
       </div>
