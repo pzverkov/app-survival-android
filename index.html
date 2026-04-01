@@ -67,7 +67,7 @@
         <section class="metricsGrid" aria-label="Key metrics" aria-live="polite" aria-atomic="false">
           <div class="card">
             <div class="k" data-i18n="lbl.budget">Budget</div>
-            <div class="v mono" id="budget">$500</div>
+            <div class="v v-lg mono" id="budget">$500</div>
             <div class="small" data-i18n="hint.budget">Run ends at $0 or rating 1.0★</div>
           </div>
           <div class="card">
@@ -82,14 +82,14 @@
           </div>
           <div class="card">
             <div class="k" data-i18n="lbl.rating">Rating</div>
-            <div class="v mono" id="rating">5.0 ★</div>
+            <div class="v v-lg mono" id="rating">5.0 ★</div>
             <svg id="sparkRating" class="sparkline" aria-hidden="true"></svg>
             <div class="small" data-i18n="hint.rating">Drops from failures / ANRs / slow</div>
           </div>
           <div class="card">
             <div class="k" data-i18n="lbl.score">Score</div>
-            <div class="v mono" id="score">0</div>
-            <span id="comboIndicator" class="pill" hidden style="font-size:11px; border-color:rgba(255,183,77,.6); color:rgba(255,183,77,.95);">COMBO x1</span>
+            <div class="v v-lg mono" id="score">0</div>
+            <span id="comboIndicator" class="pill pill-combo" hidden>COMBO x1</span>
             <div class="small" data-i18n="hint.score">Deterministic per seed</div>
           </div>
           <div class="card">
@@ -331,7 +331,7 @@
         <section class="card">
           <div class="row" style="align-items:center;">
             <div class="k" data-i18n="card.scoreboard">Scoreboard (local)</div>
-            <span id="integrityBadge" class="pill" hidden style="margin-left:8px; font-size:11px; border-color:rgba(255,82,82,.5); color:rgba(255,82,82,.95);">⚠ Tampered</span>
+            <span id="integrityBadge" class="pill pill-tamper" hidden style="margin-left:8px;">⚠ Tampered</span>
             <div style="margin-left:auto;">
               <button id="btnClearScoreboard" class="btn text" data-i18n="btn.clear">Clear</button>
             </div>
