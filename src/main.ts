@@ -1315,6 +1315,7 @@ refs.canvas.addEventListener('mousedown', (e) => {
     draggingId = hit.id;
     dragOffX = pt.x - hit.x;
     dragOffY = pt.y - hit.y;
+    refs.canvas.style.cursor = 'grabbing';
     syncUI();
     return;
   }
@@ -1358,6 +1359,7 @@ window.addEventListener('mousemove', (e) => {
 window.addEventListener('mouseup', () => {
   draggingId = null;
   panning = false;
+  refs.canvas.style.cursor = '';
 });
 
 refs.canvas.addEventListener('contextmenu', (e) => {
@@ -1416,20 +1418,53 @@ function hitComponent(x: number, y: number) {
 }
 
 // render
+// Category colors for component types
+const COMP_COLORS: Record<string, string> = {
+  // Core pipeline (blue)
+  UI: 'rgba(100,160,255,0.75)', VM: 'rgba(100,160,255,0.70)',
+  DOMAIN: 'rgba(100,160,255,0.65)', REPO: 'rgba(100,160,255,0.60)',
+  // Data layer (teal)
+  CACHE: 'rgba(80,200,200,0.70)', DB: 'rgba(80,200,200,0.65)',
+  NET: 'rgba(80,200,200,0.60)', WORK: 'rgba(80,200,200,0.55)',
+  // Security (purple)
+  AUTH: 'rgba(180,140,255,0.70)', PINNING: 'rgba(180,140,255,0.65)',
+  KEYSTORE: 'rgba(180,140,255,0.60)', SANITIZER: 'rgba(180,140,255,0.55)',
+  ABUSE: 'rgba(180,140,255,0.50)',
+  // Sidecars (amber)
+  OBS: 'rgba(255,200,80,0.65)', FLAGS: 'rgba(255,200,80,0.60)',
+  // Accessibility (green)
+  A11Y: 'rgba(140,230,140,0.65)',
+};
+
+const MONO_FONT = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New"';
+
 function draw() {
+  const ctx = refs.ctx;
+
   // Clear in device pixels.
-  refs.ctx.setTransform(1, 0, 0, 1, 0, 0);
-  refs.ctx.clearRect(0, 0, refs.canvas.width, refs.canvas.height);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, refs.canvas.width, refs.canvas.height);
+
+  // Dot grid background (screen space)
+  ctx.fillStyle = 'rgba(255,255,255,.04)';
+  const gridStep = 30 * canvasDpr;
+  const offX = (view.tx * canvasDpr) % gridStep;
+  const offY = (view.ty * canvasDpr) % gridStep;
+  for (let gx = offX; gx < refs.canvas.width; gx += gridStep) {
+    for (let gy = offY; gy < refs.canvas.height; gy += gridStep) {
+      ctx.fillRect(gx - 0.5, gy - 0.5, 1, 1);
+    }
+  }
 
   // World transform (world px -> screen px -> device px).
   const s = view.scale * canvasDpr;
-  refs.ctx.setTransform(s, 0, 0, s, view.tx * canvasDpr, view.ty * canvasDpr);
+  ctx.setTransform(s, 0, 0, s, view.tx * canvasDpr, view.ty * canvasDpr);
 
-  // Build an id->node map once per frame (cheap) to avoid O(n^2) find() calls.
+  // Build an id->node map once per frame.
   const byId = new Map<number, typeof sim.components[number]>();
   for (const n of sim.components) byId.set(n.id, n);
 
-  // links
+  // Links
   for (const l of sim.links) {
     const a = byId.get(l.from);
     const b = byId.get(l.to);
@@ -1439,16 +1474,23 @@ function draw() {
       (sim.selectedId === a.id || sim.selectedId === b.id) ||
       (sim.linkFromId === a.id);
 
-    // Keep link strokes roughly constant in screen px.
-    refs.ctx.lineWidth = (selectedPath ? 2.2 : 1.4) / view.scale;
-    refs.ctx.strokeStyle = selectedPath ? 'rgba(200,220,255,.65)' : 'rgba(255,255,255,.18)';
+    ctx.lineWidth = (selectedPath ? 2.5 : 1.4) / view.scale;
 
-    refs.ctx.beginPath();
-    refs.ctx.moveTo(a.x, a.y);
-    refs.ctx.lineTo(b.x, b.y);
-    refs.ctx.stroke();
+    if (selectedPath) {
+      ctx.strokeStyle = 'rgba(200,220,255,.65)';
+      ctx.setLineDash([]);
+    } else {
+      ctx.strokeStyle = 'rgba(255,255,255,.18)';
+      ctx.setLineDash([]);
+    }
 
-    // arrow head
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Arrow head
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const len = Math.hypot(dx, dy) || 1;
@@ -1457,68 +1499,118 @@ function draw() {
     const px = b.x - ux * 26;
     const py = b.y - uy * 26;
 
-    refs.ctx.fillStyle = selectedPath ? 'rgba(200,220,255,.65)' : 'rgba(255,255,255,.18)';
-    refs.ctx.beginPath();
-    refs.ctx.moveTo(px, py);
-    refs.ctx.lineTo(px - uy * 6 - ux * 10, py + ux * 6 - uy * 10);
-    refs.ctx.lineTo(px + uy * 6 - ux * 10, py - ux * 6 - uy * 10);
-    refs.ctx.closePath();
-    refs.ctx.fill();
+    ctx.fillStyle = selectedPath ? 'rgba(200,220,255,.65)' : 'rgba(255,255,255,.18)';
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px - uy * 6 - ux * 10, py + ux * 6 - uy * 10);
+    ctx.lineTo(px + uy * 6 - ux * 10, py - ux * 6 - uy * 10);
+    ctx.closePath();
+    ctx.fill();
   }
 
-  // components
+  // Components
   for (const n of sim.components) {
     const sel = (sim.selectedId === n.id);
     const lf = (sim.linkFromId === n.id);
     const glow = sel || lf;
-
     const health = n.health / 100;
+    const compColor = COMP_COLORS[n.type] ?? 'rgba(100,160,255,0.65)';
 
-    if (glow) {
-      refs.ctx.beginPath();
-      refs.ctx.arc(n.x, n.y, n.r + 10, 0, Math.PI * 2);
-      refs.ctx.fillStyle = 'rgba(180,210,255,.08)';
-      refs.ctx.fill();
+    // Tier glow ring (T2 subtle, T3 bright)
+    if (n.tier >= 2 && !n.down) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r + (n.tier === 3 ? 8 : 5), 0, Math.PI * 2);
+      ctx.strokeStyle = n.tier === 3 ? 'rgba(255,220,100,.25)' : 'rgba(200,210,255,.12)';
+      ctx.lineWidth = (n.tier === 3 ? 2.5 : 1.5) / view.scale;
+      ctx.stroke();
     }
 
-    refs.ctx.beginPath();
-    refs.ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-    refs.ctx.fillStyle = n.down ? 'rgba(120,60,80,.55)' : `rgba(30,44,74,${0.55 + health * 0.25})`;
-    refs.ctx.fill();
+    // Selection glow
+    if (glow) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r + 10, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(180,210,255,.10)';
+      ctx.fill();
+    }
 
-    refs.ctx.lineWidth = (sel ? 2.2 : 1.2) / view.scale;
-    refs.ctx.strokeStyle = n.down ? 'rgba(255,120,160,.50)' : 'rgba(255,255,255,.22)';
-    refs.ctx.stroke();
+    // Component body
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fillStyle = n.down ? 'rgba(120,60,80,.55)' : compColor;
+    ctx.fill();
 
-    refs.ctx.fillStyle = 'rgba(255,255,255,.90)';
-    refs.ctx.font = '12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New"';
-    refs.ctx.textAlign = 'center';
-    refs.ctx.fillText(n.type, n.x, n.y + 4);
+    ctx.lineWidth = (sel ? 2.5 : 1.2) / view.scale;
+    ctx.strokeStyle = n.down ? 'rgba(255,120,160,.60)' : 'rgba(255,255,255,.25)';
+    ctx.stroke();
 
-    refs.ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New"';
-    refs.ctx.fillStyle = 'rgba(255,255,255,.60)';
-    refs.ctx.fillText(`T${n.tier}`, n.x, n.y - 18);
+    // Health ring (arc around component, clockwise fill)
+    if (!n.down && health < 0.95) {
+      const ringR = n.r + 2;
+      const startAngle = -Math.PI / 2;
+      const endAngle = startAngle + Math.PI * 2 * health;
 
-    // health bar
-    refs.ctx.fillStyle = 'rgba(255,255,255,.10)';
-    refs.ctx.fillRect(n.x - 18, n.y + 20, 36, 4);
-    refs.ctx.fillStyle = n.down ? 'rgba(255,120,160,.65)' : 'rgba(180,255,210,.65)';
-    refs.ctx.fillRect(n.x - 18, n.y + 20, 36 * health, 4);
+      // Background ring
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, ringR, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,.06)';
+      ctx.lineWidth = 3 / view.scale;
+      ctx.stroke();
+
+      // Health fill
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, ringR, startAngle, endAngle);
+      const hColor = health > 0.7 ? 'rgba(140,230,140,.60)' :
+                     health > 0.3 ? 'rgba(255,200,80,.60)' :
+                                    'rgba(255,100,100,.70)';
+      ctx.strokeStyle = hColor;
+      ctx.lineWidth = 3 / view.scale;
+      ctx.stroke();
+    }
+
+    // Down indicator: pulsing red ring
+    if (n.down) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r + 4, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,80,100,.45)';
+      ctx.lineWidth = 2 / view.scale;
+      ctx.stroke();
+    }
+
+    // Label (type name)
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.font = `11px ${MONO_FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(n.type, n.x, n.y);
+
+    // Tier badge (bottom-right)
+    if (n.tier > 1) {
+      const badgeX = n.x + n.r * 0.6;
+      const badgeY = n.y + n.r * 0.6;
+      ctx.beginPath();
+      ctx.arc(badgeX, badgeY, 7, 0, Math.PI * 2);
+      ctx.fillStyle = n.tier === 3 ? 'rgba(255,200,60,.85)' : 'rgba(180,200,255,.70)';
+      ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,.85)';
+      ctx.font = `bold 8px ${MONO_FONT}`;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${n.tier}`, badgeX, badgeY);
+    }
   }
 
   // UI overlay layer in screen px.
-  refs.ctx.setTransform(canvasDpr, 0, 0, canvasDpr, 0, 0);
-  refs.ctx.fillStyle = 'rgba(255,255,255,.28)';
-  refs.ctx.font = '12px system-ui';
-  refs.ctx.textAlign = 'left';
-  refs.ctx.textBaseline = 'top';
+  ctx.setTransform(canvasDpr, 0, 0, canvasDpr, 0, 0);
+  ctx.fillStyle = 'rgba(255,255,255,.28)';
+  ctx.font = '12px system-ui';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
   const hint =
     sim.mode === MODE.LINK
       ? t('hint.link')
       : sim.mode === MODE.UNLINK
         ? t('hint.unlink')
         : t('hint.select');
-  refs.ctx.fillText(hint, 16, 12);
+  ctx.fillText(hint, 16, 12);
 }
 
 
