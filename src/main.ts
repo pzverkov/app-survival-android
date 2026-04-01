@@ -215,6 +215,11 @@ type UIRefs = {
   endRunReplay: HTMLButtonElement;
   endRunDismiss: HTMLButtonElement;
 
+  // Welcome
+  welcomeModal: HTMLElement;
+  welcomeBackdrop: HTMLElement;
+  welcomeDismiss: HTMLButtonElement;
+
   // Challenges
   challengeDaily: HTMLElement;
   challengeWeekly: HTMLElement;
@@ -1048,6 +1053,18 @@ refs.btnStartDaily.onclick = () => startChallenge(getDailyChallenge());
 refs.btnStartWeekly.onclick = () => startChallenge(getWeeklyChallenge());
 
 renderChallenges();
+
+// --- Welcome modal (first visit only) -------------------------------------
+const WELCOME_KEY = 'asr:welcomed:v1';
+if (!IS_E2E && !localStorage.getItem(WELCOME_KEY)) {
+  refs.welcomeModal.hidden = false;
+}
+function closeWelcome() {
+  refs.welcomeModal.hidden = true;
+  try { localStorage.setItem(WELCOME_KEY, '1'); } catch { /* ignore */ }
+}
+refs.welcomeDismiss.onclick = closeWelcome;
+refs.welcomeBackdrop.onclick = closeWelcome;
 
 function openProfile(preset: EvalPreset) {
   refs.profileModal.hidden = false;
@@ -2007,6 +2024,10 @@ function bindUI(): UIRefs {
     endRunPlayAgain: must<HTMLButtonElement>('endRunPlayAgain'),
     endRunReplay: must<HTMLButtonElement>('endRunReplay'),
     endRunDismiss: must<HTMLButtonElement>('endRunDismiss'),
+
+    welcomeModal: must('welcomeModal'),
+    welcomeBackdrop: must('welcomeBackdrop'),
+    welcomeDismiss: must<HTMLButtonElement>('welcomeDismiss'),
 
     challengeDaily: must('challengeDaily'),
     challengeWeekly: must('challengeWeekly'),
