@@ -1,10 +1,13 @@
 # ResilientMind - Android (web game, TypeScript, Node.js, Vite)
 
+[![CI](https://github.com/pzverkov/app-survival-android/actions/workflows/checks.yml/badge.svg)](https://github.com/pzverkov/app-survival-android/actions/workflows/checks.yml)
+[![Deploy](https://github.com/pzverkov/app-survival-android/actions/workflows/deploy.yml/badge.svg)](https://github.com/pzverkov/app-survival-android/actions/workflows/deploy.yml)
+[![CodeQL](https://github.com/pzverkov/app-survival-android/actions/workflows/codeql.yml/badge.svg)](https://github.com/pzverkov/app-survival-android/actions/workflows/codeql.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-8.0-646cff?logo=vite&logoColor=white)](https://vite.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-22_LTS-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Vitest](https://img.shields.io/badge/Vitest-4.1-6e9f18?logo=vitest&logoColor=white)](https://vitest.dev/)
-[![Playwright](https://img.shields.io/badge/Playwright-1.58-2ead33?logo=playwright&logoColor=white)](https://playwright.dev/)
+[![Tests](https://img.shields.io/badge/Tests-44_passing-6e9f18?logo=vitest&logoColor=white)](./tests)
+[![Zero Dependencies](https://img.shields.io/badge/Runtime_Deps-0-brightgreen)](./package.json)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue)](./LICENSE)
 <!-- security-check:begin -->
 <!-- security-check:end -->
@@ -46,7 +49,7 @@ Build
 `npm run build`
 
 Tests
-`npm run test:unit`
+`npm run test:unit` (unit) and `npm run test:e2e:ci` (E2E + DOM validation)
 
 ## How to play (short)
 
