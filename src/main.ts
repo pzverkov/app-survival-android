@@ -200,6 +200,21 @@ type UIRefs = {
   // Combo
   comboIndicator: HTMLElement;
 
+  // End-of-run modal
+  endRunModal: HTMLElement;
+  endRunBackdrop: HTMLElement;
+  endRunTitle: HTMLElement;
+  endRunScore: HTMLElement;
+  endRunBreakdown: HTMLElement;
+  endRunRating: HTMLElement;
+  endRunDuration: HTMLElement;
+  endRunDebt: HTMLElement;
+  endRunTickets: HTMLElement;
+  endRunBonuses: HTMLElement;
+  endRunPlayAgain: HTMLButtonElement;
+  endRunReplay: HTMLButtonElement;
+  endRunDismiss: HTMLButtonElement;
+
   // Challenges
   challengeDaily: HTMLElement;
   challengeWeekly: HTMLElement;
@@ -1032,6 +1047,76 @@ function closeProfile() {
   refs.profileModal.hidden = true;
 }
 
+function showEndRunModal() {
+  const run = sim.lastRun;
+  if (!run) return;
+
+  // Title styling by outcome
+  const titleEl = refs.endRunTitle;
+  titleEl.classList.remove('is-success', 'is-failure', 'is-budget');
+  if (run.endReason === 'SHIFT_COMPLETE') {
+    titleEl.textContent = 'Shift Complete';
+    titleEl.classList.add('is-success');
+  } else if (run.endReason === 'RATING_COLLAPSED') {
+    titleEl.textContent = 'Rating Collapsed';
+    titleEl.classList.add('is-failure');
+  } else {
+    titleEl.textContent = 'Budget Depleted';
+    titleEl.classList.add('is-budget');
+  }
+
+  refs.endRunScore.textContent = String(run.finalScore);
+
+  // Breakdown
+  const lines = [`Base score: ${run.rawScore}`, `Multiplier: x${run.multiplier.toFixed(2)}`];
+  if (run.bonuses && run.bonuses.length) {
+    for (const b of run.bonuses) lines.push(`+${Math.round(b.pct * 100)}% ${b.label}`);
+  }
+  refs.endRunBreakdown.textContent = lines.join('\n');
+
+  // Key stats
+  refs.endRunRating.textContent = `${run.rating.toFixed(1)} ★`;
+  refs.endRunDuration.textContent = fmtClock(run.durationSec);
+  refs.endRunDebt.textContent = `${Math.round(run.architectureDebt)}/100`;
+  refs.endRunTickets.textContent = String(run.ticketsOpen);
+
+  // Bonuses section
+  if (run.bonuses && run.bonuses.length) {
+    refs.endRunBonuses.textContent = run.bonuses.map(b => `+${Math.round(b.pct * 100)}% ${b.label}`).join('\n');
+  } else {
+    refs.endRunBonuses.textContent = '';
+  }
+
+  refs.endRunModal.hidden = false;
+}
+
+function closeEndRun() {
+  refs.endRunModal.hidden = true;
+}
+
+refs.endRunDismiss.onclick = closeEndRun;
+refs.endRunBackdrop.onclick = closeEndRun;
+
+refs.endRunPlayAgain.onclick = () => {
+  closeEndRun();
+  sim.running = false;
+  sim.reset(getCanvasBounds());
+  sparkRating.reset(); sparkFail.reset(); sparkJank.reset(); sparkHeap.reset();
+  fitToView();
+  syncUI();
+};
+
+refs.endRunReplay.onclick = () => {
+  closeEndRun();
+  const seed = sim.lastRun?.seed;
+  sim.running = false;
+  sim.reset(getCanvasBounds(), seed ? { seed } : undefined);
+  if (seed) refs.seedInput.value = String(seed);
+  sparkRating.reset(); sparkFail.reset(); sparkJank.reset(); sparkHeap.reset();
+  fitToView();
+  syncUI();
+};
+
 function renderRefactorModal(ticketId: number) {
   const ticket = sim.getTickets().find(t => t.id === ticketId);
   if (!ticket || ticket.kind !== 'ARCHITECTURE_DEBT') {
@@ -1577,6 +1662,7 @@ function syncUI() {
 
     if (s.lastRun.runId && s.lastRun.runId !== lastSavedRunId) {
       lastSavedRunId = s.lastRun.runId;
+      showEndRunModal();
       if (!isScoreSane(s.lastRun.finalScore, s.lastRun.durationSec, s.lastRun.multiplier)) {
         markTampered('score');
       }
@@ -1800,6 +1886,20 @@ function bindUI(): UIRefs {
     sparkHeap: must('sparkHeap'),
 
     comboIndicator: must('comboIndicator'),
+
+    endRunModal: must('endRunModal'),
+    endRunBackdrop: must('endRunBackdrop'),
+    endRunTitle: must('endRunTitle'),
+    endRunScore: must('endRunScore'),
+    endRunBreakdown: must('endRunBreakdown'),
+    endRunRating: must('endRunRating'),
+    endRunDuration: must('endRunDuration'),
+    endRunDebt: must('endRunDebt'),
+    endRunTickets: must('endRunTickets'),
+    endRunBonuses: must('endRunBonuses'),
+    endRunPlayAgain: must<HTMLButtonElement>('endRunPlayAgain'),
+    endRunReplay: must<HTMLButtonElement>('endRunReplay'),
+    endRunDismiss: must<HTMLButtonElement>('endRunDismiss'),
 
     challengeDaily: must('challengeDaily'),
     challengeWeekly: must('challengeWeekly'),

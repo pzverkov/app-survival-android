@@ -385,6 +385,31 @@
       </div>
     </div>
 
+    <!-- End-of-run celebration modal -->
+    <div id="endRunModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="endRunTitle">
+      <div class="modalBackdrop" id="endRunBackdrop"></div>
+      <div class="modalPanel card endRunPanel">
+        <h2 id="endRunTitle" class="endRun-title">Run Complete</h2>
+        <div class="endRun-score">
+          <div class="k">Final Score</div>
+          <div id="endRunScore" class="endRun-hero mono">0</div>
+        </div>
+        <div id="endRunBreakdown" class="small mono" style="margin-top:var(--space-3);"></div>
+        <div class="metricsGrid" style="margin-top:var(--space-4); grid-template-columns: repeat(4, 1fr);">
+          <div><div class="k">Rating</div><div class="mono" id="endRunRating">-</div></div>
+          <div><div class="k">Duration</div><div class="mono" id="endRunDuration">-</div></div>
+          <div><div class="k">Debt</div><div class="mono" id="endRunDebt">-</div></div>
+          <div><div class="k">Tickets</div><div class="mono" id="endRunTickets">-</div></div>
+        </div>
+        <div id="endRunBonuses" class="small" style="margin-top:var(--space-3);"></div>
+        <div class="row" style="margin-top:var(--space-4); justify-content:center;">
+          <button id="endRunPlayAgain" class="btn filled">Play Again</button>
+          <button id="endRunReplay" class="btn outlined">Replay Seed</button>
+          <button id="endRunDismiss" class="btn text">Close</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Profile + achievements (per preset) -->
     <div id="profileModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="profileTitle">
       <div class="modalBackdrop" id="profileBackdrop"></div>

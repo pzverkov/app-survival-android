@@ -570,6 +570,33 @@ h1 {
 
 .metricsPanel-header::-webkit-details-marker { display: none; }
 
+/* End-of-run celebration modal */
+.endRunPanel {
+  text-align: center;
+  max-width: 420px;
+}
+
+.endRun-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--type-hero-size);
+  font-weight: 600;
+}
+
+.endRun-title.is-success { color: var(--feedback-success); }
+.endRun-title.is-failure { color: var(--feedback-error); }
+.endRun-title.is-budget  { color: var(--feedback-warning); }
+
+.endRun-score {
+  padding: var(--space-4) 0;
+}
+
+.endRun-hero {
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1;
+  margin-top: var(--space-2);
+}
+
 /* Generic grouping that becomes 2 columns when there is enough width */
 .sideGroup {
   display: grid;
