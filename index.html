@@ -385,6 +385,30 @@
       </div>
     </div>
 
+    <!-- Welcome / onboarding modal (first visit only) -->
+    <div id="welcomeModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
+      <div class="modalBackdrop" id="welcomeBackdrop"></div>
+      <div class="modalPanel card" style="max-width:480px; text-align:center;">
+        <h2 id="welcomeTitle" style="margin:0 0 var(--space-4); font-size:var(--type-hero-size); font-weight:600;">Welcome to App Survival</h2>
+        <p class="small" style="line-height:1.6; margin:0 0 var(--space-4);">
+          You are the on-call engineer for an Android app on release night.
+          Keep the app alive by managing architecture, fixing incidents, and balancing competing pressures.
+        </p>
+        <ol class="small" style="text-align:left; line-height:1.8; margin:0 0 var(--space-4); padding-left:20px;">
+          <li><b>Place components</b> (UI, Network, Database...) on the canvas</li>
+          <li><b>Link them together</b> to form your architecture</li>
+          <li><b>Press Start</b> and respond to incidents as they arise</li>
+          <li><b>Survive the shift</b> with a good rating and low debt</li>
+        </ol>
+        <div class="row" style="justify-content:center;">
+          <button id="welcomeDismiss" class="btn filled">Got it, let's go</button>
+        </div>
+        <div class="small muted" style="margin-top:var(--space-3);">
+          Full guide: <a href="./docs/GAMEPLAY.md" style="color:var(--md-sys-color-primary);">GAMEPLAY.md</a>
+        </div>
+      </div>
+    </div>
+
     <!-- End-of-run celebration modal -->
     <div id="endRunModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="endRunTitle">
       <div class="modalBackdrop" id="endRunBackdrop"></div>
