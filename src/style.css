@@ -317,10 +317,14 @@ button, input, select, textarea {
 @media (max-width: 900px) {
   .wrap {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(320px, 1fr) minmax(280px, 46vh);
+    grid-template-rows: minmax(200px, 38vh) minmax(280px, 1fr);
     height: 100dvh;
   }
-  .side { border-left: none; border-top: 1px solid var(--md-sys-color-outline-variant); }
+  .side {
+    border-left: none;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }
 
 .canvasWrap {
@@ -938,6 +942,40 @@ select:focus-visible {
 @media (max-width: 520px) {
   .ticket { flex-direction: column; }
   .ticketBtns { justify-content: flex-start; }
+
+  /* Enlarge canvas HUD buttons for touch targets */
+  .btn.hud {
+    min-width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+
+  /* Compact metrics on small screens */
+  .metricsGrid--primary {
+    gap: var(--space-2);
+  }
+}
+
+@media (max-width: 480px) {
+  .k { font-size: 10px; }
+  .v { font-size: 13px; }
+  .v-lg { font-size: 16px; }
+  .small { font-size: 11px; }
+
+  .modalPanel {
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 32px);
+  }
+
+  .endRunPanel {
+    max-width: calc(100vw - 16px);
+  }
+
+  .regionRow {
+    grid-template-columns: 32px 36px 1fr 32px 44px;
+    gap: 6px;
+    padding: 6px 8px;
+  }
 }
 
 
