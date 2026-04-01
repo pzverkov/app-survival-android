@@ -1077,6 +1077,56 @@ body::after {
   to   { transform: translateY(0); opacity: 1; }
 }
 
+/* Micro-animations for state transitions */
+@keyframes slideInRight {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOutLeft {
+  from { transform: translateX(0); opacity: 1; }
+  to   { transform: translateX(-20px); opacity: 0; }
+}
+
+@keyframes slideInUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes valuePulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@keyframes flashRed {
+  0%   { color: inherit; }
+  30%  { color: var(--feedback-error); }
+  100% { color: inherit; }
+}
+
+@keyframes flashGreen {
+  0%   { color: inherit; }
+  30%  { color: var(--feedback-success); }
+  100% { color: inherit; }
+}
+
+.anim-slide-in   { animation: slideInRight 200ms ease-out; }
+.anim-slide-out  { animation: slideOutLeft 240ms ease-in forwards; }
+.anim-slide-up   { animation: slideInUp 280ms ease-out; }
+.anim-pulse      { animation: valuePulse 300ms ease-in-out; }
+.anim-flash-red  { animation: flashRed 400ms ease-out; }
+.anim-flash-green { animation: flashGreen 400ms ease-out; }
+
+/* Incident overlay entrance */
+.incidentOverlay:not([hidden]) {
+  animation: slideInUp 280ms ease-out;
+}
+
+/* Toast entrance */
+.toast {
+  animation: slideInUp 240ms ease-out;
+}
 
 .muted { color: var(--app-ink-muted); }
 .muted2 { color: var(--app-ink-muted-2); }

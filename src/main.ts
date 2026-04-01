@@ -498,7 +498,18 @@ let lastRegionsRenderMs = 0;
 const expandedTicketTitles = new Set<number>();
 
 function setText(el: HTMLElement, v: string) { if (el.textContent !== v) el.textContent = v; }
-function setHTML(el: HTMLElement, v: string) { if (el.innerHTML !== v) el.innerHTML = v; }
+function setHTML(el: HTMLElement, v: string) { if (el.innerHTML !== v) el.innerHTML = v; } // only called with trusted game-generated strings
+
+/** Briefly flash a CSS animation class on an element. */
+function flashAnim(el: HTMLElement, cls: string, ms = 400) {
+  el.classList.remove(cls);
+  void el.offsetWidth; // force reflow to restart animation
+  el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), ms);
+}
+
+let prevBudget = 3000;
+let prevRating = 5.0;
 
 function escapeHtml(s: string): string {
   return s
@@ -1682,10 +1693,14 @@ function syncUI() {
   const modeLabel = s.mode === MODE.SELECT ? t('mode.select') : (s.mode === MODE.LINK ? t('mode.link') : t('mode.unlink'));
   refs.modePill.innerHTML = `${t('mode.label')} <b>${modeLabel}</b>`;
   setText(refs.budget, `$${s.budget.toFixed(0)}`);
+  if (sim.running && s.budget < prevBudget - 50) flashAnim(refs.budget, 'anim-flash-red');
+  prevBudget = s.budget;
   setText(refs.time, fmtClock(s.timeSec));
   const shiftTotal = sim.getShiftDurationSec();
   setText(refs.shift, `${fmtClock(s.timeSec)} / ${fmtClock(shiftTotal)}`);
   setText(refs.rating, `${s.rating.toFixed(1)} ★`);
+  if (sim.running && s.rating < prevRating - 0.15) flashAnim(refs.rating, 'anim-flash-red');
+  prevRating = s.rating;
   setText(refs.seedVal, `${s.seed}`);
   setText(refs.score, `${Math.round(s.score)}`);
   refs.comboIndicator.hidden = !s.comboActive;
