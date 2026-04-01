@@ -6,7 +6,7 @@ Components represent Android subsystems and capability layers such as UI, ViewMo
 
 Actions represent user and system behaviors such as scroll, read, write, search, upload, and sync. Some actions can be satisfied via cache while others must hit DB or network.
 
-Incidents simulate production failure modes, including traffic spikes, backend failures, background restrictions, regression waves, zero day advisory pressure, accessibility regressions, and policy enforcement.
+Incidents simulate production failure modes, including traffic spikes, backend failures, background restrictions, regression waves, zero day advisory pressure, accessibility regressions, policy enforcement, memory leaks, regional outages, and ANR escalations.
 
 Review waves simulate user sentiment and category votes. A fast app can still lose rating if privacy trust, accessibility, or compliance drifts below baseline.
 
@@ -29,6 +29,8 @@ These systems intentionally interact. There are no free lunches.
 - RegMatrix: Regional compliance scoring across EU, US, UK, IN, BR. Compliance is driven by privacy trust, security posture, accessibility, platform pressure, and active advisories.
 
 - PolicyGates: Regional rollout freezes when compliance is critical. Frozen regions reduce effective traffic and earnings until you stabilize.
+
+- Cascading failures: OOM crashes now spike ANR points (process restart stalls the main thread). When 3+ incidents fire within 60 seconds, compound damage applies (extra rating penalty and support load per additional incident).
 
 - CoverageGate: A simplified Android test coverage proxy. Coverage drifts down as complexity and churn rise. Below threshold increases regression risk and opens coverage debt tickets.
 

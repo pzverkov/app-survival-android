@@ -40,5 +40,25 @@ Some shop items are unlocked via achievements and are tuned to avoid snowballing
 - Energy drink: temporary regen boost, **non-stacking**, with **increasing cost** per use.
 - Incident shield: **single charge max**, expensive, mitigates the next incident spike rather than deleting risk entirely.
 
+Challenges (daily and weekly)
+- **Daily challenges** rotate by UTC date. Each has a fixed seed, preset, and constraint (e.g. "no refills", "zero debt at end", "rating >= 4.5"). Completing the constraint earns a bonus multiplier (1.15x-1.30x).
+- **Weekly challenges** rotate on Mondays with harder constraints and higher bonuses (1.35x-1.40x).
+- Click "Start daily" or "Start weekly" in the Overview tab to begin. Results are persisted locally.
+
+Combo multipliers
+- Fix 3 tickets within 60 seconds to trigger a **combo**.
+- While a combo is active (30 seconds), score per tick is boosted by +20%.
+- A "COMBO" indicator appears next to the score display.
+
+Asymmetric scoring
+- **Failure penalties**: Budget depleted = 0.70x multiplier. Rating collapsed = 0.50x multiplier.
+- **Preset-specific bonuses** (shift complete only): Junior/Mid +15% for surviving, Senior +20% for zero refills, Staff +25% for zero debt, Principal +30% for flawless (zero incidents + rating >= 4.8).
+- **Universal bonuses**: Clean desk (zero tickets) +10%, High rating (>= 4.8) +10%.
+
+Tamper protection
+- Scoreboard and achievement data are signed with HMAC-SHA-256. Editing localStorage entries directly will trigger a "Tampered" badge next to the scoreboard.
+- Modifying game state (budget, score, rating) via the console while paused is also detected.
+- Score sanity checks verify the final score does not exceed the theoretical maximum.
+
 Architecture rules, debt, and refactors
-See [ARCHITECTURE_RULES.md](./docs/ARCHITECTURE_RULES.md) for the layer rules, architecture debt, refactor quests, and the refactor roadmap.
+See [ARCHITECTURE_RULES.md](./ARCHITECTURE_RULES.md) for the layer rules, architecture debt, refactor quests, and the refactor roadmap.

@@ -15,7 +15,7 @@ Ground rules
 
 Development setup
 
-1. Install Node.js 20 or newer.
+1. Install Node.js 22 LTS or newer.
 2. Install dependencies:
 npm install
 3. Start the dev server:

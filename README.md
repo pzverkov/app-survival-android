@@ -1,5 +1,14 @@
 # ResilientMind - Android (web game, TypeScript, Node.js, Vite)
 
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-8.0-646cff?logo=vite&logoColor=white)](https://vite.dev/)
+[![Node.js](https://img.shields.io/badge/Node.js-22_LTS-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Vitest](https://img.shields.io/badge/Vitest-4.1-6e9f18?logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Playwright](https://img.shields.io/badge/Playwright-1.58-2ead33?logo=playwright&logoColor=white)](https://playwright.dev/)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue)](./LICENSE)
+<!-- security-check:begin -->
+<!-- security-check:end -->
+
 ## Project
 
 App Survival ResilientMind - Android is a web-based simulation game inspired by real Android production incidents. It compresses production constraints into a playable loop: design an architecture graph, ship under pressure, and maintain user sentiment, reliability, security, and compliance simultaneously.
@@ -25,7 +34,7 @@ The simulation core is written in TypeScript and intentionally kept separate fro
 ## Quick start
 
 Prerequisites
-Node.js 20 or newer is recommended
+Node.js 22 LTS or newer is recommended
 
 Install
 `npm install`
@@ -54,7 +63,8 @@ More details: see docs/GAMEPLAY.md
 - Architecture rules and refactor roadmap: [ARCHITECTURE_RULES.md](./docs/ARCHITECTURE_RULES.md)
 - Evaluation exercise + level differentiation lens: [EVALUATION.md](./docs/EVALUATION.md)
 - Testing and CI notes (Vitest + Playwright + E2E marker): [TESTING.md](./docs/TESTING.md)
-- UI notes (Material 3, LiquidGlass, responsive dashboard): [UI.md](./docs/UI.md)
+- UI notes (Material 3, sparklines, accessibility): [UI.md](./docs/UI.md)
+- Developer guide (adding components, incidents, achievements, translations): [DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md)
 - Learning resources (Android + KMP): [LEARNING.md](./docs/LEARNING.md)
 - Optional code task ideas: [OPTIONAL_TASKS.md](./docs/OPTIONAL_TASKS.md)
 
@@ -72,4 +82,12 @@ See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for community standards.
 
 ## License
 
-Apache License 2.0 See [LICENSE](./LICENSE) and [NOTICE](./NOTICE) files.
+Apache License 2.0. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE) files.
+
+## Disclaimer
+
+This software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and noninfringement. In no event shall the authors or copyright holders be liable for any claim, damages, or other liability, whether in an action of contract, tort, or otherwise, arising from, out of, or in connection with the software or the use or other dealings in the software.
+
+This project is an educational simulation game. Nothing in this repository constitutes professional advice of any kind, including but not limited to engineering advice, security advice, legal advice, compliance advice, or architectural guidance. The simulation mechanics, incident scenarios, scoring systems, and game content are fictional abstractions designed for entertainment and learning purposes only. They do not represent real-world best practices, standards, or recommendations.
+
+Users who download, fork, deploy, or otherwise use this software do so entirely at their own risk and assume full responsibility for any consequences arising from such use. The authors make no representations regarding the accuracy, completeness, or suitability of any information or functionality provided by this software.
