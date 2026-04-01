@@ -505,6 +505,40 @@ const expandedTicketTitles = new Set<number>();
 function setText(el: HTMLElement, v: string) { if (el.textContent !== v) el.textContent = v; }
 function setHTML(el: HTMLElement, v: string) { if (el.innerHTML !== v) el.innerHTML = v; } // only called with trusted game-generated strings
 
+// --- Modal focus management ------------------------------------------------
+let previousFocus: Element | null = null;
+
+function openModal(modal: HTMLElement): void {
+  previousFocus = document.activeElement;
+  modal.hidden = false;
+  const first = modal.querySelector<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  first?.focus();
+  modal.addEventListener('keydown', trapFocus);
+}
+
+function closeModal(modal: HTMLElement): void {
+  modal.hidden = true;
+  modal.removeEventListener('keydown', trapFocus);
+  if (previousFocus instanceof HTMLElement) previousFocus.focus();
+  previousFocus = null;
+}
+
+function trapFocus(e: KeyboardEvent): void {
+  if (e.key !== 'Tab') return;
+  const modal = e.currentTarget as HTMLElement;
+  const focusable = modal.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
 /** Briefly flash a CSS animation class on an element. */
 function flashAnim(el: HTMLElement, cls: string, ms = 400) {
   el.classList.remove(cls);
@@ -1059,22 +1093,22 @@ renderChallenges();
 // --- Welcome modal (first visit only) -------------------------------------
 const WELCOME_KEY = 'asr:welcomed:v1';
 if (!IS_E2E && !localStorage.getItem(WELCOME_KEY)) {
-  refs.welcomeModal.hidden = false;
+  openModal(refs.welcomeModal);
 }
 function closeWelcome() {
-  refs.welcomeModal.hidden = true;
+  closeModal(refs.welcomeModal);
   try { localStorage.setItem(WELCOME_KEY, '1'); } catch { /* ignore */ }
 }
 refs.welcomeDismiss.onclick = closeWelcome;
 refs.welcomeBackdrop.onclick = closeWelcome;
 
 function openProfile(preset: EvalPreset) {
-  refs.profileModal.hidden = false;
+  openModal(refs.profileModal);
   refs.profilePresetSelect.value = preset;
   renderProfile(preset);
 }
 function closeProfile() {
-  refs.profileModal.hidden = true;
+  closeModal(refs.profileModal);
 }
 
 function showEndRunModal() {
@@ -1117,11 +1151,11 @@ function showEndRunModal() {
     refs.endRunBonuses.textContent = '';
   }
 
-  refs.endRunModal.hidden = false;
+  openModal(refs.endRunModal);
 }
 
 function closeEndRun() {
-  refs.endRunModal.hidden = true;
+  closeModal(refs.endRunModal);
 }
 
 refs.endRunDismiss.onclick = closeEndRun;
@@ -1213,12 +1247,12 @@ function renderRefactorModal(ticketId: number) {
 }
 
 function openRefactor(ticketId: number) {
-  refs.refactorModal.hidden = false;
+  openModal(refs.refactorModal);
   renderRefactorModal(ticketId);
 }
 
 function closeRefactor() {
-  refs.refactorModal.hidden = true;
+  closeModal(refs.refactorModal);
 }
 
 refs.btnProfile.onclick = () => openProfile(refs.presetSelect.value as EvalPreset);
