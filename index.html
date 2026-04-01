@@ -63,80 +63,85 @@
           <div class="small" style="margin-top:8px;" data-i18n="sel.hint">Upgrades raise capacity & reliability. Repairs restore health. Both cost budget</div>
         </section>
 
-        <!-- High-signal observability block -->
-        <section class="metricsGrid" aria-label="Key metrics" aria-live="polite" aria-atomic="false">
+        <!-- Tier 1: Primary metrics (always visible) -->
+        <section class="metricsGrid metricsGrid--primary" aria-label="Primary metrics" aria-live="polite" aria-atomic="false">
           <div class="card">
             <div class="k" data-i18n="lbl.budget">Budget</div>
             <div class="v v-lg mono" id="budget">$500</div>
-            <div class="small" data-i18n="hint.budget">Run ends at $0 or rating 1.0★</div>
-          </div>
-          <div class="card">
-            <div class="k" data-i18n="lbl.time">Time</div>
-            <div class="v mono" id="time">0s</div>
-            <div class="small" data-i18n="hint.time">Sim time</div>
-          </div>
-          <div class="card">
-            <div class="k" data-i18n="lbl.shift">Shift</div>
-            <div class="v mono" id="shift">0:00 / 9:00</div>
-            <div class="small" data-i18n="hint.shift">Target session length</div>
           </div>
           <div class="card">
             <div class="k" data-i18n="lbl.rating">Rating</div>
             <div class="v v-lg mono" id="rating">5.0 ★</div>
             <svg id="sparkRating" class="sparkline" aria-hidden="true"></svg>
-            <div class="small" data-i18n="hint.rating">Drops from failures / ANRs / slow</div>
+          </div>
+          <div class="card">
+            <div class="k" data-i18n="lbl.shift">Shift</div>
+            <div class="v mono" id="shift">0:00 / 9:00</div>
           </div>
           <div class="card">
             <div class="k" data-i18n="lbl.score">Score</div>
             <div class="v v-lg mono" id="score">0</div>
             <span id="comboIndicator" class="pill pill-combo" hidden>COMBO x1</span>
-            <div class="small" data-i18n="hint.score">Deterministic per seed</div>
-          </div>
-          <div class="card">
-            <div class="k" data-i18n="lbl.arch">Architecture</div>
-            <div class="v mono" id="archDebt">0</div>
-            <div class="small" data-i18n="hint.arch">Debt (0..100)</div>
-          </div>
-          <div class="card">
-            <div class="k" data-i18n="lbl.failures">Failures</div>
-            <div class="v mono" id="fail">0.0%</div>
-            <svg id="sparkFail" class="sparkline" aria-hidden="true"></svg>
-            <div class="small" data-i18n="hint.failures">Too many = review bombs</div>
-          </div>
-          <div class="card">
-            <div class="k" data-i18n="lbl.coverage">Coverage</div>
-            <div class="v mono" id="coverage">78%</div>
-            <div class="small" id="coverageHint">Target 70%+</div>
-          </div>
-          <div class="card">
-            <div class="k" data-i18n="lbl.anr">ANR Risk</div>
-            <div class="v mono" id="anr">0.0%</div>
-            <div class="small" data-i18n="hint.anr">Main thread pain</div>
-          </div>
-          <div class="card">
-            <div class="k" data-i18n="lbl.latency">p95 Latency</div>
-            <div class="v mono" id="lat">0 ms</div>
-            <div class="small" data-i18n="hint.latency">Queueing makes it worse</div>
-          </div>
-          <div class="card">
-            <div class="k" data-i18n="lbl.battery">Battery</div>
-            <div class="v mono" id="bat">100</div>
-            <div class="small" data-i18n="hint.battery">Work spam drains</div>
-          </div>
-
-          <div class="card">
-            <div class="k" data-i18n="lbl.jank">Jank</div>
-            <div class="v mono" id="jank">0%</div>
-            <svg id="sparkJank" class="sparkline" aria-hidden="true"></svg>
-            <div class="small" data-i18n="hint.jank">FrameGuard 16ms</div>
-          </div>
-          <div class="card">
-            <div class="k" data-i18n="lbl.heap">Heap</div>
-            <div class="v mono" id="heap">64 MB</div>
-            <svg id="sparkHeap" class="sparkline" aria-hidden="true"></svg>
-            <div class="small"><span data-i18n="heapwatch.gc">HeapWatch GC</span> <span class="mono" id="gc">0</span> <span data-i18n="heapwatch.msOom">ms • OOM</span> <span class="mono" id="oom">0</span></div>
           </div>
         </section>
+
+        <!-- Tier 2: System health (collapsible) -->
+        <details class="metricsPanel" open>
+          <summary class="metricsPanel-header">System Health</summary>
+          <section class="metricsGrid" aria-label="System health metrics">
+            <div class="card">
+              <div class="k" data-i18n="lbl.failures">Failures</div>
+              <div class="v mono" id="fail">0.0%</div>
+              <svg id="sparkFail" class="sparkline" aria-hidden="true"></svg>
+            </div>
+            <div class="card">
+              <div class="k" data-i18n="lbl.anr">ANR Risk</div>
+              <div class="v mono" id="anr">0.0%</div>
+            </div>
+            <div class="card">
+              <div class="k" data-i18n="lbl.latency">p95 Latency</div>
+              <div class="v mono" id="lat">0 ms</div>
+            </div>
+            <div class="card">
+              <div class="k" data-i18n="lbl.coverage">Coverage</div>
+              <div class="v mono" id="coverage">78%</div>
+              <div class="small" id="coverageHint">Target 70%+</div>
+            </div>
+            <div class="card">
+              <div class="k" data-i18n="lbl.arch">Architecture</div>
+              <div class="v mono" id="archDebt">0</div>
+            </div>
+            <div class="card">
+              <div class="k" data-i18n="lbl.battery">Battery</div>
+              <div class="v mono" id="bat">100</div>
+            </div>
+          </section>
+        </details>
+
+        <!-- Tier 3: Android internals (collapsed by default) -->
+        <details class="metricsPanel">
+          <summary class="metricsPanel-header">Android Internals</summary>
+          <section class="metricsGrid" aria-label="Android internal metrics">
+            <div class="card">
+              <div class="k" data-i18n="lbl.time">Time</div>
+              <div class="v mono" id="time">0s</div>
+            </div>
+            <div class="card">
+              <div class="k" data-i18n="lbl.jank">Jank</div>
+              <div class="v mono" id="jank">0%</div>
+              <svg id="sparkJank" class="sparkline" aria-hidden="true"></svg>
+            </div>
+            <div class="card">
+              <div class="k" data-i18n="lbl.heap">Heap</div>
+              <div class="v mono" id="heap">64 MB</div>
+              <svg id="sparkHeap" class="sparkline" aria-hidden="true"></svg>
+            </div>
+            <div class="card">
+              <div class="k"><span data-i18n="heapwatch.gc">GC</span> / <span data-i18n="heapwatch.msOom">OOM</span></div>
+              <div class="v mono"><span id="gc">0</span> ms / <span id="oom">0</span></div>
+            </div>
+          </section>
+        </details>
 
         <!-- Seed controls (required by src/main.ts). Kept lightweight so runs can be shared/replayed. -->
         <section class="card">

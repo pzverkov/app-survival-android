@@ -530,6 +530,46 @@ h1 {
   gap: 10px;
 }
 
+.metricsGrid--primary {
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+.metricsGrid--primary .card {
+  border-left: 3px solid var(--md-sys-color-primary);
+}
+
+.metricsPanel {
+  margin-top: var(--space-2);
+}
+
+.metricsPanel-header {
+  font-size: var(--type-label-size);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+  color: var(--app-ink-muted);
+  cursor: pointer;
+  padding: var(--space-2) 0;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.metricsPanel-header::before {
+  content: '\25B8';
+  display: inline-block;
+  transition: transform 150ms ease;
+  font-size: 10px;
+}
+
+.metricsPanel[open] > .metricsPanel-header::before {
+  transform: rotate(90deg);
+}
+
+.metricsPanel-header::-webkit-details-marker { display: none; }
+
 /* Generic grouping that becomes 2 columns when there is enough width */
 .sideGroup {
   display: grid;
