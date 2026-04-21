@@ -6,7 +6,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-8.0-646cff?logo=vite&logoColor=white)](https://vite.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-22_LTS-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Tests](https://img.shields.io/badge/Tests-44_passing-6e9f18?logo=vitest&logoColor=white)](./tests)
+[![Tests](https://img.shields.io/badge/Tests-129_passing-6e9f18?logo=vitest&logoColor=white)](./tests)
 [![Zero Dependencies](https://img.shields.io/badge/Runtime_Deps-0-brightgreen)](./package.json)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue)](./LICENSE)
 <!-- security-check:begin -->
@@ -56,12 +56,14 @@ Tests
 1) Pick a preset (Junior Mid/Senior/Staff/Principal), then press **Start**.
 2) Place components, link dependencies, upgrade, and fix tickets to keep the app alive.
 3) Expect incidents. Stabilize without tanking privacy, accessibility, security, coverage, and regional compliance.
+4) Try a **Release Trains** scenario for a scripted, repeatable shift — each one ends with a postmortem grade (S → D).
 
-More details: see docs/GAMEPLAY.md
+More details: see docs/GAMEPLAY.md and docs/SCENARIOS.md
 
 ## Docs
 
 - Gameplay (seeds, scoring, incidents, postmortems, profile & achievements): [GAMEPLAY.md](./docs/GAMEPLAY.md)
+- Scenarios (Release Trains launch drills): [SCENARIOS.md](./docs/SCENARIOS.md)
 - Systems (concepts + realism layers): [SYSTEMS.md](./docs/SYSTEMS.md)
 - Architecture rules and refactor roadmap: [ARCHITECTURE_RULES.md](./docs/ARCHITECTURE_RULES.md)
 - Evaluation exercise + level differentiation lens: [EVALUATION.md](./docs/EVALUATION.md)

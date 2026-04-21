@@ -16,12 +16,17 @@ const COMPONENT_DEPS: Record<string, Array<'net' | 'image' | 'json' | 'auth' | '
   SANITIZER: ['json'],
   ABUSE: ['net'],
   A11Y: [],
+  BILLING: ['net', 'json'],
+  PUSH: ['net', 'json'],
+  DEEPLINK: ['json'],
 };
 
 import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request, Ticket, TicketKind, TicketSeverity, Advisory, PlatformState, RegionState, RegionCode, EvalPreset, EVAL_PRESET, RunResult, EndReason, ScoreBonus, RefactorOption, RefactorAction, ArchViolation, RefactorRoadmapStep } from './types';
 import { Rng } from './rng';
 import { entropyPool } from './entropy';
-import { tickPlatformPulse as platformPulseTick, tickCoverageGate as coverageGateTick, computeRegionTarget, type CoverageGateInput } from './subsystems';
+import { tickPlatformPulse as platformPulseTick, tickCoverageGate as coverageGateTick, computeRegionTarget, evaluateCrossCheck, tickRolloutPhase, applyRegionCoupling, tickBaselineProfile, tickPlayIntegrity, type CoverageGateInput, type CrossCheckInput, type RolloutPhase } from './subsystems';
+import { tickBurnout } from './oncall';
+import { gradePostmortem, type PostmortemGrade } from './postmortem';
 
 export const ComponentDefs: Record<ComponentType, ComponentDef> = {
   // Core layers (Android mental model, not backend microservices)
@@ -48,7 +53,12 @@ export const ComponentDefs: Record<ComponentType, ComponentDef> = {
   ABUSE:    { baseCap: 99, baseLat:  9, baseFail: 0.0015, cost: 85, upgrade: [0, 120, 170, 0], desc: 'Abuse protection (rate limit / credential stuffing)' },
 
   // Accessibility
-  A11Y:   { baseCap: 99, baseLat:  5,  baseFail: 0.0010, cost: 75, upgrade: [0, 110, 160, 0], desc: 'Accessibility (labels, focus order, contrast)' }
+  A11Y:   { baseCap: 99, baseLat:  5,  baseFail: 0.0010, cost: 75, upgrade: [0, 110, 160, 0], desc: 'Accessibility (labels, focus order, contrast)' },
+
+  // v0.3.0: monetization / engagement / entry-point realism
+  BILLING:  { baseCap: 6,  baseLat: 22, baseFail: 0.0035, cost: 90, upgrade: [0, 120, 175, 0], desc: 'Billing / IAP (purchases, subscriptions, chargebacks)' },
+  PUSH:     { baseCap: 8,  baseLat: 14, baseFail: 0.0028, cost: 80, upgrade: [0, 110, 160, 0], desc: 'Push / FCM (delivery, token hygiene)' },
+  DEEPLINK: { baseCap: 12, baseLat:  6, baseFail: 0.0030, cost: 70, upgrade: [0, 100, 145, 0], desc: 'Deep link / App Links (intents, routes)' }
 };
 
 
@@ -74,7 +84,10 @@ type IncidentKind =
   | 'SDK_SCANDAL'
   | 'MEMORY_LEAK'
   | 'REGION_OUTAGE'
-  | 'ANR_ESCALATION';
+  | 'ANR_ESCALATION'
+  | 'IAP_FRAUD'
+  | 'PUSH_ABUSE'
+  | 'DEEP_LINK_EXPLOIT';
 
 type IncidentTiers = {
   authTier: number;
@@ -86,6 +99,9 @@ type IncidentTiers = {
   flagsTier: number;
   obsTier: number;
   cacheTier: number;
+  billingTier: number;
+  pushTier: number;
+  deeplinkTier: number;
 };
 
 export type Bounds = { width: number; height: number };
@@ -108,6 +124,8 @@ export class GameSim {
   score = 0;
   architectureDebt = 0; // 0..100
   lastRun: RunResult | null = null;
+  lastGrade: PostmortemGrade | null = null;
+  getLastGrade(): PostmortemGrade | null { return this.lastGrade; }
 
   private archFindings: Array<{ from: ComponentType; to: ComponentType; kind: 'UPWARD' | 'SKIP' | 'UPWARD_SKIP'; atSec: number }> = [];
 
@@ -125,8 +143,22 @@ export class GameSim {
   private engBoosterBuys = 0; // increases booster cost to prevent spam
   private incidentShieldCharges = 0; // 0..1
 
+  // On-call burnout state. Incidents that empty capacity repeatedly accrue
+  // burnout; when it crosses a threshold, a BURNOUT ticket spawns and regen
+  // is sapped until the team gets breathing room.
+  burnoutLevel = 0;
+  private burnoutZeroHits: number[] = [];
+
   tickets: Ticket[] = [];
   private nextTicketId = 1;
+  // Multi-signal ticket gate: per-kind running counters + last cross-check reason
+  // (so the UI can expose "why did this fire" and "almost fired" hints).
+  private candidateTickets = new Map<TicketKind, { consecutive: number; firstSeenSec: number; lastReason: string }>();
+
+  // Scenario mode: scripted incidents by wall-clock second. When a tick matches
+  // a scripted marker, that incident fires directly without consuming rand().
+  scenarioId: string | null = null;
+  private scriptedIncidents = new Map<number, IncidentKind>();
 
   // ZeroDayPulse
   advisories: Advisory[] = [];
@@ -160,6 +192,15 @@ export class GameSim {
   private coverageHist: number[] = [];
   private lastCompCount = 0;
   private qualityProcess = 0.0; // 0..1 reduces coverage decay
+  flakyTestRate = 0.02; // 0..1 probability a flaky suite masks a regression
+
+  // PlatformPulse rollout (staggered deployment)
+  rolloutPhase: RolloutPhase = 1; // start at 10% prod
+
+  // Android-native realism surfaces (one-time unlockable purchases)
+  baselineProfile = false;
+  r8Enabled = false;
+  bundleSplitEnabled = false;
 
   // Ticket applied patches (lightweight)
   private patch = {
@@ -237,6 +278,8 @@ export class GameSim {
   comboBonusAccum = 0;
   private eventLines: string[] = [];
   private eventStream: SimEvent[] = [];
+  /** Full retained event log for the current run (used for postmortem grading). */
+  private runEventLog: SimEvent[] = [];
 
   private queues = new Map<number, Request[]>();
 
@@ -244,10 +287,9 @@ export class GameSim {
     this.mode = MODE.SELECT;
     this.running = false;
     this.timeSec = 0;
-    this.eventStream = [{ type: 'RUN_RESET', atSec: 0 }];
-
     // Structured event so UI can reset achievements state in a deterministic way.
-    this.eventStream.push({ type: 'RUN_RESET', atSec: 0 });
+    this.eventStream = [{ type: 'RUN_RESET', atSec: 0 }];
+    this.runEventLog = [{ type: 'RUN_RESET', atSec: 0 }];
 
     // Deterministic seed: same seed => same run.
     const s = (opts?.seed ?? entropyPool.seed()) >>> 0;
@@ -271,9 +313,15 @@ export class GameSim {
     this.engRegenBoostUntil = 0;
     this.engBoosterBuys = 0;
     this.incidentShieldCharges = 0;
+    this.burnoutLevel = 0;
+    this.burnoutZeroHits = [];
 
     this.tickets = [];
     this.nextTicketId = 1;
+    this.candidateTickets.clear();
+    // Scenario state is reset-by-default; callers can re-apply loadScenario() after.
+    this.scenarioId = null;
+    this.scriptedIncidents.clear();
 
     // ZeroDayPulse
     this.advisories = [];
@@ -304,6 +352,11 @@ export class GameSim {
     this.coverageHist = [];
     this.lastCompCount = 0;
     this.qualityProcess = 0.0;
+    this.flakyTestRate = 0.02;
+    this.rolloutPhase = 1;
+    this.baselineProfile = false;
+    this.r8Enabled = false;
+    this.bundleSplitEnabled = false;
 
     // Clear applied patches
     this.patch = {
@@ -484,6 +537,49 @@ export class GameSim {
     return { ok: true };
   }
 
+  // v0.3.0 Android-native one-time build surfaces.
+  buyBaselineProfile(): { ok: boolean; reason?: string } {
+    if (this.baselineProfile) return { ok: false, reason: 'Already shipped' };
+    if (this.budget < 250) return { ok: false, reason: 'Not enough budget' };
+    this.budget -= 250;
+    this.baselineProfile = true;
+    this.log('Shipped Baseline Profile (-$250). Startup + jank reduced.');
+    return { ok: true };
+  }
+
+  buyR8(): { ok: boolean; reason?: string } {
+    if (this.r8Enabled) return { ok: false, reason: 'R8 already enabled' };
+    if (this.budget < 200) return { ok: false, reason: 'Not enough budget' };
+    this.budget -= 200;
+    this.r8Enabled = true;
+    this.log('Enabled R8 / ProGuard (-$200). Heap + startup reduced.');
+    return { ok: true };
+  }
+
+  buyBundleSplit(): { ok: boolean; reason?: string } {
+    if (this.bundleSplitEnabled) return { ok: false, reason: 'Bundle split already enabled' };
+    if (this.budget < 180) return { ok: false, reason: 'Not enough budget' };
+    this.budget -= 180;
+    this.bundleSplitEnabled = true;
+    this.log('Enabled App Bundle split delivery (-$180).');
+    return { ok: true };
+  }
+
+  /** Returns the current state of Android-native realism surfaces for the UI. */
+  getAndroidSurfaces(): { baselineProfile: boolean; r8Enabled: boolean; bundleSplitEnabled: boolean; rolloutPhase: RolloutPhase; playIntegrityActive: boolean } {
+    const playIntegrity = tickPlayIntegrity({
+      abuseTier: this.tierOf('ABUSE'),
+      authTier: this.tierOf('AUTH'),
+    });
+    return {
+      baselineProfile: this.baselineProfile,
+      r8Enabled: this.r8Enabled,
+      bundleSplitEnabled: this.bundleSplitEnabled,
+      rolloutPhase: this.rolloutPhase,
+      playIntegrityActive: playIntegrity.active,
+    };
+  }
+
   private capacityRegenPerSec(): number {
     // Mid-game pacing: avoid the "stagnation valley" where you're stuck waiting.
     // Strategy: increase regen gently as time passes, and add a rubber-band bonus when backlog is high.
@@ -493,8 +589,10 @@ export class GameSim {
     const backlogBonus = clamp((this.tickets.length - 4) / 8, 0, 1) * 0.05; // up to +3/min when drowning
     const adrenaline = this.timeSec < this.engAdrenalineUntil ? 0.08 : 0; // incident burst (~+4.8/min)
     const booster = this.timeSec < this.engRegenBoostUntil ? 0.06 : 0; // temporary (~+3.6/min)
+    // Burnout penalty: active BURNOUT ticket saps regen until fixed.
+    const burnoutPenalty = this.tickets.some(t => t.kind === 'BURNOUT') ? 0.10 : 0;
 
-    return base + timeRamp + tierBonus + backlogBonus + adrenaline + booster;
+    return Math.max(0, base + timeRamp + tierBonus + backlogBonus + adrenaline + booster - burnoutPenalty);
   }
 
   getPlatform(): PlatformState { return { ...this.platform }; }
@@ -551,6 +649,12 @@ export class GameSim {
       case 'ARCHITECTURE_DEBT':
         this.architectureDebt = clamp(this.architectureDebt - 25, 0, 100);
         this.qualityProcess = clamp(this.qualityProcess + 0.06, 0, 1);
+        break;
+      case 'BURNOUT':
+        // Fixing burnout clears the penalty and gives a one-time regen burst.
+        this.burnoutLevel = 0;
+        this.burnoutZeroHits = [];
+        this.engAdrenalineUntil = this.timeSec + 30;
         break;
     }
     // If this was driven by a zero-day, mark advisories mitigated faster
@@ -676,7 +780,7 @@ export class GameSim {
 
   private archLint(fromType: ComponentType, toType: ComponentType): { ok: boolean; debtAdd: number; reason: string; blocksInPrincipal: boolean } {
     // Sidecars can be depended on from anywhere.
-    const sidecars = new Set<ComponentType>(['OBS', 'FLAGS', 'A11Y']);
+    const sidecars = new Set<ComponentType>(['OBS', 'FLAGS', 'A11Y', 'DEEPLINK']);
     if (sidecars.has(toType)) return { ok: true, debtAdd: 0, reason: 'sidecar ok', blocksInPrincipal: false };
 
     const layer = (t: ComponentType): number => {
@@ -695,6 +799,8 @@ export class GameSim {
         case 'KEYSTORE':
         case 'SANITIZER':
         case 'ABUSE':
+        case 'BILLING':
+        case 'PUSH':
           return 4;
         default:
           return 4;
@@ -995,7 +1101,7 @@ export class GameSim {
     n.x = x; n.y = y;
   }
 
-  private createTicket(kind: TicketKind, title: string, category: Ticket['category'], severity: TicketSeverity, impact: number, effort: number) {
+  private createTicket(kind: TicketKind, title: string, category: Ticket['category'], severity: TicketSeverity, impact: number, effort: number, reason?: string) {
     // Avoid duplicates of the same kind unless the existing one is deferred and old
     const existing = this.tickets.find(t => t.kind === kind && !t.deferred);
     if (existing) return;
@@ -1009,10 +1115,80 @@ export class GameSim {
       effort: clamp(effort, 1, 8),
       ageSec: 0,
       deferred: false,
+      reason,
     });
   }
 
+  /**
+   * Run one tick of the cross-check gate for a signal-driven ticket. Bumps/decays
+   * the candidate counter; on fire, creates the ticket with a reason string.
+   */
+  private gateSignalTicket(params: {
+    kind: TicketKind;
+    title: string;
+    category: Ticket['category'];
+    severity: TicketSeverity;
+    impact: number;
+    effort: number;
+    active: boolean;
+    primarySignal: number;
+    corroborating: Array<{ source: 'OBS' | 'COVERAGE' | 'REG' | 'TIME' | 'HEAP' | 'FAIL'; strength: number }>;
+  }): void {
+    const prev = this.candidateTickets.get(params.kind);
+    if (!params.active) {
+      if (prev) this.candidateTickets.delete(params.kind);
+      return;
+    }
+    const consecutive = (prev?.consecutive ?? 0) + 1;
+    const firstSeenSec = prev?.firstSeenSec ?? this.timeSec;
+
+    const input: CrossCheckInput = {
+      kind: params.kind,
+      severity: params.severity,
+      primarySignal: clamp(params.primarySignal, 0, 1),
+      corroboratingSignals: params.corroborating,
+      obsTier: this.tierOf('OBS'),
+      preset: this.preset,
+      consecutiveTicks: consecutive,
+    };
+    const result = evaluateCrossCheck(input);
+
+    this.candidateTickets.set(params.kind, { consecutive, firstSeenSec, lastReason: result.reason });
+
+    if (result.fire) {
+      this.createTicket(params.kind, params.title, params.category, params.severity, params.impact, params.effort, result.reason);
+      // Once fired, clear the candidate so re-detection after a fix has fresh counters.
+      this.candidateTickets.delete(params.kind);
+    }
+  }
+
+  /** Loads a scripted scenario. The sim is reset with the scenario's seed + preset. */
+  loadScenario(scenario: { id: string; seed: number; preset: EvalPreset; incidentScript: Array<{ atSec: number; kind: IncidentKind }> }, bounds: Bounds): void {
+    this.setPreset(scenario.preset);
+    this.reset(bounds, { seed: scenario.seed });
+    this.scenarioId = scenario.id;
+    this.scriptedIncidents.clear();
+    for (const marker of scenario.incidentScript) {
+      this.scriptedIncidents.set(marker.atSec, marker.kind);
+    }
+  }
+
+  /** Returns the list of signals currently accumulating but not yet firing a ticket. */
+  getCandidateAlerts(): Array<{ kind: TicketKind; reason: string; ticks: number }> {
+    const out: Array<{ kind: TicketKind; reason: string; ticks: number }> = [];
+    for (const [kind, c] of this.candidateTickets) {
+      // Only surface candidates that aren't already live tickets.
+      if (this.tickets.some(t => t.kind === kind && !t.deferred)) continue;
+      out.push({ kind, reason: c.lastReason, ticks: c.consecutive });
+    }
+    return out;
+  }
+
   private tickTickets(failureRate: number, anrRisk: number, _p95: number) {
+    // Burnout check must see pre-regen capacity so a freshly-drained team counts
+    // as a "zero hit" before regen tops it back up above 0.
+    const preRegenCap = this.engCapacity;
+
     // Engineering capacity regen (can be upgraded, and gets a short burst during incidents)
     const regen = this.capacityRegenPerSec();
     this.engCapacity = clamp(this.engCapacity + regen, 0, this.engCapacityMax);
@@ -1021,15 +1197,91 @@ export class GameSim {
     for (const t of this.tickets) t.ageSec += 1;
     for (const a of this.advisories) a.ageSec += 1;
 
-    // Ticket generation from signals
-    if (failureRate > 0.08) this.createTicket('CRASH_SPIKE', 'Crash spike', 'Reliability', 3, 85, 5);
-    if (anrRisk > 0.22) this.createTicket('ANR_RISK', 'ANR risk elevated', 'Reliability', 3, 80, 5);
-    if (this.jankPct > 28) this.createTicket('JANK', 'Jank regression', 'Performance', 2, 65, 4);
-    if (this.heapMb / this.heapMaxMb > 0.78) this.createTicket('HEAP', 'Memory pressure', 'Performance', 2, 60, 4);
-    if (this.battery < 25) this.createTicket('BATTERY', 'Battery complaints', 'Performance', 1, 45, 3);
-    if (this.a11yScore < 80) this.createTicket('A11Y_REGRESSION', 'Accessibility regression', 'Accessibility', 2, 70, 4);
-    if (this.privacyTrust < 80) this.createTicket('PRIVACY_COMPLAINTS', 'Privacy complaints', 'Privacy', 2, 70, 4);
-    if (this.securityPosture < 78) this.createTicket('SECURITY_EXPOSURE', 'Security exposure', 'Security', 3, 90, 6);
+    // Burnout check: repeated zero-capacity moments within 90s accrue burnout.
+    const hasBurnoutTicket = this.tickets.some(t => t.kind === 'BURNOUT');
+    const burn = tickBurnout({
+      capacityCur: preRegenCap,
+      timeSec: this.timeSec,
+      zeroHitTimesSec: this.burnoutZeroHits,
+      burnoutLevel: this.burnoutLevel,
+      hasBurnoutTicket,
+    });
+    this.burnoutZeroHits = burn.zeroHitTimesSec;
+    this.burnoutLevel = burn.burnoutLevel;
+    if (burn.createBurnoutTicket) {
+      this.createTicket('BURNOUT', 'On-call burnout', 'Reliability', 2, 60, 4, 'Capacity hit zero 3+ times within 90s');
+      this.addEvent('On-call team is burning out');
+    }
+
+    // Ticket generation runs through the cross-check layer: signal-level tickets
+    // require corroboration from independent signals (cuts single-signal flapping).
+    const heapRatio = this.heapMb / this.heapMaxMb;
+    const coverageCorroboration = this.coverageRiskMult > 1.15 ? clamp((this.coverageRiskMult - 1) / 0.4, 0, 1) : 0;
+    const obsTier = this.tierOf('OBS');
+    const obsStrength = obsTier >= 1 ? 0.2 + obsTier * 0.15 : 0;
+    const advisoryCount = this.advisories.filter(a => !a.mitigated).length;
+    const advisoryStrength = clamp(advisoryCount / 2, 0, 1);
+    const regStrength = clamp(this.regPressure / 100, 0, 1);
+
+    this.gateSignalTicket({
+      kind: 'CRASH_SPIKE', title: 'Crash spike', category: 'Reliability', severity: 3, impact: 85, effort: 5,
+      active: failureRate > 0.08, primarySignal: failureRate,
+      corroborating: [
+        { source: 'COVERAGE', strength: coverageCorroboration },
+        { source: 'OBS', strength: obsStrength },
+        { source: 'FAIL', strength: clamp((failureRate - 0.08) / 0.08, 0, 1) },
+      ],
+    });
+    this.gateSignalTicket({
+      kind: 'ANR_RISK', title: 'ANR risk elevated', category: 'Reliability', severity: 3, impact: 80, effort: 5,
+      active: anrRisk > 0.22, primarySignal: anrRisk,
+      corroborating: [
+        { source: 'HEAP', strength: clamp((heapRatio - 0.55) / 0.2, 0, 1) },
+        { source: 'OBS', strength: obsStrength },
+      ],
+    });
+    this.gateSignalTicket({
+      kind: 'JANK', title: 'Jank regression', category: 'Performance', severity: 2, impact: 65, effort: 4,
+      active: this.jankPct > 28, primarySignal: clamp(this.jankPct / 100, 0, 1),
+      corroborating: [
+        { source: 'HEAP', strength: clamp((heapRatio - 0.7) / 0.2, 0, 1) },
+        { source: 'TIME', strength: clamp(this.gcPauseMs / 50, 0, 1) },
+      ],
+    });
+    this.gateSignalTicket({
+      kind: 'HEAP', title: 'Memory pressure', category: 'Performance', severity: 2, impact: 60, effort: 4,
+      active: heapRatio > 0.78, primarySignal: heapRatio,
+      corroborating: [
+        { source: 'HEAP', strength: clamp(this.oomCount / 2, 0, 1) },
+        { source: 'TIME', strength: clamp(this.gcPauseMs / 50, 0, 1) },
+      ],
+    });
+    this.gateSignalTicket({
+      kind: 'BATTERY', title: 'Battery complaints', category: 'Performance', severity: 1, impact: 45, effort: 3,
+      active: this.battery < 25, primarySignal: clamp((25 - this.battery) / 25, 0, 1),
+      corroborating: [{ source: 'TIME', strength: clamp(this.supportLoad / 100, 0, 1) }],
+    });
+    this.gateSignalTicket({
+      kind: 'A11Y_REGRESSION', title: 'Accessibility regression', category: 'Accessibility', severity: 2, impact: 70, effort: 4,
+      active: this.a11yScore < 80, primarySignal: clamp((80 - this.a11yScore) / 80, 0, 1),
+      corroborating: [{ source: 'REG', strength: regStrength }],
+    });
+    this.gateSignalTicket({
+      kind: 'PRIVACY_COMPLAINTS', title: 'Privacy complaints', category: 'Privacy', severity: 2, impact: 70, effort: 4,
+      active: this.privacyTrust < 80, primarySignal: clamp((80 - this.privacyTrust) / 80, 0, 1),
+      corroborating: [
+        { source: 'REG', strength: regStrength },
+        { source: 'OBS', strength: obsStrength },
+      ],
+    });
+    this.gateSignalTicket({
+      kind: 'SECURITY_EXPOSURE', title: 'Security exposure', category: 'Security', severity: 3, impact: 90, effort: 6,
+      active: this.securityPosture < 78, primarySignal: clamp((78 - this.securityPosture) / 78, 0, 1),
+      corroborating: [
+        { source: 'REG', strength: regStrength },
+        { source: 'OBS', strength: advisoryStrength },
+      ],
+    });
 
     // Platform compatibility tickets when new Android arrives
     if (this.platform.pressure > 0.55 && this.patch.compat < 0.40) {
@@ -1060,6 +1312,18 @@ export class GameSim {
     if (result.deprecationTicket) {
       this.createTicket('COMPAT_ANDROID', `Consider dropping API ${this.platform.minApi} support`, 'Platform', 1, 35, 3);
     }
+
+    // Staggered rollout phase amplifies or softens platform pressure on the live
+    // population. Closed-beta buffer means a fresh API bump doesn't immediately
+    // hit 100% of users — reward players who invest in qualityProcess.
+    const rollout = tickRolloutPhase({
+      phase: this.rolloutPhase,
+      timeSec: this.timeSec,
+      qualityProcess: this.qualityProcess,
+      newApiReleased: result.newApiReleased,
+    });
+    this.rolloutPhase = rollout.phase;
+    this.platform.pressure = clamp(this.platform.pressure * rollout.pressureAmplifier, 0, 1);
   }
 
   private tickZeroDayPulse() {
@@ -1129,12 +1393,14 @@ export class GameSim {
   private tickRegMatrix() {
     const zeroDayActive = this.advisories.some(a => !a.mitigated);
     const zPressure = zeroDayActive ? 0.55 : 0.0;
+    const coupling = applyRegionCoupling({ regions: this.regions });
 
     let weighted = 0;
     for (const r of this.regions) {
       const target = this.regionTarget(r.code);
       const decay = (zPressure + this.platform.pressure * 0.35) * ((r.code === 'EU' || r.code === 'UK') ? 1.15 : 1.0);
-      const delta = (target - r.compliance) * 0.04 - decay * 0.10;
+      const couplingDecay = coupling[r.code] ?? 0;
+      const delta = (target - r.compliance) * 0.04 - decay * 0.10 - couplingDecay;
       r.compliance = clamp(r.compliance + delta, 0, 100);
 
       r.pressure = clamp((100 - r.compliance) / 60 + decay * 0.8, 0, 1);
@@ -1197,18 +1463,24 @@ private tickCoverageGate() {
     qualityProcess: this.qualityProcess,
     coverageThreshold: this.coverageThreshold,
     timeSec: this.timeSec,
+    flakyTestRate: this.flakyTestRate,
   };
   const result = coverageGateTick(input);
   this.coveragePct = result.coveragePct;
   this.coverageHist = result.coverageHist;
   this.lastCompCount = result.lastCompCount;
   this.coverageRiskMult = result.coverageRiskMult;
+  this.flakyTestRate = result.flakyTestRate;
   if (result.belowThresholdTicket) {
     this.createTicket('TEST_COVERAGE', `Test coverage below ${this.coverageThreshold}%`, 'Reliability', 2, 68, 4);
   }
   if (result.regressionCrash) {
     this.addEvent('Escaped regression due to low coverage');
     this.createTicket('CRASH_SPIKE', 'Regression crash spike', 'Reliability', 3, 85, 5);
+  }
+  if (result.flakyMaskedRegression) {
+    this.addEvent('Flaky suite masked a regression — shipped to users');
+    this.createTicket('TEST_COVERAGE', 'Flaky suite masked regression', 'Reliability', 2, 72, 5, 'Flaky test rate > 10% allowed a regression past CI');
   }
 }
 
@@ -1405,7 +1677,8 @@ private tickCoverageGate() {
     // FrameGuard: jank estimate (how far over 16ms we go), include GC pause
     const over = Math.max(0, (mainThreadMs + this.gcPauseMs) - this.frameBudgetMs);
     const jankBase = clamp(over / this.frameBudgetMs, 0, 3) * 100;
-    const jankNow = clamp(jankBase * (1 + this.platform.pressure * 0.30) * (1 - this.patch.jank * 0.35) * (1 + (this.coverageRiskMult - 1) * 0.25), 0, 300);
+    const baseline = tickBaselineProfile({ active: this.baselineProfile, r8Enabled: this.r8Enabled });
+    const jankNow = clamp(jankBase * (1 + this.platform.pressure * 0.30) * (1 - this.patch.jank * 0.35) * (1 + (this.coverageRiskMult - 1) * 0.25) * baseline.jankDamp, 0, 300);
     this.jankPct = this.jankPct * 0.85 + jankNow * 0.15;
     const slowPenalty = clamp((p95 - 120) / 500, 0, 1);
 
@@ -1495,8 +1768,17 @@ private tickCoverageGate() {
   // --- UI snapshot ----------------------------------------------------------
   drainEvents(): SimEvent[] {
     const out = this.eventStream;
+    // Preserve the full log so the postmortem grader can replay the run once
+    // the UI has drained events (achievements/sparklines consume them on each sync).
+    for (const ev of out) this.runEventLog.push(ev);
     this.eventStream = [];
     return out;
+  }
+
+  /** Returns a snapshot of the full retained event log for the current run. */
+  getRunEventLog(): SimEvent[] {
+    // Include any events still buffered in eventStream so callers get a complete view.
+    return [...this.runEventLog, ...this.eventStream];
   }
 
   getUIState() {
@@ -1562,23 +1844,21 @@ private tickCoverageGate() {
 
   
 
-  private addEvent(msg: string) {
+  private addEvent(
+    msg: string,
+    opts?: { category?: 'INCIDENT' | 'OTHER'; source?: 'INCIDENT_HEAD' }
+  ) {
     // Keep a lightweight incident/event log for the UI.
     // Newest first, capped to avoid unbounded growth.
-    let category: 'INCIDENT' | 'OTHER' = (
+    const category: 'INCIDENT' | 'OTHER' = opts?.category ?? ((
       msg.startsWith('Fixed ticket:') ||
       msg.startsWith('New Android API')
-    ) ? 'OTHER' : 'INCIDENT';
+    ) ? 'OTHER' : 'INCIDENT');
 
-    // Incident shield: a single-charge consumable that softens the next incident penalty.
-    // The sim can't perfectly "rewind" every individual penalty (incidents are varied),
-    // so it applies a conservative, bounded compensating bump.
-    if (category === 'INCIDENT' && this.incidentShieldCharges > 0) {
-      this.incidentShieldCharges -= 1;
-      // bounded compensation (avoid making shields a snowball engine)
-      this.budget += 28;
-      this.rating = clamp(this.rating + 0.10, 0, 5);
-      this.supportLoad = clamp(this.supportLoad - 8, 0, 100);
+    // Shield now gates on INCIDENT_HEAD source — it only fires on the top-level
+    // incident dispatch, not on cascading sub-events like OOM/advisory/review waves.
+    // The actual damage softening happens in softenIncident() called by maybeIncident.
+    if (opts?.source === 'INCIDENT_HEAD' && this.incidentShieldCharges > 0) {
       msg = `🛡 Shield softened: ${msg}`;
     }
 
@@ -1588,9 +1868,52 @@ private tickCoverageGate() {
     this.lastEventAt = this.timeSec;
     if (category === 'INCIDENT') this.incidentCount++;
     // On-call adrenaline: a brief capacity regen burst when incidents hit.
-    this.engAdrenalineUntil = this.timeSec + 22;
+    // addEvent is the single writer so incident-category cascades also ramp regen.
+    if (category === 'INCIDENT') this.engAdrenalineUntil = this.timeSec + 22;
 
     this.eventStream.push({ type: 'EVENT', atSec: this.timeSec, category, msg });
+  }
+
+  // Snapshot + soften helpers for the incident shield.
+  private snapshotShieldState() {
+    return {
+      rating: this.rating,
+      budget: this.budget,
+      privacyTrust: this.privacyTrust,
+      securityPosture: this.securityPosture,
+      a11yScore: this.a11yScore,
+      supportLoad: this.supportLoad,
+      spawnMul: this.spawnMul,
+      netBadness: this.netBadness,
+      workRestriction: this.workRestriction,
+      heapMb: this.heapMb,
+      jankPct: this.jankPct,
+      gcPauseMs: this.gcPauseMs,
+      anrPoints: this.anrPoints,
+      reqFail: this.reqFail,
+    };
+  }
+
+  private softenIncident(pre: ReturnType<GameSim['snapshotShieldState']>) {
+    // Shield dampener: roll back 60% of the observable damage this incident caused.
+    // Leaves 40% of the damage — matches the ×0.4 scaling the design calls for.
+    const down = (preV: number, curV: number) => curV < preV ? curV + (preV - curV) * 0.6 : curV;
+    const up = (preV: number, curV: number) => curV > preV ? curV - (curV - preV) * 0.6 : curV;
+
+    this.rating = down(pre.rating, this.rating);
+    this.budget = down(pre.budget, this.budget);
+    this.privacyTrust = down(pre.privacyTrust, this.privacyTrust);
+    this.securityPosture = down(pre.securityPosture, this.securityPosture);
+    this.a11yScore = down(pre.a11yScore, this.a11yScore);
+    this.supportLoad = up(pre.supportLoad, this.supportLoad);
+    this.spawnMul = up(pre.spawnMul, this.spawnMul);
+    this.netBadness = up(pre.netBadness, this.netBadness);
+    this.workRestriction = up(pre.workRestriction, this.workRestriction);
+    this.heapMb = up(pre.heapMb, this.heapMb);
+    this.jankPct = up(pre.jankPct, this.jankPct);
+    this.gcPauseMs = up(pre.gcPauseMs, this.gcPauseMs);
+    this.anrPoints = up(pre.anrPoints, this.anrPoints);
+    this.reqFail = up(pre.reqFail, this.reqFail);
   }
 
 // --- internal helpers -----------------------------------------------------
@@ -1741,6 +2064,24 @@ private tickCoverageGate() {
         latLabel = 'Triage latency';
         failLabel = 'False-negative rate';
         qLabel = 'Pending reports';
+        break;
+      case 'BILLING':
+        capLabel = 'Purchases/tick';
+        latLabel = 'Settle latency';
+        failLabel = 'Chargeback risk';
+        qLabel = 'Pending settlements';
+        break;
+      case 'PUSH':
+        capLabel = 'Notifications/tick';
+        latLabel = 'Delivery latency';
+        failLabel = 'Drop rate';
+        qLabel = 'Pending pushes';
+        break;
+      case 'DEEPLINK':
+        capLabel = 'Intents/tick';
+        latLabel = 'Route latency';
+        failLabel = 'Rejected rate';
+        qLabel = 'Pending intents';
         break;
     }
 
@@ -1971,6 +2312,12 @@ private tickCoverageGate() {
     this.supportLoad = clamp(this.supportLoad + v, 0, 100);
   }
 
+  // Route an incident-handler headline through addEvent so it flows into the
+  // eventStream (achievements + shield gating) and fires the adrenaline burst.
+  private incidentHead(msg: string) {
+    this.addEvent(msg, { category: 'INCIDENT', source: 'INCIDENT_HEAD' });
+  }
+
   private hitTrust(privacyDelta: number, securityDelta: number, a11yDelta = 0) {
     this.privacyTrust = clamp(this.privacyTrust + privacyDelta, 0, 100);
     this.securityPosture = clamp(this.securityPosture + securityDelta, 0, 100);
@@ -1982,20 +2329,20 @@ private tickCoverageGate() {
       const damp = (abuseTier > 0) ? (0.65 - 0.08 * (abuseTier - 1)) : 1.0;
       this.spawnMul = clamp(this.spawnMul + 0.25 * damp, 1.0, 3.0);
       this.bumpSupport(2 + (abuseTier === 0 ? 3 : 1));
-      this.log('Marketing spike: action load increased.');
+      this.incidentHead('Marketing spike: action load increased.');
     },
 
     NET_WOBBLE: ({ obsTier }) => {
       const damp = (obsTier > 0) ? 0.85 : 1.0;
       this.netBadness = clamp(this.netBadness + 0.25 * damp, 1.0, 3.0);
       this.bumpSupport(3);
-      this.log('Backend wobbles: network failures increased.');
+      this.incidentHead('Backend wobbles: network failures increased.');
     },
 
     OEM_RESTRICTION: () => {
       this.workRestriction = clamp(this.workRestriction + 0.35, 1.0, 3.0);
       this.bumpSupport(2);
-      this.log('OEM restriction: background work drains more.');
+      this.incidentHead('OEM restriction: background work drains more.');
     },
 
     MITM: ({ pinTier }) => {
@@ -2006,11 +2353,11 @@ private tickCoverageGate() {
         this.netBadness = clamp(this.netBadness + 0.15, 1.0, 3.0);
         this.bumpSupport(10);
         this.rating = clamp(this.rating - 0.22, 1.0, 5.0);
-        this.log('MITM attempt: user trust took a hit (add TLS pinning).');
+        this.incidentHead('MITM attempt: user trust took a hit (add TLS pinning).');
       } else {
         this.netBadness = clamp(this.netBadness + 0.05, 1.0, 3.0);
         this.bumpSupport(2);
-        this.log('MITM attempt blocked by TLS pinning.');
+        this.incidentHead('MITM attempt blocked by TLS pinning.');
       }
     },
 
@@ -2018,18 +2365,18 @@ private tickCoverageGate() {
       if (pinTier === 0) {
         this.netBadness = clamp(this.netBadness + 0.18, 1.0, 3.0);
         this.bumpSupport(3);
-        this.log('Cert rotation upstream: brief network turbulence.');
+        this.incidentHead('Cert rotation upstream: brief network turbulence.');
         return;
       }
       if (pinTier === 1) {
         this.netBadness = clamp(this.netBadness + 0.35, 1.0, 3.0);
         this.bumpSupport(12);
         this.rating = clamp(this.rating - 0.15, 1.0, 5.0);
-        this.log('Cert rotated: pinning broke requests (upgrade pinning or use flags).');
+        this.incidentHead('Cert rotated: pinning broke requests (upgrade pinning or use flags).');
       } else {
         this.netBadness = clamp(this.netBadness + 0.12, 1.0, 3.0);
         this.bumpSupport(4);
-        this.log('Cert rotated: pinning handled it (minor hiccup).');
+        this.incidentHead('Cert rotated: pinning handled it (minor hiccup).');
       }
     },
 
@@ -2038,10 +2385,10 @@ private tickCoverageGate() {
         this.hitTrust(-8, -22);
         this.bumpSupport(15);
         this.rating = clamp(this.rating - 0.18, 1.0, 5.0);
-        this.log('Session/token issue: account takeovers reported (add Auth hardening).');
+        this.incidentHead('Session/token issue: account takeovers reported (add Auth hardening).');
       } else {
         this.bumpSupport(3);
-        this.log('Suspicious sessions detected and contained by Auth.');
+        this.incidentHead('Suspicious sessions detected and contained by Auth.');
       }
     },
 
@@ -2050,11 +2397,11 @@ private tickCoverageGate() {
         this.netBadness = clamp(this.netBadness + 0.22, 1.0, 3.0);
         this.spawnMul = clamp(this.spawnMul + 0.12, 1.0, 3.0);
         this.bumpSupport(14);
-        this.log('Credential stuffing: auth endpoints hammered (add Abuse protection).');
+        this.incidentHead('Credential stuffing: auth endpoints hammered (add Abuse protection).');
       } else {
         this.netBadness = clamp(this.netBadness + 0.10, 1.0, 3.0);
         this.bumpSupport(5);
-        this.log('Credential stuffing mitigated by rate limiting.');
+        this.incidentHead('Credential stuffing mitigated by rate limiting.');
       }
     },
 
@@ -2066,10 +2413,10 @@ private tickCoverageGate() {
         }
         this.bumpSupport(10);
         this.rating = clamp(this.rating - 0.12, 1.0, 5.0);
-        this.log('Deep link abuse: malformed inputs causing crashes (add Sanitizer).');
+        this.incidentHead('Deep link abuse: malformed inputs causing crashes (add Sanitizer).');
       } else {
         this.bumpSupport(3);
-        this.log('Deep link abuse attempt sanitized.');
+        this.incidentHead('Deep link abuse attempt sanitized.');
       }
     },
 
@@ -2078,11 +2425,11 @@ private tickCoverageGate() {
         this.hitTrust(0, 0, -(22 + this.rand() * 10));
         this.bumpSupport(8);
         this.rating = clamp(this.rating - 0.10, 1.0, 5.0);
-        this.log('A11y regression shipped: labels/contrast complaints (add A11y layer).');
+        this.incidentHead('A11y regression shipped: labels/contrast complaints (add A11y layer).');
       } else {
         this.hitTrust(0, 0, -(6 + this.rand() * 6));
         this.bumpSupport(3);
-        this.log('Minor accessibility regression caught (A11y layer helps).');
+        this.incidentHead('Minor accessibility regression caught (A11y layer helps).');
       }
     },
 
@@ -2092,12 +2439,12 @@ private tickCoverageGate() {
         this.hitTrust(-25 * blast, -10 * blast);
         this.bumpSupport(12);
         this.rating = clamp(this.rating - 0.18 * blast, 1.0, 5.0);
-        this.log('3rd-party SDK scandal: privacy trust tanking (add Keystore/Crypto + flags).');
+        this.incidentHead('3rd-party SDK scandal: privacy trust tanking (add Keystore/Crypto + flags).');
       } else {
         this.hitTrust(-10 * blast, -4 * blast);
         this.bumpSupport(6);
         this.rating = clamp(this.rating - 0.08 * blast, 1.0, 5.0);
-        this.log('3rd-party SDK issue: reduced impact due to crypto hardening.');
+        this.incidentHead('3rd-party SDK issue: reduced impact due to crypto hardening.');
       }
     },
 
@@ -2108,9 +2455,9 @@ private tickCoverageGate() {
       this.gcPauseMs = clamp(this.gcPauseMs + 12 * severity, 0, 80);
       this.bumpSupport(4);
       if (cacheTier === 0) {
-        this.log('Memory leak detected: heap growing, jank increasing (add Cache).');
+        this.incidentHead('Memory leak detected: heap growing, jank increasing (add Cache).');
       } else {
-        this.log('Memory leak detected: cache layer limiting impact.');
+        this.incidentHead('Memory leak detected: cache layer limiting impact.');
       }
     },
 
@@ -2121,7 +2468,7 @@ private tickCoverageGate() {
       region.compliance = clamp(region.compliance - 8, 0, 100);
       this.bumpSupport(6);
       this.rating = clamp(this.rating - 0.06, 1.0, 5.0);
-      this.log(`Regional outage: ${region.code} store frozen for 60s.`);
+      this.incidentHead(`Regional outage: ${region.code} store frozen for 60s.`);
     },
 
     ANR_ESCALATION: ({ obsTier }) => {
@@ -2131,13 +2478,62 @@ private tickCoverageGate() {
         this.rating = clamp(this.rating - 0.15, 1.0, 5.0);
         this.jankPct = clamp(this.jankPct + 12, 0, 100);
         this.bumpSupport(10);
-        this.log('ANR escalation: watchdog killed process, crash storm triggered.');
+        this.incidentHead('ANR escalation: watchdog killed process, crash storm triggered.');
         this.createTicket('CRASH_SPIKE', 'ANR watchdog crash cascade', 'Reliability', 3, 90, 6);
       } else {
         this.anrPoints = clamp(this.anrPoints + 15, 0, 120);
         this.bumpSupport(3);
         const damp = obsTier > 0 ? ' (OBS helping)' : '';
-        this.log(`ANR warning: main thread under pressure${damp}.`);
+        this.incidentHead(`ANR warning: main thread under pressure${damp}.`);
+      }
+    },
+
+    IAP_FRAUD: ({ billingTier, abuseTier, authTier }) => {
+      const hardened = billingTier >= 2 && abuseTier >= 1;
+      const playIntegrity = tickPlayIntegrity({ abuseTier, authTier });
+      if (!hardened) {
+        const fine = Math.round((80 + this.rand() * 60) * playIntegrity.damageScale);
+        this.budget = Math.max(0, this.budget - fine);
+        this.hitTrust(-4 * playIntegrity.damageScale, -8 * playIntegrity.damageScale);
+        this.bumpSupport(9 * playIntegrity.damageScale);
+        this.rating = clamp(this.rating - 0.12 * playIntegrity.damageScale, 1.0, 5.0);
+        const head = playIntegrity.active ? ' (Play Integrity helping)' : '';
+        this.incidentHead(`IAP fraud wave: $${fine} chargebacks + security hit${head}.`);
+        this.createTicket('SECURITY_EXPOSURE', 'IAP fraud chargebacks', 'Security', 3, 88, 6);
+      } else {
+        this.bumpSupport(2);
+        this.incidentHead('IAP fraud wave: BILLING+ABUSE contained the damage.');
+      }
+    },
+
+    PUSH_ABUSE: ({ pushTier, sanTier }) => {
+      const hardened = pushTier >= 2 && sanTier >= 1;
+      if (!hardened) {
+        this.hitTrust(-10, 0);
+        this.votes.privacy += Math.max(1, Math.round(4 + this.rand() * 3));
+        this.bumpSupport(8);
+        this.rating = clamp(this.rating - 0.12, 1.0, 5.0);
+        this.incidentHead('Push abuse: notification spam complaints (harden PUSH + SANITIZER).');
+        this.createTicket('PRIVACY_COMPLAINTS', 'Push notification abuse', 'Privacy', 2, 72, 4);
+      } else {
+        this.bumpSupport(2);
+        this.incidentHead('Push abuse: token hygiene + sanitization contained it.');
+      }
+    },
+
+    DEEP_LINK_EXPLOIT: ({ deeplinkTier, sanTier }) => {
+      const hardened = deeplinkTier >= 2 || sanTier >= 2;
+      if (!hardened) {
+        for (const t of ['UI','VM','DOMAIN'] as const) {
+          const n = this.components.find(n => n.type === t && !n.down);
+          if (n) n.health = clamp(n.health - (10 + this.rand() * 8), 0, 100);
+        }
+        this.bumpSupport(10);
+        this.rating = clamp(this.rating - 0.15, 1.0, 5.0);
+        this.incidentHead('Deep-link exploit: targeted intent crashed main pipeline (add DEEPLINK or SANITIZER).');
+      } else {
+        this.bumpSupport(2);
+        this.incidentHead('Deep-link exploit rejected at the entry point.');
       }
     },
   };
@@ -2151,6 +2547,31 @@ private tickCoverageGate() {
     // reduce support load very slowly over time (support team is doing their best)
     this.supportLoad = clamp(this.supportLoad - 0.08, 0, 100);
 
+    // Scenario scripted incidents fire at exact ticks and bypass the roll gates.
+    // rand() is not consumed so same seed + same scenario = identical sequence.
+    const scripted = this.scriptedIncidents.get(this.timeSec);
+    if (scripted) {
+      this.lastEventAt = this.timeSec;
+      this.recentIncidentTimes = this.recentIncidentTimes.filter(t => this.timeSec - t < 60);
+      this.recentIncidentTimes.push(this.timeSec);
+      const tiers: IncidentTiers = {
+        authTier: this.tierOf('AUTH'),
+        pinTier: this.tierOf('PINNING'),
+        keyTier: this.tierOf('KEYSTORE'),
+        sanTier: this.tierOf('SANITIZER'),
+        abuseTier: this.tierOf('ABUSE'),
+        a11yTier: this.tierOf('A11Y'),
+        flagsTier: this.tierOf('FLAGS'),
+        obsTier: this.tierOf('OBS'),
+        cacheTier: this.tierOf('CACHE'),
+        billingTier: this.tierOf('BILLING'),
+        pushTier: this.tierOf('PUSH'),
+        deeplinkTier: this.tierOf('DEEPLINK'),
+      };
+      this.dispatchIncident(scripted, tiers);
+      return;
+    }
+
     if (this.timeSec - this.lastEventAt < 26) return;
 
     // security posture influences how often weird things happen
@@ -2158,8 +2579,6 @@ private tickCoverageGate() {
     if (this.rand() > incidentChance) return;
 
     this.lastEventAt = this.timeSec;
-    // On-call adrenaline: a brief capacity regen burst when incidents hit.
-    this.engAdrenalineUntil = this.timeSec + 22;
 
     // Compound damage: incidents within 60s of each other hit harder.
     this.recentIncidentTimes = this.recentIncidentTimes.filter(t => this.timeSec - t < 60);
@@ -2181,25 +2600,32 @@ private tickCoverageGate() {
       flagsTier: this.tierOf('FLAGS'),
       obsTier: this.tierOf('OBS'),
       cacheTier: this.tierOf('CACHE'),
+      billingTier: this.tierOf('BILLING'),
+      pushTier: this.tierOf('PUSH'),
+      deeplinkTier: this.tierOf('DEEPLINK'),
     };
 
     // Weighted roll across incident types. Order and call-count of this.rand()
     // must stay identical to preserve seeded determinism.
     const roll = this.rand();
     const table: Array<[IncidentKind, number]> = [
-      ['TRAFFIC_SPIKE',    0.15],
-      ['NET_WOBBLE',       0.13],
-      ['OEM_RESTRICTION',  0.11],
-      ['CRED_STUFFING',    0.07],
-      ['TOKEN_THEFT',      0.09],
-      ['DEEP_LINK_ABUSE',  0.07],
-      ['MITM',             0.09],
+      ['TRAFFIC_SPIKE',    0.13],
+      ['NET_WOBBLE',       0.12],
+      ['OEM_RESTRICTION',  0.10],
+      ['CRED_STUFFING',    0.06],
+      ['TOKEN_THEFT',      0.08],
+      ['DEEP_LINK_ABUSE',  0.06],
+      ['MITM',             0.08],
       ['CERT_ROTATION',    0.05],
-      ['A11Y_REGRESSION',  0.05],
+      ['A11Y_REGRESSION',  0.04],
       ['SDK_SCANDAL',      0.04],
       ['MEMORY_LEAK',      0.06],
-      ['REGION_OUTAGE',    0.05],
-      ['ANR_ESCALATION',   0.04],
+      ['REGION_OUTAGE',    0.04],
+      ['ANR_ESCALATION',   0.03],
+      // v0.3.0 monetization / engagement / entry-point incidents
+      ['IAP_FRAUD',        0.04],
+      ['PUSH_ABUSE',       0.04],
+      ['DEEP_LINK_EXPLOIT',0.03],
     ];
 
     let acc = 0;
@@ -2209,7 +2635,17 @@ private tickCoverageGate() {
       if (roll <= acc) { kind = k; break; }
     }
 
+    this.dispatchIncident(kind, tiers);
+  }
+
+  private dispatchIncident(kind: IncidentKind, tiers: IncidentTiers) {
+    const shieldActive = this.incidentShieldCharges > 0;
+    const snap = shieldActive ? this.snapshotShieldState() : null;
     this.incidentHandlers[kind](tiers);
+    if (shieldActive && snap) {
+      this.softenIncident(snap);
+      this.incidentShieldCharges -= 1;
+    }
   }
 
 
@@ -2346,6 +2782,12 @@ private tickCoverageGate() {
       ticketsOpen: this.tickets.length,
       summaryLines: summary
     };
+
+    // Compute the postmortem grade and append its callouts to the human summary.
+    const grade = gradePostmortem(this.getRunEventLog(), this.lastRun);
+    this.lastRun.summaryLines.push(`Postmortem grade: ${grade.letter}`);
+    for (const c of grade.callouts) this.lastRun.summaryLines.push(`- ${c}`);
+    this.lastGrade = grade;
 
     // Make the end visible in the on-screen log.
     this.log('RUN ENDED.');

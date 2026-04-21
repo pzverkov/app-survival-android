@@ -7,7 +7,8 @@ export type Mode = typeof MODE[keyof typeof MODE];
 
 export const COMPONENT_TYPES = [
   'UI','VM','DOMAIN','REPO','CACHE','DB','NET','WORK','OBS','FLAGS',
-  'AUTH','PINNING','KEYSTORE','SANITIZER','ABUSE','A11Y'
+  'AUTH','PINNING','KEYSTORE','SANITIZER','ABUSE','A11Y',
+  'BILLING','PUSH','DEEPLINK'
 ] as const;
 export type ComponentType = typeof COMPONENT_TYPES[number];
 
@@ -127,7 +128,8 @@ export type TicketKind =
   | 'COMPLIANCE_UK'
   | 'STORE_REJECTION'
   | 'TEST_COVERAGE'
-  | 'ARCHITECTURE_DEBT';
+  | 'ARCHITECTURE_DEBT'
+  | 'BURNOUT';
 
 export type Ticket = {
   id: number;
@@ -139,6 +141,8 @@ export type Ticket = {
   effort: number;   // 1..8
   ageSec: number;
   deferred: boolean;
+  /** Human-readable "why did this fire" line from the cross-check layer. */
+  reason?: string;
 };
 
 export type Advisory = {
