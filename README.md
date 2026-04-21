@@ -6,7 +6,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-8.0-646cff?logo=vite&logoColor=white)](https://vite.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-22_LTS-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Tests](https://img.shields.io/badge/Tests-129_passing-6e9f18?logo=vitest&logoColor=white)](./tests)
+[![Tests](https://img.shields.io/badge/Tests-138_passing-6e9f18?logo=vitest&logoColor=white)](./tests)
 [![Zero Dependencies](https://img.shields.io/badge/Runtime_Deps-0-brightgreen)](./package.json)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue)](./LICENSE)
 <!-- security-check:begin -->
