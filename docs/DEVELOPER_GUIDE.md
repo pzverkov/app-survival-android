@@ -42,6 +42,7 @@ The tick loop is driven by `window.setInterval` in `startTickLoop()`. After each
 | File | Purpose |
 |---|---|
 | `src/sim.ts` | Simulation engine. Contains `GameSim`, component defs, action defs, incident logic, tick loop internals, scoring, tickets, architecture rules. |
+| `src/subsystems.ts` | Pure-function subsystems (`tickPlatformPulse`, `tickCoverageGate`, `computeRegionTarget`). Each takes a read-only input and returns a mutation descriptor; `GameSim` applies it. This is the portable boundary for the stated Kotlin/KMP port goal. |
 | `src/types.ts` | Shared type definitions. `COMPONENT_TYPES`, `ACTION_KEYS`, `ComponentDef`, `Component`, `UIState`, `Ticket`, `RunResult`, etc. |
 | `src/main.ts` | Entry point. DOM binding, event handlers, canvas rendering, the `syncUI()` function, theme/tab/language setup, integrity checks. |
 | `src/achievements.ts` | Achievement catalog and tracker. Defines tiers (bronze/silver/gold), evaluation per preset, storage adapters. |
@@ -120,6 +121,32 @@ The tick loop is driven by `window.setInterval` in `startTickLoop()`. After each
    ```
 
 4. **Balance.** Incidents should be punishing but recoverable. Test with different component layouts and presets. Check that a mitigation path exists (placing/upgrading a specific component should reduce the impact).
+
+## How to add a new subsystem
+
+Subsystems are pure functions that model a slice of world state (platform drift, coverage decay, regional policy targets). They live in `src/subsystems.ts`, read a snapshot input, and return a result descriptor. `GameSim` holds all mutable state and applies the result. This separation is what makes the sim portable to Kotlin/KMP.
+
+1. **Define input and result types in `src/subsystems.ts`.** Mirror the shape of `CoverageGateInput` / `CoverageGateResult`: inputs are read-only snapshots; results describe mutations or events the orchestrator should apply.
+
+   ```ts
+   export type MySubsystemInput = { foo: number; timeSec: number };
+   export type MySubsystemResult = { foo: number; shouldEmitTicket: boolean };
+   ```
+
+2. **Write a pure function.** No `this`, no side effects, no `Math.random`. Accept a `randFn: () => number` parameter if you need randomness (see `tickPlatformPulse`).
+
+   ```ts
+   export function tickMySubsystem(input: MySubsystemInput, randFn: () => number): MySubsystemResult {
+     // derive new values; never mutate input
+     return { foo: input.foo - 1, shouldEmitTicket: input.foo <= 0 };
+   }
+   ```
+
+3. **Wire it into `GameSim`** with a thin private method that builds the input, calls the pure function, and writes results back. Mirror `tickCoverageGate` in `src/sim.ts` (around lines 1176-1201) as the reference.
+
+4. **Unit-test the pure function directly.** No `GameSim` needed, no mocks, just input/output assertions.
+
+Subsystem extraction is the long-term direction for the KMP port. See [ARCHITECTURE_RULES.md](./ARCHITECTURE_RULES.md) for the layered model the game itself models.
 
 ## How to add a new achievement
 
