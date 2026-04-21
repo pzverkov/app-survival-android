@@ -115,6 +115,7 @@ type UIRefs = {
 
   capVal: HTMLElement;
   capRegenHint: HTMLElement;
+  capBarFill: HTMLElement;
   btnCapRefill: HTMLButtonElement;
   btnCapBoost: HTMLButtonElement;
   btnCapHire: HTMLButtonElement;
@@ -537,6 +538,19 @@ const expandedTicketTitles = new Set<number>();
 function setText(el: HTMLElement, v: string) { if (el.textContent !== v) el.textContent = v; }
 function setHTML(el: HTMLElement, v: string) { if (el.innerHTML !== v) el.innerHTML = v; } // only called with trusted game-generated strings
 
+// Buttons now have an SVG <i class="btn-icon"/> + <span class="btn-label"/>
+// structure. Setting textContent on the button directly would obliterate the
+// icon. setBtnLabel writes to the inner label span when present, and falls
+// back to textContent for the handful of plain-text buttons (incident overlay).
+function setBtnLabel(btn: HTMLElement, v: string) {
+  const span = btn.querySelector<HTMLElement>('.btn-label');
+  if (span) {
+    if (span.textContent !== v) span.textContent = v;
+  } else if (btn.textContent !== v) {
+    btn.textContent = v;
+  }
+}
+
 // --- Modal focus management ------------------------------------------------
 let previousFocus: Element | null = null;
 
@@ -776,45 +790,55 @@ function renderTickets() {
 
   const canRefill = (cap.cur < cap.max - 1e-6) && (sim.budget >= shop.refillCost);
   refs.btnCapRefill.disabled = !canRefill;
-  refs.btnCapRefill.textContent = cap.cur >= cap.max - 1e-6
+  setBtnLabel(refs.btnCapRefill, cap.cur >= cap.max - 1e-6
     ? t('shop.full')
-    : t('shop.refillCost', { cost: fmtMoneyUSD(shop.refillCost) });
+    : t('shop.refillCost', { cost: fmtMoneyUSD(shop.refillCost) }));
 
   const canBoost = shop.canRegenUpgrade && (sim.budget >= shop.regenUpgradeCost);
   refs.btnCapBoost.disabled = !canBoost;
-  refs.btnCapBoost.textContent = shop.canRegenUpgrade
+  setBtnLabel(refs.btnCapBoost, shop.canRegenUpgrade
     ? t('shop.boostCost', { cost: fmtMoneyUSD(shop.regenUpgradeCost) })
-    : t('shop.boostMax');
+    : t('shop.boostMax'));
 
   const canHire = shop.canHire && (sim.budget >= shop.hireCost);
   refs.btnCapHire.disabled = !canHire;
-  refs.btnCapHire.textContent = shop.canHire
+  setBtnLabel(refs.btnCapHire, shop.canHire
     ? t('shop.hireCost', { cost: fmtMoneyUSD(shop.hireCost) })
-    : t('shop.hireMax');
+    : t('shop.hireMax'));
 
   // Unlockable (achievement-gated) shop items.
   refs.btnCapDrink.hidden = !unlocks.booster;
   if (!refs.btnCapDrink.hidden) {
     const canDrink = shop.canBuyBooster && (sim.budget >= shop.boosterCost);
     refs.btnCapDrink.disabled = !canDrink;
-    refs.btnCapDrink.textContent = shop.boosterActive
+    setBtnLabel(refs.btnCapDrink, shop.boosterActive
       ? t('shop.boosterActive', { sec: Math.ceil(shop.boosterRemainingSec) })
-      : t('shop.energyDrinkCost', { cost: fmtMoneyUSD(shop.boosterCost) });
+      : t('shop.energyDrinkCost', { cost: fmtMoneyUSD(shop.boosterCost) }));
   }
 
   refs.btnCapShield.hidden = !unlocks.shield;
   if (!refs.btnCapShield.hidden) {
     const canShield = shop.canBuyShield && (sim.budget >= shop.shieldCost);
     refs.btnCapShield.disabled = !canShield;
-    refs.btnCapShield.textContent = shop.shieldCharges > 0
+    setBtnLabel(refs.btnCapShield, shop.shieldCharges > 0
       ? t('shop.shieldReady')
-      : t('shop.shieldCost', { cost: fmtMoneyUSD(shop.shieldCost) });
+      : t('shop.shieldCost', { cost: fmtMoneyUSD(shop.shieldCost) }));
   }
 
   // Keep overlay action in sync (incident response quick button)
   if ((refs as any).incidentOverlayRefill) {
     (refs as any).incidentOverlayRefill.disabled = !canRefill;
-    (refs as any).incidentOverlayRefill.textContent = t('shop.refillCost', { cost: fmtMoneyUSD(shop.refillCost) });
+    setBtnLabel((refs as any).incidentOverlayRefill, t('shop.refillCost', { cost: fmtMoneyUSD(shop.refillCost) }));
+  }
+
+  // Capacity progress bar: live fill width + low/med/high color band.
+  if (refs.capBarFill) {
+    const pct = cap.max > 0 ? Math.max(0, Math.min(100, (cap.cur / cap.max) * 100)) : 0;
+    refs.capBarFill.style.width = `${pct}%`;
+    refs.capBarFill.classList.toggle('is-low', pct < 33);
+    refs.capBarFill.classList.toggle('is-med', pct >= 33 && pct < 66);
+    const bar = refs.capBarFill.parentElement?.parentElement;
+    if (bar) bar.setAttribute('aria-valuenow', String(Math.round(pct)));
   }
 
   const nowMs = performance.now();
@@ -1455,6 +1479,9 @@ refs.btnDelete.onclick = () => {
 
 function setMode(m: Mode) {
   sim.setMode(m);
+  // Mode change implicitly cancels an in-progress link pick.
+  clearLinkPreview();
+  refs.canvas.style.cursor = canvasCursorForMode();
   syncUI();
 }
 
@@ -1467,6 +1494,24 @@ let panStartX = 0;
 let panStartY = 0;
 let panStartTx = 0;
 let panStartTy = 0;
+
+// While in Link / Unlink mode and the user has clicked a source component,
+// track the mouse in world coords plus the hover target so draw() can render
+// a live dashed preview. Cleared on click completion, mode change, or Escape.
+type LinkPreviewState = { mx: number; my: number; hoverId: number | null };
+let linkPreview: LinkPreviewState | null = null;
+
+function clearLinkPreview() {
+  if (linkPreview) {
+    linkPreview = null;
+    requestDraw();
+  }
+}
+
+function canvasCursorForMode(): string {
+  if (sim.mode === MODE.LINK || sim.mode === MODE.UNLINK) return 'crosshair';
+  return '';
+}
 
 refs.canvas.addEventListener('mousedown', (e) => {
   // Alt/right/middle mouse => pan
@@ -1486,6 +1531,7 @@ refs.canvas.addEventListener('mousedown', (e) => {
   if (!hit) {
     sim.setSelected(null);
     sim.linkFromId = null;
+    clearLinkPreview();
     syncUI();
     return;
   }
@@ -1518,6 +1564,7 @@ refs.canvas.addEventListener('mousedown', (e) => {
   }
 
   sim.linkFromId = null;
+  clearLinkPreview();
   syncUI();
 });
 
@@ -1530,16 +1577,39 @@ window.addEventListener('mousemove', (e) => {
     requestDraw();
     return;
   }
-  if (!draggingId) return;
-  const pt = screenToWorld(e);
-  sim.moveComponent(draggingId, pt.x - dragOffX, pt.y - dragOffY);
-  requestDraw();
+  if (draggingId) {
+    const pt = screenToWorld(e);
+    sim.moveComponent(draggingId, pt.x - dragOffX, pt.y - dragOffY);
+    requestDraw();
+    return;
+  }
+  // Live link-preview: once the user has picked a source in LINK / UNLINK mode,
+  // the mouse drives a dashed line so the target is obvious before committing.
+  if (sim.linkFromId != null && (sim.mode === MODE.LINK || sim.mode === MODE.UNLINK)) {
+    const pt = screenToWorld(e);
+    const hover = hitComponent(pt.x, pt.y);
+    const hoverId = hover && hover.id !== sim.linkFromId ? hover.id : null;
+    linkPreview = { mx: pt.x, my: pt.y, hoverId };
+    requestDraw();
+  } else if (linkPreview) {
+    clearLinkPreview();
+  }
 });
 
 window.addEventListener('mouseup', () => {
   draggingId = null;
   panning = false;
-  refs.canvas.style.cursor = '';
+  refs.canvas.style.cursor = canvasCursorForMode();
+});
+
+// Escape bails out of an in-progress link-pick, matching convention.
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (sim.linkFromId != null) {
+    sim.linkFromId = null;
+    clearLinkPreview();
+    syncUI();
+  }
 });
 
 refs.canvas.addEventListener('contextmenu', (e) => {
@@ -1690,6 +1760,42 @@ function draw() {
     ctx.lineTo(px + uy * 6 - ux * 10, py - ux * 6 - uy * 10);
     ctx.closePath();
     ctx.fill();
+  }
+
+  // Link preview: dashed line from the picked source to the mouse or snapped
+  // target. Green when committing would create a valid link, red when the
+  // mode is UNLINK or the target is invalid, soft blue when tracking empty
+  // space. Drawn under components so the node body still reads clearly.
+  if (sim.linkFromId != null && linkPreview) {
+    const from = byId.get(sim.linkFromId);
+    if (from) {
+      const target = linkPreview.hoverId != null ? byId.get(linkPreview.hoverId) : null;
+      const tx = target ? target.x : linkPreview.mx;
+      const ty = target ? target.y : linkPreview.my;
+      const isUnlink = sim.mode === MODE.UNLINK;
+      const validTarget = !!target && target.id !== from.id;
+      ctx.save();
+      ctx.setLineDash([6 / view.scale, 5 / view.scale]);
+      ctx.lineWidth = 2 / view.scale;
+      ctx.strokeStyle = isUnlink
+        ? 'rgba(255,120,140,0.85)'
+        : validTarget ? 'rgba(140,230,160,0.85)' : 'rgba(200,220,255,0.55)';
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(tx, ty);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      if (target) {
+        ctx.beginPath();
+        ctx.arc(target.x, target.y, target.r + 6, 0, Math.PI * 2);
+        ctx.strokeStyle = isUnlink
+          ? 'rgba(255,120,140,0.65)'
+          : validTarget ? 'rgba(140,230,160,0.65)' : 'rgba(255,120,140,0.65)';
+        ctx.lineWidth = 2 / view.scale;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
   }
 
   // Components
@@ -2122,6 +2228,7 @@ function bindUI(): UIRefs {
 
     capVal: must('capVal'),
     capRegenHint: must('capRegenHint'),
+    capBarFill: must('capBarFill'),
     btnCapRefill: must<HTMLButtonElement>('btnCapRefill'),
     btnCapBoost: must<HTMLButtonElement>('btnCapBoost'),
     btnCapHire: must<HTMLButtonElement>('btnCapHire'),

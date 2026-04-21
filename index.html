@@ -23,18 +23,39 @@
           <h1><span data-i18n="app.title">App Survival: Android Release Night</span> <span class="badge" data-i18n="app.badge">M3 • TS + Vite</span></h1>
 
           <div class="row">
-            <button id="btnStart" class="btn filled" data-i18n="btn.start">▶ Start</button>
-            <button id="btnPause" class="btn tonal" data-i18n="btn.pause">⏸ Pause</button>
-            <button id="btnReset" class="btn outlined" data-i18n="btn.reset">↺ Reset</button>
-            <button id="btnProfile" class="btn outlined" data-i18n="btn.profile" data-i18n-title="btn.profileTitle" title="Profile & achievements">👤 Profile</button>
+            <button id="btnStart" class="btn filled" data-i18n-title="btn.start" title="Start">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+              <span class="btn-label" data-i18n="btn.start">Start</span>
+            </button>
+            <button id="btnPause" class="btn tonal" data-i18n-title="btn.pause" title="Pause">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+              <span class="btn-label" data-i18n="btn.pause">Pause</span>
+            </button>
+            <button id="btnReset" class="btn outlined" data-i18n-title="btn.reset" title="Reset">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+              <span class="btn-label" data-i18n="btn.reset">Reset</span>
+            </button>
+            <button id="btnProfile" class="btn outlined" data-i18n-title="btn.profileTitle" title="Profile & achievements">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+              <span class="btn-label" data-i18n="btn.profile">Profile</span>
+            </button>
           </div>
 
           <div class="row" style="margin-top:10px; align-items:center;">
             <span class="pill" id="modePill"><span data-i18n="mode.label">Mode:</span> <b data-i18n="mode.select">Select</b></span>
             <div class="row segmented" role="group" aria-label="Mode" style="margin-left:auto;">
-              <button id="btnSelect" class="btn text is-selected" data-i18n="mode.select">Select</button>
-              <button id="btnLink" class="btn text" data-i18n="mode.link">Link</button>
-              <button id="btnUnlink" class="btn text" data-i18n="mode.unlink">Unlink</button>
+              <button id="btnSelect" class="btn text is-selected" data-i18n-title="mode.select" title="Select">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l7 16 2-7 7-2-16-7z"/></svg>
+                <span class="btn-label" data-i18n="mode.select">Select</span>
+              </button>
+              <button id="btnLink" class="btn text" data-i18n-title="mode.link" title="Link">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7a5 5 0 0 1 0-10h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                <span class="btn-label" data-i18n="mode.link">Link</span>
+              </button>
+              <button id="btnUnlink" class="btn text" data-i18n-title="mode.unlink" title="Unlink">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7a5 5 0 0 1 0-10h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="4" y1="4" x2="20" y2="20"/></svg>
+                <span class="btn-label" data-i18n="mode.unlink">Unlink</span>
+              </button>
             </div>
           </div>
 
@@ -56,9 +77,18 @@
           <div class="v mono" id="selName" data-i18n="sel.none">None</div>
           <pre class="small mono" id="selStats">-</pre>
           <div class="row" style="margin-top:10px;">
-            <button id="btnUpgrade" class="btn filled" disabled data-i18n="btn.upgrade">Upgrade</button>
-            <button id="btnRepair" class="btn outlined" disabled data-i18n="btn.repair">Repair</button>
-            <button id="btnDelete" class="btn error" disabled data-i18n="btn.delete">Delete</button>
+            <button id="btnUpgrade" class="btn filled" disabled data-i18n-title="btn.upgrade" title="Upgrade">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+              <span class="btn-label" data-i18n="btn.upgrade">Upgrade</span>
+            </button>
+            <button id="btnRepair" class="btn outlined" disabled data-i18n-title="btn.repair" title="Repair">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 7l3-3 4 4-3 3"/><path d="M13 8l-9 9v4h4l9-9"/></svg>
+              <span class="btn-label" data-i18n="btn.repair">Repair</span>
+            </button>
+            <button id="btnDelete" class="btn error" disabled data-i18n-title="btn.delete" title="Delete">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+              <span class="btn-label" data-i18n="btn.delete">Delete</span>
+            </button>
           </div>
           <div class="small" style="margin-top:8px;" data-i18n="sel.hint">Upgrades raise capacity & reliability. Repairs restore health. Both cost budget</div>
         </section>
@@ -238,7 +268,10 @@
                 <option value="PUSH" data-i18n="component.PUSH">Push / FCM</option>
                 <option value="DEEPLINK" data-i18n="component.DEEPLINK">Deep Links</option>
               </select>
-              <button id="btnAdd" class="btn tonal" data-i18n="btn.add">+ Add</button>
+              <button id="btnAdd" class="btn tonal" data-i18n-title="btn.add" title="Add">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span class="btn-label" data-i18n="btn.add">Add</span>
+              </button>
             </div>
             <div class="small" style="margin-top:8px;">
               <span data-i18n="setup.dragHintPrefix">Drag components to rearrange. Link mode: click</span> <span class="mono" data-i18n="setup.dragHintSource">source</span> → <span data-i18n="setup.dragHintThen">click</span> <span class="mono" data-i18n="setup.dragHintDest">destination</span>
@@ -251,18 +284,34 @@
         <section id="tabBacklog" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnBacklog">
         <section class="card" id="backlogCard">
           <div class="k" data-i18n="nav.backlog">Backlog</div>
-          <div class="row capRow" style="margin-top:8px; align-items:center;">
-            <div class="pill"><span data-i18n="backlog.capacity">Capacity</span> <span id="capVal" class="mono">0/0</span> <span id="capRegenHint" class="small muted mono">+0/min</span></div>
-
-            <div class="capBtns" style="margin-left:auto;">
-              <button id="btnCapRefill" class="btn text" data-i18n="btn.refill">Refill</button>
-              <button id="btnCapBoost" class="btn text" data-i18n="btn.boostRegen">Boost regen</button>
-              <button id="btnCapDrink" class="btn text" hidden title="Temporary regen booster (unlocks via achievements)" data-i18n="btn.energyDrink" data-i18n-title="btn.energyDrinkTitle">Energy drink</button>
-              <button id="btnCapShield" class="btn text" hidden title="Blocks the next incident penalty once (unlocks via achievements)" data-i18n="btn.incidentShield" data-i18n-title="btn.incidentShieldTitle">Incident shield</button>
-              <button id="btnCapHire" class="btn text" data-i18n="btn.hire">Hire</button>
+          <div class="capRow">
+            <div class="capBar" role="progressbar" aria-labelledby="capBarLabel" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+              <div id="capBarLabel" class="capBarLabel"><span data-i18n="backlog.capacity">Capacity</span> <span id="capVal" class="mono">0/0</span> <span id="capRegenHint" class="small muted mono">+0/min</span></div>
+              <div class="capBarTrack"><div id="capBarFill" class="capBarFill"></div></div>
             </div>
-
-            <div class="small muted capRight" data-i18n="backlog.fixOrDefer">Fix tickets or defer</div>
+            <div class="capBtns">
+              <button id="btnCapRefill" class="btn tonal" data-i18n-title="btn.refill" title="Refill">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2"/><line x1="22" y1="11" x2="22" y2="13"/><polyline points="11 9 8 13 12 13 9 17"/></svg>
+                <span class="btn-label" data-i18n="btn.refill">Refill</span>
+              </button>
+              <button id="btnCapBoost" class="btn tonal" data-i18n-title="btn.boostRegen" title="Boost regen">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M10 3h4"/></svg>
+                <span class="btn-label" data-i18n="btn.boostRegen">Boost regen</span>
+              </button>
+              <button id="btnCapDrink" class="btn tonal" hidden data-i18n-title="btn.energyDrinkTitle" title="Temporary regen booster (unlocks via achievements)">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span class="btn-label" data-i18n="btn.energyDrink">Energy drink</span>
+              </button>
+              <button id="btnCapShield" class="btn tonal" hidden data-i18n-title="btn.incidentShieldTitle" title="Blocks the next incident penalty once (unlocks via achievements)">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3z"/></svg>
+                <span class="btn-label" data-i18n="btn.incidentShield">Incident shield</span>
+              </button>
+              <button id="btnCapHire" class="btn tonal" data-i18n-title="btn.hire" title="Hire">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                <span class="btn-label" data-i18n="btn.hire">Hire</span>
+              </button>
+            </div>
+            <div class="small muted capHint" data-i18n="backlog.fixOrDefer">Fix tickets or defer</div>
           </div>
           <div id="ticketList" class="ticketList" style="margin-top:10px;"></div>
         </section>
