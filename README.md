@@ -64,6 +64,7 @@ More details: see docs/GAMEPLAY.md and docs/SCENARIOS.md
 
 - Gameplay (seeds, scoring, incidents, postmortems, profile & achievements): [GAMEPLAY.md](./docs/GAMEPLAY.md)
 - Scenarios (Release Trains launch drills): [SCENARIOS.md](./docs/SCENARIOS.md)
+- Roadmap (Phase 2 Cloudflare Worker scoreboard, Phase 3 hardening): [ROADMAP.md](./docs/ROADMAP.md)
 - Systems (concepts + realism layers): [SYSTEMS.md](./docs/SYSTEMS.md)
 - Architecture rules and refactor roadmap: [ARCHITECTURE_RULES.md](./docs/ARCHITECTURE_RULES.md)
 - Evaluation exercise + level differentiation lens: [EVALUATION.md](./docs/EVALUATION.md)
