@@ -76,6 +76,18 @@ type IncidentKind =
   | 'REGION_OUTAGE'
   | 'ANR_ESCALATION';
 
+type IncidentTiers = {
+  authTier: number;
+  pinTier: number;
+  keyTier: number;
+  sanTier: number;
+  abuseTier: number;
+  a11yTier: number;
+  flagsTier: number;
+  obsTier: number;
+  cacheTier: number;
+};
+
 export type Bounds = { width: number; height: number };
 
 // Structured events for UI/achievements.
@@ -1955,6 +1967,181 @@ private tickCoverageGate() {
   }
 
 
+  private bumpSupport(v: number) {
+    this.supportLoad = clamp(this.supportLoad + v, 0, 100);
+  }
+
+  private hitTrust(privacyDelta: number, securityDelta: number, a11yDelta = 0) {
+    this.privacyTrust = clamp(this.privacyTrust + privacyDelta, 0, 100);
+    this.securityPosture = clamp(this.securityPosture + securityDelta, 0, 100);
+    this.a11yScore = clamp(this.a11yScore + a11yDelta, 0, 100);
+  }
+
+  private readonly incidentHandlers: Record<IncidentKind, (tiers: IncidentTiers) => void> = {
+    TRAFFIC_SPIKE: ({ abuseTier }) => {
+      const damp = (abuseTier > 0) ? (0.65 - 0.08 * (abuseTier - 1)) : 1.0;
+      this.spawnMul = clamp(this.spawnMul + 0.25 * damp, 1.0, 3.0);
+      this.bumpSupport(2 + (abuseTier === 0 ? 3 : 1));
+      this.log('Marketing spike: action load increased.');
+    },
+
+    NET_WOBBLE: ({ obsTier }) => {
+      const damp = (obsTier > 0) ? 0.85 : 1.0;
+      this.netBadness = clamp(this.netBadness + 0.25 * damp, 1.0, 3.0);
+      this.bumpSupport(3);
+      this.log('Backend wobbles: network failures increased.');
+    },
+
+    OEM_RESTRICTION: () => {
+      this.workRestriction = clamp(this.workRestriction + 0.35, 1.0, 3.0);
+      this.bumpSupport(2);
+      this.log('OEM restriction: background work drains more.');
+    },
+
+    MITM: ({ pinTier }) => {
+      if (pinTier === 0) {
+        const p = -(18 + this.rand() * 10);
+        const s = -(22 + this.rand() * 10);
+        this.hitTrust(p, s);
+        this.netBadness = clamp(this.netBadness + 0.15, 1.0, 3.0);
+        this.bumpSupport(10);
+        this.rating = clamp(this.rating - 0.22, 1.0, 5.0);
+        this.log('MITM attempt: user trust took a hit (add TLS pinning).');
+      } else {
+        this.netBadness = clamp(this.netBadness + 0.05, 1.0, 3.0);
+        this.bumpSupport(2);
+        this.log('MITM attempt blocked by TLS pinning.');
+      }
+    },
+
+    CERT_ROTATION: ({ pinTier }) => {
+      if (pinTier === 0) {
+        this.netBadness = clamp(this.netBadness + 0.18, 1.0, 3.0);
+        this.bumpSupport(3);
+        this.log('Cert rotation upstream: brief network turbulence.');
+        return;
+      }
+      if (pinTier === 1) {
+        this.netBadness = clamp(this.netBadness + 0.35, 1.0, 3.0);
+        this.bumpSupport(12);
+        this.rating = clamp(this.rating - 0.15, 1.0, 5.0);
+        this.log('Cert rotated: pinning broke requests (upgrade pinning or use flags).');
+      } else {
+        this.netBadness = clamp(this.netBadness + 0.12, 1.0, 3.0);
+        this.bumpSupport(4);
+        this.log('Cert rotated: pinning handled it (minor hiccup).');
+      }
+    },
+
+    TOKEN_THEFT: ({ authTier }) => {
+      if (authTier === 0) {
+        this.hitTrust(-8, -22);
+        this.bumpSupport(15);
+        this.rating = clamp(this.rating - 0.18, 1.0, 5.0);
+        this.log('Session/token issue: account takeovers reported (add Auth hardening).');
+      } else {
+        this.bumpSupport(3);
+        this.log('Suspicious sessions detected and contained by Auth.');
+      }
+    },
+
+    CRED_STUFFING: ({ abuseTier }) => {
+      if (abuseTier === 0) {
+        this.netBadness = clamp(this.netBadness + 0.22, 1.0, 3.0);
+        this.spawnMul = clamp(this.spawnMul + 0.12, 1.0, 3.0);
+        this.bumpSupport(14);
+        this.log('Credential stuffing: auth endpoints hammered (add Abuse protection).');
+      } else {
+        this.netBadness = clamp(this.netBadness + 0.10, 1.0, 3.0);
+        this.bumpSupport(5);
+        this.log('Credential stuffing mitigated by rate limiting.');
+      }
+    },
+
+    DEEP_LINK_ABUSE: ({ sanTier }) => {
+      if (sanTier === 0) {
+        for (const t of ['UI','VM','DOMAIN'] as const) {
+          const n = this.components.find(n => n.type === t && !n.down);
+          if (n) n.health = clamp(n.health - (12 + this.rand() * 10), 0, 100);
+        }
+        this.bumpSupport(10);
+        this.rating = clamp(this.rating - 0.12, 1.0, 5.0);
+        this.log('Deep link abuse: malformed inputs causing crashes (add Sanitizer).');
+      } else {
+        this.bumpSupport(3);
+        this.log('Deep link abuse attempt sanitized.');
+      }
+    },
+
+    A11Y_REGRESSION: ({ a11yTier }) => {
+      if (a11yTier === 0) {
+        this.hitTrust(0, 0, -(22 + this.rand() * 10));
+        this.bumpSupport(8);
+        this.rating = clamp(this.rating - 0.10, 1.0, 5.0);
+        this.log('A11y regression shipped: labels/contrast complaints (add A11y layer).');
+      } else {
+        this.hitTrust(0, 0, -(6 + this.rand() * 6));
+        this.bumpSupport(3);
+        this.log('Minor accessibility regression caught (A11y layer helps).');
+      }
+    },
+
+    SDK_SCANDAL: ({ keyTier, flagsTier }) => {
+      const blast = flagsTier >= 2 ? 0.55 : 1.0;
+      if (keyTier === 0) {
+        this.hitTrust(-25 * blast, -10 * blast);
+        this.bumpSupport(12);
+        this.rating = clamp(this.rating - 0.18 * blast, 1.0, 5.0);
+        this.log('3rd-party SDK scandal: privacy trust tanking (add Keystore/Crypto + flags).');
+      } else {
+        this.hitTrust(-10 * blast, -4 * blast);
+        this.bumpSupport(6);
+        this.rating = clamp(this.rating - 0.08 * blast, 1.0, 5.0);
+        this.log('3rd-party SDK issue: reduced impact due to crypto hardening.');
+      }
+    },
+
+    MEMORY_LEAK: ({ cacheTier }) => {
+      const severity = cacheTier >= 2 ? 0.5 : (cacheTier >= 1 ? 0.75 : 1.0);
+      this.heapMb = clamp(this.heapMb + 30 * severity, 0, this.heapMaxMb);
+      this.jankPct = clamp(this.jankPct + 8 * severity, 0, 100);
+      this.gcPauseMs = clamp(this.gcPauseMs + 12 * severity, 0, 80);
+      this.bumpSupport(4);
+      if (cacheTier === 0) {
+        this.log('Memory leak detected: heap growing, jank increasing (add Cache).');
+      } else {
+        this.log('Memory leak detected: cache layer limiting impact.');
+      }
+    },
+
+    REGION_OUTAGE: () => {
+      const regionIdx = this.rng.int(0, this.regions.length - 1);
+      const region = this.regions[regionIdx];
+      region.frozenSec = Math.max(region.frozenSec, 60);
+      region.compliance = clamp(region.compliance - 8, 0, 100);
+      this.bumpSupport(6);
+      this.rating = clamp(this.rating - 0.06, 1.0, 5.0);
+      this.log(`Regional outage: ${region.code} store frozen for 60s.`);
+    },
+
+    ANR_ESCALATION: ({ obsTier }) => {
+      const anrRisk = clamp(this.anrPoints / 120, 0, 1);
+      if (anrRisk > 0.30) {
+        this.reqFail += 4;
+        this.rating = clamp(this.rating - 0.15, 1.0, 5.0);
+        this.jankPct = clamp(this.jankPct + 12, 0, 100);
+        this.bumpSupport(10);
+        this.log('ANR escalation: watchdog killed process, crash storm triggered.');
+        this.createTicket('CRASH_SPIKE', 'ANR watchdog crash cascade', 'Reliability', 3, 90, 6);
+      } else {
+        this.anrPoints = clamp(this.anrPoints + 15, 0, 120);
+        this.bumpSupport(3);
+        const damp = obsTier > 0 ? ' (OBS helping)' : '';
+        this.log(`ANR warning: main thread under pressure${damp}.`);
+      }
+    },
+  };
+
   private maybeIncident() {
     // decay modifiers slowly
     this.spawnMul *= 0.985;
@@ -1984,16 +2171,20 @@ private tickCoverageGate() {
       this.supportLoad = clamp(this.supportLoad + compoundCount * 2, 0, 100);
     }
 
-    const authTier = this.tierOf('AUTH');
-    const pinTier = this.tierOf('PINNING');
-    const keyTier = this.tierOf('KEYSTORE');
-    const sanTier = this.tierOf('SANITIZER');
-    const abuseTier = this.tierOf('ABUSE');
-    const a11yTier = this.tierOf('A11Y');
-    const flagsTier = this.tierOf('FLAGS');
-    const obsTier = this.tierOf('OBS');
+    const tiers: IncidentTiers = {
+      authTier: this.tierOf('AUTH'),
+      pinTier: this.tierOf('PINNING'),
+      keyTier: this.tierOf('KEYSTORE'),
+      sanTier: this.tierOf('SANITIZER'),
+      abuseTier: this.tierOf('ABUSE'),
+      a11yTier: this.tierOf('A11Y'),
+      flagsTier: this.tierOf('FLAGS'),
+      obsTier: this.tierOf('OBS'),
+      cacheTier: this.tierOf('CACHE'),
+    };
 
-    // Weighted roll across incident types
+    // Weighted roll across incident types. Order and call-count of this.rand()
+    // must stay identical to preserve seeded determinism.
     const roll = this.rand();
     const table: Array<[IncidentKind, number]> = [
       ['TRAFFIC_SPIKE',    0.15],
@@ -2018,205 +2209,7 @@ private tickCoverageGate() {
       if (roll <= acc) { kind = k; break; }
     }
 
-    // Helpers
-    const bumpSupport = (v: number) => { this.supportLoad = clamp(this.supportLoad + v, 0, 100); };
-    const hitTrust = (privacyDelta: number, securityDelta: number, a11yDelta = 0) => {
-      this.privacyTrust = clamp(this.privacyTrust + privacyDelta, 0, 100);
-      this.securityPosture = clamp(this.securityPosture + securityDelta, 0, 100);
-      this.a11yScore = clamp(this.a11yScore + a11yDelta, 0, 100);
-    };
-
-    switch (kind) {
-      case 'TRAFFIC_SPIKE': {
-        // Abuse protection reduces how bad the spike is.
-        const damp = (abuseTier > 0) ? (0.65 - 0.08 * (abuseTier - 1)) : 1.0;
-        this.spawnMul = clamp(this.spawnMul + 0.25 * damp, 1.0, 3.0);
-        bumpSupport(2 + (abuseTier === 0 ? 3 : 1));
-        this.log('Marketing spike: action load increased.');
-        break;
-      }
-
-      case 'NET_WOBBLE': {
-        const damp = (obsTier > 0) ? 0.85 : 1.0;
-        this.netBadness = clamp(this.netBadness + 0.25 * damp, 1.0, 3.0);
-        bumpSupport(3);
-        this.log('Backend wobbles: network failures increased.');
-        break;
-      }
-
-      case 'OEM_RESTRICTION': {
-        this.workRestriction = clamp(this.workRestriction + 0.35, 1.0, 3.0);
-        bumpSupport(2);
-        this.log('OEM restriction: background work drains more.');
-        break;
-      }
-
-      case 'MITM': {
-        if (pinTier === 0) {
-          const p = -(18 + this.rand() * 10);
-          const s = -(22 + this.rand() * 10);
-          hitTrust(p, s);
-          this.netBadness = clamp(this.netBadness + 0.15, 1.0, 3.0);
-          bumpSupport(10);
-          this.rating = clamp(this.rating - 0.22, 1.0, 5.0);
-          this.log('MITM attempt: user trust took a hit (add TLS pinning).');
-        } else {
-          // blocked, but strict pinning can increase fragility a bit
-          this.netBadness = clamp(this.netBadness + 0.05, 1.0, 3.0);
-          bumpSupport(2);
-          this.log('MITM attempt blocked by TLS pinning.');
-        }
-        break;
-      }
-
-      case 'CERT_ROTATION': {
-        if (pinTier === 0) {
-          this.netBadness = clamp(this.netBadness + 0.18, 1.0, 3.0);
-          bumpSupport(3);
-          this.log('Cert rotation upstream: brief network turbulence.');
-          break;
-        }
-
-        // Pinning exists: tier matters
-        if (pinTier === 1) {
-          this.netBadness = clamp(this.netBadness + 0.35, 1.0, 3.0);
-          bumpSupport(12);
-          this.rating = clamp(this.rating - 0.15, 1.0, 5.0);
-          this.log('Cert rotated: pinning broke requests (upgrade pinning or use flags).');
-        } else {
-          this.netBadness = clamp(this.netBadness + 0.12, 1.0, 3.0);
-          bumpSupport(4);
-          this.log('Cert rotated: pinning handled it (minor hiccup).');
-        }
-        break;
-      }
-
-      case 'TOKEN_THEFT': {
-        if (authTier === 0) {
-          hitTrust(-8, -22);
-          bumpSupport(15);
-          this.rating = clamp(this.rating - 0.18, 1.0, 5.0);
-          this.log('Session/token issue: account takeovers reported (add Auth hardening).');
-        } else {
-          bumpSupport(3);
-          this.log('Suspicious sessions detected and contained by Auth.');
-        }
-        break;
-      }
-
-      case 'CRED_STUFFING': {
-        if (abuseTier === 0) {
-          this.netBadness = clamp(this.netBadness + 0.22, 1.0, 3.0);
-          this.spawnMul = clamp(this.spawnMul + 0.12, 1.0, 3.0);
-          bumpSupport(14);
-          this.log('Credential stuffing: auth endpoints hammered (add Abuse protection).');
-        } else {
-          this.netBadness = clamp(this.netBadness + 0.10, 1.0, 3.0);
-          bumpSupport(5);
-          this.log('Credential stuffing mitigated by rate limiting.');
-        }
-        break;
-      }
-
-      case 'DEEP_LINK_ABUSE': {
-        if (sanTier === 0) {
-          // Damage "main thread-ish" nodes a bit and add support pain.
-          for (const t of ['UI','VM','DOMAIN'] as const) {
-            const n = this.components.find(n => n.type === t && !n.down);
-            if (n) n.health = clamp(n.health - (12 + this.rand() * 10), 0, 100);
-          }
-          bumpSupport(10);
-          this.rating = clamp(this.rating - 0.12, 1.0, 5.0);
-          this.log('Deep link abuse: malformed inputs causing crashes (add Sanitizer).');
-        } else {
-          bumpSupport(3);
-          this.log('Deep link abuse attempt sanitized.');
-        }
-        break;
-      }
-
-      case 'A11Y_REGRESSION': {
-        if (a11yTier === 0) {
-          hitTrust(0, 0, -(22 + this.rand() * 10));
-          bumpSupport(8);
-          this.rating = clamp(this.rating - 0.10, 1.0, 5.0);
-          this.log('A11y regression shipped: labels/contrast complaints (add A11y layer).');
-        } else {
-          hitTrust(0, 0, -(6 + this.rand() * 6));
-          bumpSupport(3);
-          this.log('Minor accessibility regression caught (A11y layer helps).');
-        }
-        break;
-      }
-
-      case 'SDK_SCANDAL': {
-        // Feature flags reduce blast radius of third-party scandals.
-        const blast = flagsTier >= 2 ? 0.55 : 1.0;
-        if (keyTier === 0) {
-          hitTrust(-25 * blast, -10 * blast);
-          bumpSupport(12);
-          this.rating = clamp(this.rating - 0.18 * blast, 1.0, 5.0);
-          this.log('3rd-party SDK scandal: privacy trust tanking (add Keystore/Crypto + flags).');
-        } else {
-          hitTrust(-10 * blast, -4 * blast);
-          bumpSupport(6);
-          this.rating = clamp(this.rating - 0.08 * blast, 1.0, 5.0);
-          this.log('3rd-party SDK issue: reduced impact due to crypto hardening.');
-        }
-        break;
-      }
-
-      case 'MEMORY_LEAK': {
-        // Gradual heap creep over time without triggering OOM immediately.
-        // Cache tier mitigates (better memory management).
-        const cacheTier = this.tierOf('CACHE');
-        const severity = cacheTier >= 2 ? 0.5 : (cacheTier >= 1 ? 0.75 : 1.0);
-        this.heapMb = clamp(this.heapMb + 30 * severity, 0, this.heapMaxMb);
-        this.jankPct = clamp(this.jankPct + 8 * severity, 0, 100);
-        this.gcPauseMs = clamp(this.gcPauseMs + 12 * severity, 0, 80);
-        bumpSupport(4);
-        if (cacheTier === 0) {
-          this.log('Memory leak detected: heap growing, jank increasing (add Cache).');
-        } else {
-          this.log('Memory leak detected: cache layer limiting impact.');
-        }
-        break;
-      }
-
-      case 'REGION_OUTAGE': {
-        // Freeze a random region for 60s. Compliance cannot improve during freeze.
-        const regionIdx = this.rng.int(0, this.regions.length - 1);
-        const region = this.regions[regionIdx];
-        region.frozenSec = Math.max(region.frozenSec, 60);
-        region.compliance = clamp(region.compliance - 8, 0, 100);
-        bumpSupport(6);
-        this.rating = clamp(this.rating - 0.06, 1.0, 5.0);
-        this.log(`Regional outage: ${region.code} store frozen for 60s.`);
-        break;
-      }
-
-      case 'ANR_ESCALATION': {
-        // If ANR risk is already high, this compounds it into crashes.
-        // OBS tier helps detect and recover faster.
-        const anrRisk = clamp(this.anrPoints / 120, 0, 1);
-        if (anrRisk > 0.30) {
-          // Cascading: ANR -> crashes -> rating damage
-          this.reqFail += 4;
-          this.rating = clamp(this.rating - 0.15, 1.0, 5.0);
-          this.jankPct = clamp(this.jankPct + 12, 0, 100);
-          bumpSupport(10);
-          this.log('ANR escalation: watchdog killed process, crash storm triggered.');
-          this.createTicket('CRASH_SPIKE', 'ANR watchdog crash cascade', 'Reliability', 3, 90, 6);
-        } else {
-          // Low ANR: minor ANR bump
-          this.anrPoints = clamp(this.anrPoints + 15, 0, 120);
-          bumpSupport(3);
-          const damp = obsTier > 0 ? ' (OBS helping)' : '';
-          this.log(`ANR warning: main thread under pressure${damp}.`);
-        }
-        break;
-      }
-    }
+    this.incidentHandlers[kind](tiers);
   }
 
 
