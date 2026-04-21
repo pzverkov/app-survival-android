@@ -12,7 +12,8 @@
     "test:watch": "node ./node_modules/vitest/dist/cli.js",
     "test:e2e": "playwright test",
     "test:e2e:ci": "npm run test:dom && playwright test",
-    "test:dom": "node scripts/validate-dom-hooks.mjs"
+    "test:dom": "node scripts/validate-dom-hooks.mjs",
+    "test:clean": "pkill -f 'app-survival-android/node_modules/vitest' || true"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

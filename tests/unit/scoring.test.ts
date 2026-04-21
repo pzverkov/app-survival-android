@@ -11,9 +11,9 @@ describe('asymmetric scoring', () => {
       const sim = makeSim();
       sim.reset({ width: 800, height: 600 }, { seed: 1 });
       sim.running = true;
-      // Simulate some ticks to accumulate score
-      for (let i = 0; i < 30; i++) sim.tick();
-      // Force budget depletion
+      // endRun is now idempotent per run (v0.4). Force BUDGET_DEPLETED as the
+      // first terminal event: pin rating high, drop budget, run one tick.
+      sim.rating = 5.0;
       sim.budget = -1;
       sim.tick();
       expect(sim.lastRun).not.toBeNull();
@@ -25,8 +25,8 @@ describe('asymmetric scoring', () => {
       const sim = makeSim();
       sim.reset({ width: 800, height: 600 }, { seed: 1 });
       sim.running = true;
-      for (let i = 0; i < 10; i++) sim.tick();
       sim.rating = 0.5;
+      sim.budget = 1000; // keep budget positive so RATING_COLLAPSED wins
       sim.tick();
       expect(sim.lastRun).not.toBeNull();
       expect(sim.lastRun.endReason).toBe('RATING_COLLAPSED');

@@ -27,6 +27,7 @@ import { entropyPool } from './entropy';
 import { tickPlatformPulse as platformPulseTick, tickCoverageGate as coverageGateTick, computeRegionTarget, evaluateCrossCheck, tickRolloutPhase, applyRegionCoupling, tickBaselineProfile, tickPlayIntegrity, type CoverageGateInput, type CrossCheckInput, type RolloutPhase } from './subsystems';
 import { tickBurnout } from './oncall';
 import { gradePostmortem, type PostmortemGrade } from './postmortem';
+import { replayActionLog } from './actionlog';
 
 export const ComponentDefs: Record<ComponentType, ComponentDef> = {
   // Core layers (Android mental model, not backend microservices)
@@ -281,6 +282,46 @@ export class GameSim {
   /** Full retained event log for the current run (used for postmortem grading). */
   private runEventLog: SimEvent[] = [];
 
+  /**
+   * Per-run action log. Every public mutator appends here so a fresh sim can
+   * replay the run deterministically (see src/actionlog.ts). Cleared on reset().
+   */
+  private actionLog: Array<{ t: number; seq: number; kind: string; args: unknown[] }> = [];
+  private actionSeq: number = 0;
+  /** When true (set by the replayer), public mutators skip recording. */
+  suppressActionLog: boolean = false;
+
+  private recordAction(kind: string, args: unknown[]): void {
+    if (this.suppressActionLog) return;
+    this.actionLog.push({ t: this.timeSec, seq: this.actionSeq++, kind, args });
+  }
+
+  /** Read-only snapshot of the current run's action log. */
+  getActionLog(): ReadonlyArray<{ t: number; seq: number; kind: string; args: unknown[] }> {
+    return this.actionLog;
+  }
+
+  /** Sets the currently selected component id. Routes direct field mutation through a logged entry. */
+  setSelected(id: number | null): void {
+    if (this.selectedId === id) return;
+    this.recordAction('setSelected', [id]);
+    this.selectedId = id;
+  }
+
+  /** Sets the run's running flag. Routes direct field mutation through a logged entry. */
+  setRunning(b: boolean): void {
+    if (this.running === b) return;
+    this.recordAction('setRunning', [b]);
+    this.running = b;
+  }
+
+  /** Applies an external reward (budget + score delta), typically from an achievement unlock. */
+  applyReward(budgetDelta: number, scoreDelta: number): void {
+    this.recordAction('applyReward', [budgetDelta, scoreDelta]);
+    this.budget += budgetDelta;
+    this.score += scoreDelta;
+  }
+
   private queues = new Map<number, Request[]>();
 
   reset(bounds: Bounds, opts?: { seed?: number }) {
@@ -322,6 +363,11 @@ export class GameSim {
     // Scenario state is reset-by-default; callers can re-apply loadScenario() after.
     this.scenarioId = null;
     this.scriptedIncidents.clear();
+
+    // Action log is per-run: reset erases prior actions so the log reflects only
+    // the upcoming run. The seed itself is implicit in the run's ReplayInput.
+    this.actionLog = [];
+    this.actionSeq = 0;
 
     // ZeroDayPulse
     this.advisories = [];
@@ -420,6 +466,10 @@ export class GameSim {
 
     this.components.push(nUI, nVM, nD, nR, nC, nDB, nN, nW, nO, nF);
 
+    // Starter layout: these are part of the reset's initial state, not user
+    // actions. Suppress recording so the action log only contains player input.
+    const wasSuppressed = this.suppressActionLog;
+    this.suppressActionLog = true;
     this.link(nUI.id, nVM.id);
     this.link(nVM.id, nD.id);
     this.link(nD.id,  nR.id);
@@ -427,6 +477,7 @@ export class GameSim {
     this.link(nC.id,  nDB.id);
     this.link(nR.id,  nN.id);
     this.link(nW.id,  nR.id);
+    this.suppressActionLog = wasSuppressed;
 
     this.selectedId = nR.id;
   }
@@ -478,6 +529,7 @@ export class GameSim {
   }
 
   buyCapacityRefill(): { ok: boolean; reason?: string } {
+    this.recordAction('buyCapacityRefill', []);
     const { refillCost } = this.getCapacityShop();
     if (this.engCapacity >= this.engCapacityMax - 1e-6) return { ok: false, reason: 'Capacity already full' };
     if (this.budget < refillCost) return { ok: false, reason: 'Not enough budget' };
@@ -490,6 +542,7 @@ export class GameSim {
   }
 
   buyCapacityRegenUpgrade(): { ok: boolean; reason?: string } {
+    this.recordAction('buyCapacityRegenUpgrade', []);
     const { regenUpgradeCost } = this.getCapacityShop();
     if (this.engRegenTier >= 3) return { ok: false, reason: 'Regen already maxed' };
     if (this.budget < regenUpgradeCost) return { ok: false, reason: 'Not enough budget' };
@@ -501,6 +554,7 @@ export class GameSim {
   }
 
   hireMoreCapacity(): { ok: boolean; reason?: string } {
+    this.recordAction('hireMoreCapacity', []);
     const { hireCost } = this.getCapacityShop();
     if (this.engCapacityMax >= 30) return { ok: false, reason: 'Capacity already at max' };
     if (this.budget < hireCost) return { ok: false, reason: 'Not enough budget' };
@@ -514,6 +568,7 @@ export class GameSim {
   }
 
   buyRegenBooster(): { ok: boolean; reason?: string } {
+    this.recordAction('buyRegenBooster', []);
     const { boosterCost, canBuyBooster } = this.getCapacityShop();
     if (!canBuyBooster) return { ok: false, reason: 'Booster already active' };
     if (this.budget < boosterCost) return { ok: false, reason: 'Not enough budget' };
@@ -527,6 +582,7 @@ export class GameSim {
   }
 
   buyIncidentShield(): { ok: boolean; reason?: string } {
+    this.recordAction('buyIncidentShield', []);
     const { shieldCost, canBuyShield } = this.getCapacityShop();
     if (!canBuyShield) return { ok: false, reason: 'Shield already ready' };
     if (this.budget < shieldCost) return { ok: false, reason: 'Not enough budget' };
@@ -539,6 +595,7 @@ export class GameSim {
 
   // v0.3.0 Android-native one-time build surfaces.
   buyBaselineProfile(): { ok: boolean; reason?: string } {
+    this.recordAction('buyBaselineProfile', []);
     if (this.baselineProfile) return { ok: false, reason: 'Already shipped' };
     if (this.budget < 250) return { ok: false, reason: 'Not enough budget' };
     this.budget -= 250;
@@ -548,6 +605,7 @@ export class GameSim {
   }
 
   buyR8(): { ok: boolean; reason?: string } {
+    this.recordAction('buyR8', []);
     if (this.r8Enabled) return { ok: false, reason: 'R8 already enabled' };
     if (this.budget < 200) return { ok: false, reason: 'Not enough budget' };
     this.budget -= 200;
@@ -557,6 +615,7 @@ export class GameSim {
   }
 
   buyBundleSplit(): { ok: boolean; reason?: string } {
+    this.recordAction('buyBundleSplit', []);
     if (this.bundleSplitEnabled) return { ok: false, reason: 'Bundle split already enabled' };
     if (this.budget < 180) return { ok: false, reason: 'Not enough budget' };
     this.budget -= 180;
@@ -600,6 +659,7 @@ export class GameSim {
   getRegPressure(): number { return this.regPressure; }
   getCoverage() { return { pct: this.coveragePct, threshold: this.coverageThreshold, preset: this.preset }; }
   setPreset(p: EvalPreset) {
+    this.recordAction('setPreset', [p]);
     this.preset = p;
     this.coverageThreshold =
       (p === EVAL_PRESET.PRINCIPAL) ? 80 :
@@ -622,6 +682,7 @@ export class GameSim {
   getAdvisories(): Advisory[] { return this.advisories; }
 
   fixTicket(id: number) {
+    this.recordAction('fixTicket', [id]);
     const t = this.tickets.find(x => x.id === id);
     if (!t) return;
     const cost = t.effort;
@@ -677,6 +738,7 @@ export class GameSim {
   }
 
   deferTicket(id: number) {
+    this.recordAction('deferTicket', [id]);
     const t = this.tickets.find(x => x.id === id);
     if (!t) return;
     t.deferred = !t.deferred;
@@ -684,6 +746,7 @@ export class GameSim {
 
   // --- public CRUD ----------------------------------------------------------
   addComponent(type: ComponentType, x: number, y: number): { ok: boolean; reason?: string; id?: number } {
+    this.recordAction('addComponent', [type, x, y]);
     const def = ComponentDefs[type];
     if (this.budget < def.cost) return { ok: false, reason: 'Not enough budget' };
     this.budget -= def.cost;
@@ -694,6 +757,7 @@ export class GameSim {
   }
 
   deleteSelected(): boolean {
+    this.recordAction('deleteSelected', []);
     const id = this.selectedId;
     if (!id) return false;
     this.links = this.links.filter(l => l.from !== id && l.to !== id);
@@ -705,6 +769,7 @@ export class GameSim {
   }
 
   upgradeSelected(): { ok: boolean; reason?: string } {
+    this.recordAction('upgradeSelected', []);
     const n = this.selected();
     if (!n) return { ok: false, reason: 'Nothing selected' };
     if (n.tier >= 3) return { ok: false, reason: 'Already max tier' };
@@ -717,6 +782,7 @@ export class GameSim {
   }
 
   repairSelected(): { ok: boolean; reason?: string } {
+    this.recordAction('repairSelected', []);
     const n = this.selected();
     if (!n) return { ok: false, reason: 'Nothing selected' };
     if (n.health >= 100 && !n.down) return { ok: false, reason: 'Already healthy' };
@@ -732,6 +798,7 @@ export class GameSim {
   setMode(m: Mode) { this.mode = m; this.linkFromId = null; }
 
   link(from: number, to: number): boolean {
+    this.recordAction('link', [from, to]);
     if (from === to) return false;
     if (this.links.some(l => l.from === from && l.to === to)) return false;
 
@@ -1025,6 +1092,7 @@ export class GameSim {
   }
 
   applyRefactor(ticketId: number, action: RefactorAction, targetKey?: string): { ok: boolean; reason?: string } {
+    this.recordAction('applyRefactor', [ticketId, action, targetKey]);
     const t = this.tickets.find(x => x.id === ticketId);
     if (!t) return { ok: false, reason: 'Ticket not found' };
     if (t.kind !== 'ARCHITECTURE_DEBT') return { ok: false, reason: 'Not an architecture debt ticket' };
@@ -1042,6 +1110,10 @@ export class GameSim {
     // Refactors improve quality process a bit (slows coverage decay etc.)
     this.qualityProcess = clamp(this.qualityProcess + 0.10, 0, 1);
 
+    // Internal unlink calls are a side effect of the refactor action; suppress
+    // their own recordAction so replay doesn't double-apply them.
+    const wasSuppressed = this.suppressActionLog;
+    this.suppressActionLog = true;
     switch (action) {
       case 'ADD_BOUNDARY': {
         if (targetKey && this.unlinkViolation(targetKey)) {
@@ -1080,6 +1152,7 @@ export class GameSim {
         break;
       }
     }
+    this.suppressActionLog = wasSuppressed;
 
     // Close the debt ticket (completed refactor).
     this.tickets = this.tickets.filter(x => x.id !== ticketId);
@@ -1090,6 +1163,7 @@ export class GameSim {
 
 
   unlink(from: number, to: number): boolean {
+    this.recordAction('unlink', [from, to]);
     const before = this.links.length;
     this.links = this.links.filter(l => !(l.from === from && l.to === to));
     return this.links.length !== before;
@@ -1171,6 +1245,14 @@ export class GameSim {
     for (const marker of scenario.incidentScript) {
       this.scriptedIncidents.set(marker.atSec, marker.kind);
     }
+    // Log after reset so the entry survives into the run's action log. Encode
+    // the scripted incident list so replay can reconstruct the same schedule.
+    this.recordAction('loadScenario', [
+      scenario.id,
+      scenario.seed,
+      scenario.preset,
+      scenario.incidentScript.map(m => [m.atSec, m.kind] as [number, IncidentKind]),
+    ]);
   }
 
   /** Returns the list of signals currently accumulating but not yet firing a ticket. */
@@ -2718,6 +2800,10 @@ private tickCoverageGate() {
   }
 
   private endRun(reason: EndReason, failureRate: number, anrRisk: number, p95: number) {
+    // endRun is idempotent per run: once lastRun exists, subsequent invocations
+    // (from post-terminal ticks re-checking rating/budget) are no-ops. Prevents
+    // redundant replay verification on every tick past the true end.
+    if (this.lastRun) return;
     this.running = false;
     this.eventStream.push({ type: 'RUN_END', atSec: this.timeSec, reason });
 
@@ -2788,6 +2874,29 @@ private tickCoverageGate() {
     this.lastRun.summaryLines.push(`Postmortem grade: ${grade.letter}`);
     for (const c of grade.callouts) this.lastRun.summaryLines.push(`- ${c}`);
     this.lastGrade = grade;
+
+    // Replay verification: run the action log against a fresh sim and compare
+    // sim-side score. Any mismatch points at tampered state or a missed
+    // recordAction hook. Skip when we're already inside a replay
+    // (suppressActionLog = true) to avoid infinite recursion, and when the
+    // run was never actually started (action log may be empty or minimal).
+    if (!this.suppressActionLog && this.actionLog.length > 0) {
+      try {
+        const liveSimScore = this.score;
+        const replayed = replayActionLog({
+          seed: this.seed,
+          preset: this.preset,
+          log: this.actionLog.slice(),
+          bounds: { width: 800, height: 600 },
+          untilTimeSec: this.timeSec,
+        });
+        // Accept small float drift (the sim has compounding multiplications).
+        const drift = Math.abs(replayed.simScore - liveSimScore);
+        this.lastRun.verified = drift < 1e-6;
+      } catch {
+        this.lastRun.verified = false;
+      }
+    }
 
     // Make the end visible in the on-screen log.
     this.log('RUN ENDED.');

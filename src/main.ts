@@ -234,6 +234,9 @@ type UIRefs = {
   // End-of-run grade (v0.3.0)
   endRunGrade: HTMLElement;
   endRunGradeCallouts: HTMLElement;
+
+  // End-of-run replay verification (v0.4)
+  endRunVerified: HTMLElement;
 };
 
 
@@ -280,6 +283,23 @@ let lastSavedRunId: string | null = null;
 // --- Integrity (tamper protection v1) -------------------------------------
 const ACH_PREFIX = 'survival.achievements.';
 const integrityKeyPromise = deriveKey(sha);
+
+// Per-run action log archive. Keyed by runId, capped at RUNS_MAX entries so
+// the scoreboard card stays small and future Phase 2 submissions have a
+// well-defined history to read from.
+const RUNS_KEY = 'asr:runs:v1';
+const RUNS_MAX = 20;
+
+function persistRunActionLog(runId: string, seed: number, preset: string, log: ReadonlyArray<unknown>): void {
+  try {
+    const raw = localStorage.getItem(RUNS_KEY);
+    const existing: Array<{ runId: string }> = raw ? (JSON.parse(raw) || []) : [];
+    const next = [{ runId, seed, preset, savedAt: Date.now(), log }, ...existing.filter(e => e.runId !== runId)].slice(0, RUNS_MAX);
+    localStorage.setItem(RUNS_KEY, JSON.stringify(next));
+  } catch {
+    // private browsing / quota — ignore
+  }
+}
 
 integrityKeyPromise.then(async (key) => {
   if (needsMigration()) {
@@ -649,8 +669,11 @@ function formatReward(r?: { budget?: number; score?: number }): string {
 function applyAchievementRewards(unlocked: AchievementUnlock[]) {
   if (!unlocked.length) return;
   for (const a of unlocked) {
-    if (a.reward?.budget) sim.budget += a.reward.budget;
-    if (a.reward?.score) sim.score += a.reward.score;
+    // Route through sim.applyReward so the mutation lands in the action log
+    // and replay verification reproduces the same score.
+    const b = a.reward?.budget ?? 0;
+    const s = a.reward?.score ?? 0;
+    if (b !== 0 || s !== 0) sim.applyReward(b, s);
     const reward = formatReward(a.reward);
     const tier = a.label ? ` ${a.label}` : '';
     const rewardSuffix = reward ? ` (${reward})` : '';
@@ -1025,19 +1048,19 @@ refs.btnStart.onclick = () => {
   achLastTickSec = -1;
   applyAchievementRewards(ach.onEvents([{ type: 'RUN_START', atSec: sim.timeSec, budget: sim.budget, architectureDebt: sim.architectureDebt }]));
   integrityKeyPromise.then(key => sealStorageKey(ACH_PREFIX + preset, key));
-  sim.running = true;
+  sim.setRunning(true);
   startTickLoop();
   syncUI();
 };
 refs.btnPause.onclick = () => {
-  sim.running = false;
+  sim.setRunning(false);
   syncUI();
 };
 refs.btnReset.onclick = () => {
   // Treat reset as run end for achievements tracking.
   applyAchievementRewards(ach.onEvents([{ type: 'RUN_END', atSec: sim.timeSec, reason: 'RESET' }]));
   integrityKeyPromise.then(key => sealStorageKey(ACH_PREFIX + (refs.presetSelect.value as EvalPreset), key));
-  sim.running = false;
+  sim.setRunning(false);
   achLastTickSec = -1;
   const seedStr = (refs.seedInput.value ?? '').trim();
   const seed = seedStr ? Number(seedStr) : undefined;
@@ -1057,7 +1080,7 @@ refs.btnDailySeed.onclick = () => {
   const day = d.getUTCDate();
   const daily = (y * 10000 + m * 100 + day) >>> 0;
   refs.seedInput.value = String(daily);
-  sim.running = false;
+  sim.setRunning(false);
   sim.reset(getCanvasBounds(), { seed: daily });
   fitToView();
   syncUI();
@@ -1084,14 +1107,16 @@ function renderChallenges() {
 
 function startChallenge(challenge: ChallengeDef) {
   activeChallenge = challenge;
-  sim.running = false;
+  sim.setRunning(false);
   refs.presetSelect.value = challenge.preset;
   sim.setPreset(challenge.preset);
   ach.setPreset(challenge.preset);
   refs.seedInput.value = String(challenge.seed);
   sim.reset(getCanvasBounds(), { seed: challenge.seed });
   if (challenge.constraint === 'LOW_BUDGET') {
-    sim.budget = 1500;
+    // LOW_BUDGET drops the default starting budget to $1500. Route through
+    // applyReward so replay reproduces the same delta and verification passes.
+    sim.applyReward(1500 - sim.budget, 0);
   }
   sparkRating.reset(); sparkFail.reset(); sparkJank.reset(); sparkHeap.reset();
   fitToView();
@@ -1138,7 +1163,7 @@ function renderScenarios() {
 
 function startScenario(scenario: ScenarioDef) {
   activeScenario = scenario;
-  sim.running = false;
+  sim.setRunning(false);
   refs.presetSelect.value = scenario.preset;
   ach.setPreset(scenario.preset);
   sim.loadScenario(
@@ -1148,7 +1173,7 @@ function startScenario(scenario: ScenarioDef) {
   refs.seedInput.value = String(scenario.seed);
   sparkRating.reset(); sparkFail.reset(); sparkJank.reset(); sparkHeap.reset();
   fitToView();
-  sim.running = true;
+  sim.setRunning(true);
   syncUI();
 }
 
@@ -1225,6 +1250,19 @@ function showEndRunModal() {
     refs.endRunGradeCallouts.textContent = '';
   }
 
+  // Replay verification badge (v0.4)
+  if (run.verified === true) {
+    refs.endRunVerified.textContent = '✓ Verified (replay matches)';
+    refs.endRunVerified.classList.remove('is-failure');
+    refs.endRunVerified.classList.add('is-success');
+  } else if (run.verified === false) {
+    refs.endRunVerified.textContent = '✗ Replay mismatch';
+    refs.endRunVerified.classList.remove('is-success');
+    refs.endRunVerified.classList.add('is-failure');
+  } else {
+    refs.endRunVerified.textContent = '';
+  }
+
   openModal(refs.endRunModal);
 }
 
@@ -1237,7 +1275,7 @@ refs.endRunBackdrop.onclick = closeEndRun;
 
 refs.endRunPlayAgain.onclick = () => {
   closeEndRun();
-  sim.running = false;
+  sim.setRunning(false);
   sim.reset(getCanvasBounds());
   sparkRating.reset(); sparkFail.reset(); sparkJank.reset(); sparkHeap.reset();
   fitToView();
@@ -1247,7 +1285,7 @@ refs.endRunPlayAgain.onclick = () => {
 refs.endRunReplay.onclick = () => {
   closeEndRun();
   const seed = sim.lastRun?.seed;
-  sim.running = false;
+  sim.setRunning(false);
   sim.reset(getCanvasBounds(), seed ? { seed } : undefined);
   if (seed) refs.seedInput.value = String(seed);
   sparkRating.reset(); sparkFail.reset(); sparkJank.reset(); sparkHeap.reset();
@@ -1446,14 +1484,14 @@ refs.canvas.addEventListener('mousedown', (e) => {
   const hit = hitComponent(pt.x, pt.y);
 
   if (!hit) {
-    sim.selectedId = null;
+    sim.setSelected(null);
     sim.linkFromId = null;
     syncUI();
     return;
   }
 
   if (sim.mode === MODE.SELECT) {
-    sim.selectedId = hit.id;
+    sim.setSelected(hit.id);
     draggingId = hit.id;
     dragOffX = pt.x - hit.x;
     dragOffY = pt.y - hit.y;
@@ -1465,7 +1503,7 @@ refs.canvas.addEventListener('mousedown', (e) => {
   // Link/Unlink
   if (!sim.linkFromId) {
     sim.linkFromId = hit.id;
-    sim.selectedId = hit.id;
+    sim.setSelected(hit.id);
     syncUI();
     return;
   }
@@ -1922,6 +1960,7 @@ function syncUI() {
       });
       integrityKeyPromise.then(key => sealScoreboard(key));
       renderScoreboard();
+      persistRunActionLog(s.lastRun.runId, s.lastRun.seed, s.lastRun.preset, sim.getActionLog());
 
       // Evaluate active challenge
       if (activeChallenge && s.lastRun.seed === activeChallenge.seed) {
@@ -2180,6 +2219,7 @@ function bindUI(): UIRefs {
     scenarioList: must('scenarioList'),
     endRunGrade: must('endRunGrade'),
     endRunGradeCallouts: must('endRunGradeCallouts'),
+    endRunVerified: must('endRunVerified'),
   };
 }
 

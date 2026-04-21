@@ -246,6 +246,14 @@ export type RunResult = {
 
   // Human-readable postmortem
   summaryLines: string[];
+
+  /**
+   * Whether a deterministic replay of this run's action log reproduced the
+   * live sim-side score. `true` = replay matched. `false` = mismatch (likely
+   * tampered state or dropped action). `undefined` on legacy runs scored
+   * before the action log was wired.
+   */
+  verified?: boolean;
 };
 
 
