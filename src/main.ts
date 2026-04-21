@@ -7,6 +7,7 @@ import { deriveKey, sealStorageKey, verifyStorageKey, markTampered, getTamperSta
 import './entropy';
 import { Sparkline } from './sparkline';
 import { getDailyChallenge, getWeeklyChallenge, evaluateChallenge, saveChallengeResult, loadChallengeResults, type ChallengeDef } from './challenges';
+import { listScenarios, saveScenarioResult, loadScenarioResults, type ScenarioDef } from './scenarios';
 import { applyTranslations, getLanguage, loadLanguage, populateLanguageSelect, setLanguage, t, type Lang } from './i18n';
 
 type ThemeMode = 'system' | 'light' | 'dark';
@@ -226,6 +227,13 @@ type UIRefs = {
   btnStartDaily: HTMLButtonElement;
   btnStartWeekly: HTMLButtonElement;
   challengeResults: HTMLElement;
+
+  // Scenarios (v0.3.0)
+  scenarioList: HTMLElement;
+
+  // End-of-run grade (v0.3.0)
+  endRunGrade: HTMLElement;
+  endRunGradeCallouts: HTMLElement;
 };
 
 
@@ -236,6 +244,10 @@ const sim = new GameSim();
 const IS_E2E = (import.meta as any).env?.VITE_E2E === '1';
 (window as any).__E2E__ = IS_E2E;
 if (IS_E2E) document.documentElement.classList.add('e2e');
+
+// E2E test hook: expose the sim so scripted tests can fast-forward deterministically
+// without waiting on the 1 Hz wall-clock tick loop. Never exposed in production.
+if (IS_E2E) (window as any).__SIM__ = sim;
 
 const refs = bindUI();
 if (IS_E2E) refs.seedInput.value = '12345';
@@ -813,12 +825,13 @@ function renderTickets() {
     const titleHtml = renderTicketTitleHtml(ticket);
     const sevClass = ticket.severity === 3 ? 'sev-critical' : ticket.severity === 2 ? 'sev-medium' : 'sev-low';
     const deferredClass = ticket.deferred ? 'is-deferred' : '';
+    const reasonAttr = ticket.reason ? ` title="${escapeHtml(ticket.reason)}" data-reason="${escapeHtml(ticket.reason)}"` : '';
     return `
-      <div class="ticket ${isArch ? 'is-arch' : ''} ${isExpanded ? 'is-expanded' : ''} ${sevClass} ${deferredClass}">
+      <div class="ticket ${isArch ? 'is-arch' : ''} ${isExpanded ? 'is-expanded' : ''} ${sevClass} ${deferredClass}"${reasonAttr}>
         <div class="ticketMain">
           <div class="ticketTitle"><span class="badge ${ticket.severity === 3 ? 's3' : ticket.severity === 2 ? 's2' : ticket.severity === 1 ? 's1' : 's0'}">${sev}</span> <span class="ticketTitleText" dir="auto">${titleHtml}</span></div>
           ${!isArch ? `<button class="ticketTitleToggle" data-toggle-title="${ticket.id}" ${isExpanded ? '' : 'hidden'} aria-expanded="${isExpanded ? 'true' : 'false'}">${isExpanded ? t('ticket.collapseTitle') : t('ticket.expandTitle')}</button>` : ''}
-          <div class="ticketMeta"><span>${ticket.category}</span><span>${t('ticket.impact', { impact: ticket.impact })}</span><span>${t('ticket.age', { minutes: age })}</span>${ticket.deferred ? `<span class="badge">${t('ticket.deferred')}</span>` : ''}</div>
+          <div class="ticketMeta"><span>${ticket.category}</span><span>${t('ticket.impact', { impact: ticket.impact })}</span><span>${t('ticket.age', { minutes: age })}</span>${ticket.deferred ? `<span class="badge">${t('ticket.deferred')}</span>` : ''}${ticket.reason ? `<span class="badge ticketReason" aria-label="Why it fired">ⓘ</span>` : ''}</div>
         </div>
         <div class="ticketBtns">
           <button class="btn filled ${canFix ? '' : 'is-disabled'}" data-fix="${ticket.id}" ${canFix ? '' : 'disabled'}>${fixLabel}</button>
@@ -1090,6 +1103,57 @@ refs.btnStartWeekly.onclick = () => startChallenge(getWeeklyChallenge());
 
 renderChallenges();
 
+// --- Scenarios (Release Trains) --------------------------------------------
+let activeScenario: ScenarioDef | null = null;
+
+function renderScenarios() {
+  const scenarios = listScenarios();
+  const results = loadScenarioResults();
+  const html = scenarios.map(s => {
+    const completed = results.some(r => r.scenarioId === s.id && r.completed);
+    const badge = completed ? ' ✓' : '';
+    return `
+      <div class="scenarioRow" data-scenario-id="${escapeHtml(s.id)}">
+        <div>
+          <div class="k">${escapeHtml(s.title)}${badge}</div>
+          <div class="small muted" style="margin-top:4px;">${escapeHtml(s.brief)}</div>
+          <div class="small mono" style="margin-top:4px;">${escapeHtml(s.preset)} • seed ${s.seed} • bonus x${s.bonusMultiplier.toFixed(2)}</div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <button class="btn tonal" data-start-scenario="${escapeHtml(s.id)}">Start</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  setHTML(refs.scenarioList, html);
+
+  refs.scenarioList.querySelectorAll<HTMLButtonElement>('button[data-start-scenario]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = (e.currentTarget as HTMLElement).getAttribute('data-start-scenario');
+      const scenario = scenarios.find(x => x.id === id);
+      if (scenario) startScenario(scenario);
+    });
+  });
+}
+
+function startScenario(scenario: ScenarioDef) {
+  activeScenario = scenario;
+  sim.running = false;
+  refs.presetSelect.value = scenario.preset;
+  ach.setPreset(scenario.preset);
+  sim.loadScenario(
+    { id: scenario.id, seed: scenario.seed, preset: scenario.preset, incidentScript: scenario.incidentScript },
+    getCanvasBounds()
+  );
+  refs.seedInput.value = String(scenario.seed);
+  sparkRating.reset(); sparkFail.reset(); sparkJank.reset(); sparkHeap.reset();
+  fitToView();
+  sim.running = true;
+  syncUI();
+}
+
+renderScenarios();
+
 // --- Welcome modal (first visit only) -------------------------------------
 const WELCOME_KEY = 'asr:welcomed:v1';
 if (!IS_E2E && !localStorage.getItem(WELCOME_KEY)) {
@@ -1149,6 +1213,16 @@ function showEndRunModal() {
     refs.endRunBonuses.textContent = run.bonuses.map(b => `+${Math.round(b.pct * 100)}% ${b.label}`).join('\n');
   } else {
     refs.endRunBonuses.textContent = '';
+  }
+
+  // Postmortem grade letter + callouts (v0.3.0)
+  const grade = sim.getLastGrade();
+  if (grade) {
+    refs.endRunGrade.textContent = grade.letter;
+    refs.endRunGradeCallouts.textContent = grade.callouts.join('\n');
+  } else {
+    refs.endRunGrade.textContent = '-';
+    refs.endRunGradeCallouts.textContent = '';
   }
 
   openModal(refs.endRunModal);
@@ -1853,6 +1927,30 @@ function syncUI() {
         activeChallenge = null;
         renderChallenges();
       }
+
+      // Evaluate active scenario
+      if (activeScenario && s.lastRun.seed === activeScenario.seed) {
+        const goal = activeScenario.goal;
+        let completed = s.lastRun.endReason === 'SHIFT_COMPLETE';
+        if (completed) {
+          if (goal.kind === 'RATING') completed = s.lastRun.rating >= goal.threshold;
+          else if (goal.kind === 'ZERO_DEBT') completed = Math.round(s.lastRun.architectureDebt) === 0;
+          else if (goal.kind === 'NO_CRASH_TICKETS') {
+            completed = !sim.tickets.some(t => t.kind === 'CRASH_SPIKE');
+          } else if (goal.kind === 'COMPLIANCE') {
+            const r = sim.getRegions().find(x => x.code === goal.region);
+            completed = (r?.compliance ?? 0) >= goal.threshold;
+          }
+        }
+        saveScenarioResult({
+          scenarioId: activeScenario.id,
+          completed,
+          finalScore: Math.round(s.lastRun.finalScore * (completed ? activeScenario.bonusMultiplier : 1)),
+          endedAtTs: s.lastRun.endedAtTs,
+        });
+        activeScenario = null;
+        renderScenarios();
+      }
     }
   } else {
     refs.postmortem.textContent = t('history.noRun');
@@ -2074,6 +2172,10 @@ function bindUI(): UIRefs {
     btnStartDaily: must<HTMLButtonElement>('btnStartDaily'),
     btnStartWeekly: must<HTMLButtonElement>('btnStartWeekly'),
     challengeResults: must('challengeResults'),
+
+    scenarioList: must('scenarioList'),
+    endRunGrade: must('endRunGrade'),
+    endRunGradeCallouts: must('endRunGradeCallouts'),
   };
 }
 

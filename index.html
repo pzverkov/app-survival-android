@@ -171,6 +171,12 @@
           <pre class="small" id="challengeResults" style="margin-top:8px;"></pre>
         </section>
 
+        <section class="card" id="scenariosCard">
+          <div class="k">Release Trains</div>
+          <div class="small muted" style="margin-top:6px;">Scripted shifts with pinned seeds and incident timelines. End-of-run postmortem earns a grade letter (S → D).</div>
+          <div id="scenarioList" style="margin-top:10px; display:flex; flex-direction:column; gap:10px;"></div>
+        </section>
+
         <section class="card">
           <div class="k" data-i18n="card.achievements">Achievements</div>
           <div class="small" style="margin-top:8px;">
@@ -417,9 +423,16 @@
       <div class="modalBackdrop" id="endRunBackdrop"></div>
       <div class="modalPanel card endRunPanel">
         <h2 id="endRunTitle" class="endRun-title">Run Complete</h2>
-        <div class="endRun-score">
-          <div class="k">Final Score</div>
-          <div id="endRunScore" class="endRun-hero mono">0</div>
+        <div class="endRun-score" style="display:flex; gap:16px; align-items:center; justify-content:center;">
+          <div>
+            <div class="k">Final Score</div>
+            <div id="endRunScore" class="endRun-hero mono">0</div>
+          </div>
+          <div>
+            <div class="k">Postmortem</div>
+            <div id="endRunGrade" class="endRun-hero mono">-</div>
+            <div id="endRunGradeCallouts" class="small" style="margin-top:6px;"></div>
+          </div>
         </div>
         <div id="endRunBreakdown" class="small mono" style="margin-top:var(--space-3);"></div>
         <div class="metricsGrid" style="margin-top:var(--space-4); grid-template-columns: repeat(4, 1fr);">
