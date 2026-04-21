@@ -134,7 +134,7 @@ export class GameSim {
 
   // PlatformPulse
   platform: PlatformState = {
-    latestApi: 35,
+    latestApi: 37,
     minApi: 26,
     oldDeviceShare: 0.28,
     lowRamShare: 0.30,
@@ -281,7 +281,7 @@ export class GameSim {
 
     // PlatformPulse
     this.platform = {
-      latestApi: 35,
+      latestApi: 37,
       minApi: 26,
       oldDeviceShare: 0.28,
       lowRamShare: 0.30,

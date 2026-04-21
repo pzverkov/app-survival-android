@@ -3,21 +3,21 @@ import { tickPlatformPulse, tickCoverageGate, computeRegionTarget } from '../../
 
 describe('PlatformPulse', () => {
   it('decays old device share over time', () => {
-    const platform = { latestApi: 35, minApi: 26, oldDeviceShare: 0.28, lowRamShare: 0.30, pressure: 0 };
+    const platform = { latestApi: 37, minApi: 26, oldDeviceShare: 0.28, lowRamShare: 0.30, pressure: 0 };
     const result = tickPlatformPulse(platform, 1, () => 0.5);
     expect(result.platform.oldDeviceShare).toBeLessThan(0.28);
     expect(result.platform.lowRamShare).toBeLessThan(0.30);
   });
 
   it('triggers new API release at correct interval', () => {
-    const platform = { latestApi: 35, minApi: 26, oldDeviceShare: 0.28, lowRamShare: 0.30, pressure: 0 };
+    const platform = { latestApi: 37, minApi: 26, oldDeviceShare: 0.28, lowRamShare: 0.30, pressure: 0 };
     const result = tickPlatformPulse(platform, 180, () => 0.1); // rand < 0.35
     expect(result.newApiReleased).toBe(true);
-    expect(result.platform.latestApi).toBe(36);
+    expect(result.platform.latestApi).toBe(38);
   });
 
   it('does not trigger API release when rand is high', () => {
-    const platform = { latestApi: 35, minApi: 26, oldDeviceShare: 0.28, lowRamShare: 0.30, pressure: 0 };
+    const platform = { latestApi: 37, minApi: 26, oldDeviceShare: 0.28, lowRamShare: 0.30, pressure: 0 };
     const result = tickPlatformPulse(platform, 180, () => 0.9);
     expect(result.newApiReleased).toBe(false);
   });
