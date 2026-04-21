@@ -6,6 +6,7 @@ import {
   markTampered,
   getTamperState,
   onTamperDetected,
+  clearTamperIf,
   isScoreSane,
   _resetForTest,
 } from '../../src/integrity';
@@ -74,6 +75,31 @@ describe('tamper flag', () => {
     onTamperDetected(() => { called = true; });
     markTampered('test');
     expect(called).toBe(true);
+  });
+
+  it('clearTamperIf clears when reason matches', () => {
+    markTampered('scoreboard');
+    clearTamperIf('scoreboard');
+    expect(getTamperState().tampered).toBe(false);
+    expect(getTamperState().reason).toBeNull();
+  });
+
+  it('clearTamperIf is a no-op when reason does not match', () => {
+    markTampered('runtime');
+    clearTamperIf(['scoreboard', 'score']);
+    expect(getTamperState().tampered).toBe(true);
+    expect(getTamperState().reason).toBe('runtime');
+  });
+
+  it('clearTamperIf accepts an array of reasons', () => {
+    markTampered('score');
+    clearTamperIf(['scoreboard', 'score']);
+    expect(getTamperState().tampered).toBe(false);
+  });
+
+  it('clearTamperIf is a no-op when untampered', () => {
+    clearTamperIf('scoreboard');
+    expect(getTamperState().tampered).toBe(false);
   });
 });
 
