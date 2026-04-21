@@ -27,3 +27,9 @@ Refactor Roadmap
 Preset differentiation (Staff vs Principal)
 - **Staff**: allows architecture violations but taxes you with debt + debt tickets; pragmatic cleanups are rewarded.
 - **Principal**: blocks serious violations (upward deps / big skips) and rewards clean architecture more, but punishes debt harder (your multiplier shrinks with debt).
+
+## Subsystem boundary (codebase)
+
+The codebase itself mirrors this layered thinking. Pure-function subsystems (`src/subsystems.ts`) model world pressure without touching mutable state; `GameSim` is the orchestrator that applies results. New world-pressure logic should land as a subsystem first, with `GameSim` holding a thin wrapper that builds input and writes results back. See [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md#how-to-add-a-new-subsystem) for the step-by-step.
+
+Keeping this boundary clean is the prerequisite for the stated Kotlin/KMP port in the README.
