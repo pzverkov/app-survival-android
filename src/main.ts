@@ -3,7 +3,7 @@ import { GameSim } from './sim';
 import { AchievementsTracker, LocalStorageAchStorage, AchEvent, AchievementUnlock } from './achievements';
 import { addScoreEntry, clearScoreboard, loadScoreboard, sealScoreboard, verifyScoreboard } from './scoreboard';
 import { MODE, Mode, ComponentType, Ticket, EvalPreset, EVAL_PRESET, RefactorAction } from './types';
-import { deriveKey, sealStorageKey, verifyStorageKey, markTampered, getTamperState, isScoreSane, needsMigration, setMigrationDone } from './integrity';
+import { deriveKey, sealStorageKey, verifyStorageKey, markTampered, getTamperState, clearTamperIf, isScoreSane, needsMigration, setMigrationDone } from './integrity';
 import './entropy';
 import { Sparkline } from './sparkline';
 import { getDailyChallenge, getWeeklyChallenge, evaluateChallenge, saveChallengeResult, loadChallengeResults, type ChallengeDef } from './challenges';
@@ -1366,6 +1366,10 @@ refs.btnCopyRun.onclick = async () => {
 refs.btnClearScoreboard.onclick = () => {
   clearScoreboard();
   integrityKeyPromise.then(key => sealScoreboard(key));
+  // Clearing the scoreboard resolves scoreboard-origin tamper reasons. Other
+  // reasons (achievements, runtime) stay sticky since their data is untouched.
+  clearTamperIf(['scoreboard', 'score']);
+  refs.integrityBadge.hidden = !getTamperState().tampered;
   renderScoreboard();
   toast(t('toast.scoreboardCleared'));
 };

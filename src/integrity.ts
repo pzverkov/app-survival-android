@@ -17,6 +17,21 @@ export function markTampered(reason: string): void {
   for (const cb of listeners) cb();
 }
 
+/**
+ * Clear the tamper flag if its current reason matches one of the given reasons.
+ * Used when the user takes an action that resolves the underlying cause
+ * (e.g. Clear Scoreboard resolves 'scoreboard' and 'score' reasons).
+ * No-op if untampered or if the reason does not match.
+ */
+export function clearTamperIf(reasons: string | string[]): void {
+  if (!tampered) return;
+  const list = Array.isArray(reasons) ? reasons : [reasons];
+  if (tamperReason !== null && list.includes(tamperReason)) {
+    tampered = false;
+    tamperReason = null;
+  }
+}
+
 export function getTamperState(): { tampered: boolean; reason: string | null } {
   return { tampered, reason: tamperReason };
 }
