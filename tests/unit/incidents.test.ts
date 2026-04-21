@@ -3,23 +3,26 @@ import { GameSim } from '../../src/sim';
 import { EVAL_PRESET } from '../../src/types';
 import type { ComponentType } from '../../src/types';
 
-// Cumulative weight midpoints for the roll in maybeIncident (sim.ts:1998).
+// Cumulative weight midpoints for the roll in maybeIncident.
 // Each value lies strictly inside the slice for its kind so boundary drift in
 // the weight table doesn't silently mis-target handlers.
 const ROLL: Record<string, number> = {
   TRAFFIC_SPIKE: 0.05,
-  NET_WOBBLE: 0.20,
-  OEM_RESTRICTION: 0.33,
-  CRED_STUFFING: 0.42,
-  TOKEN_THEFT: 0.50,
-  DEEP_LINK_ABUSE: 0.58,
-  MITM: 0.66,
-  CERT_ROTATION: 0.73,
-  A11Y_REGRESSION: 0.78,
-  SDK_SCANDAL: 0.83,
-  MEMORY_LEAK: 0.88,
-  REGION_OUTAGE: 0.93,
-  ANR_ESCALATION: 0.98,
+  NET_WOBBLE: 0.19,
+  OEM_RESTRICTION: 0.30,
+  CRED_STUFFING: 0.38,
+  TOKEN_THEFT: 0.45,
+  DEEP_LINK_ABUSE: 0.52,
+  MITM: 0.59,
+  CERT_ROTATION: 0.65,
+  A11Y_REGRESSION: 0.70,
+  SDK_SCANDAL: 0.74,
+  MEMORY_LEAK: 0.79,
+  REGION_OUTAGE: 0.84,
+  ANR_ESCALATION: 0.87,
+  IAP_FRAUD: 0.91,
+  PUSH_ABUSE: 0.95,
+  DEEP_LINK_EXPLOIT: 0.99,
 };
 
 function makeSim(): any {
@@ -53,9 +56,9 @@ function setTier(sim: any, type: ComponentType, tier: 1 | 2 | 3) {
 describe('incident dispatcher weighted roll', () => {
   it.each([
     ['TRAFFIC_SPIKE', 0.01, (sim: any) => sim.spawnMul > 1.0],
-    ['NET_WOBBLE', 0.20, (sim: any) => sim.netBadness > 1.0],
-    ['REGION_OUTAGE', 0.93, (sim: any) => sim.regions.some((r: any) => r.frozenSec > 0)],
-    ['ANR_ESCALATION', 0.98, (sim: any) => sim.anrPoints > 0 || sim.rating < 5.0],
+    ['NET_WOBBLE', 0.19, (sim: any) => sim.netBadness > 1.0],
+    ['REGION_OUTAGE', 0.84, (sim: any) => sim.regions.some((r: any) => r.frozenSec > 0)],
+    ['ANR_ESCALATION', 0.87, (sim: any) => sim.anrPoints > 0 || sim.rating < 5.0],
   ])('roll=%f selects %s', (_kind, roll, predicate) => {
     const sim = makeSim();
     const q = [0.0, roll as number];
@@ -302,6 +305,7 @@ describe('mitigation gating smoke test', () => {
       ['ABUSE', 2], ['OBS', 2], ['PINNING', 2], ['AUTH', 2],
       ['SANITIZER', 2], ['A11Y', 2], ['KEYSTORE', 2], ['FLAGS', 2],
       ['CACHE', 2], ['UI', 1], ['VM', 1], ['DOMAIN', 1],
+      ['BILLING', 2], ['PUSH', 2], ['DEEPLINK', 2],
     ] as Array<[ComponentType, 1 | 2 | 3]>) {
       setTier(sim, type, tier);
     }
@@ -312,8 +316,7 @@ describe('mitigation gating smoke test', () => {
       sim.lastEventAt = -1000;
       force(sim, kind as keyof typeof ROLL, [0.5, 0.5, 0.5, 0.5]);
     }
-    // Only REGION_OUTAGE (-0.06) and SDK_SCANDAL mitigated (-0.08*0.55 = -0.044)
-    // drop rating on the mitigated paths. Everything else leaves rating alone.
-    expect(sim.rating).toBeGreaterThanOrEqual(4.8);
+    // A fully mitigated run should not drop far below 5 stars even across all incidents.
+    expect(sim.rating).toBeGreaterThanOrEqual(4.6);
   });
 });

@@ -1498,6 +1498,10 @@ const COMP_COLORS: Record<string, string> = {
   OBS: 'rgba(255,200,80,0.65)', FLAGS: 'rgba(255,200,80,0.60)',
   // Accessibility (green)
   A11Y: 'rgba(140,230,140,0.65)',
+  // v0.3.0 new surfaces
+  BILLING: 'rgba(180,140,255,0.55)',     // security/monetization purple
+  PUSH: 'rgba(100,160,255,0.55)',        // core pipeline blue
+  DEEPLINK: 'rgba(255,200,80,0.58)',     // sidecar amber
 };
 
 const MONO_FONT = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New"';

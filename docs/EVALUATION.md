@@ -8,6 +8,8 @@ Maintain rating at or above 4.2 for 3 to 5 minutes under incident and policy pre
 Reproducibility and sharing
 - Use a fixed **Seed** (or the **Daily** seed) so reviewers can reproduce the same run.
 - At the end of a run, use **Copy run JSON** and include it with your notes (or paste it in an issue) to make feedback concrete.
+- The end-of-run modal shows a **postmortem grade** (S → D) that rolls up time-to-mitigate, root-cause alignment, and prevention into a single letter. Use it as a starting point for the debrief rather than a verdict.
+- For interview drills, consider a **scenario** instead of a free-seed run: it pins the incident timeline so every candidate faces the same sequence. See [SCENARIOS.md](./SCENARIOS.md).
 
 Suggested format
 1 Briefing

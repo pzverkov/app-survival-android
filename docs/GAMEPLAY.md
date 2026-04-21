@@ -12,8 +12,23 @@ Scoring
 
 Incidents, tickets, and postmortems
 - Incidents are appended to the **Incidents** log.
-- When a run ends, a **Postmortem** appears with a brief summary and key metrics.
+- When a run ends, a **Postmortem** appears with a brief summary, key metrics,
+  and a **grade letter** (S → D) that rolls up time-to-mitigate,
+  root-cause alignment, and prevention signals from the run's event stream.
 - Use **Copy run JSON** to export a structured run report (seed, duration, score, end reason, etc.).
+
+Tickets and the cross-check gate
+- Signal-driven tickets (crash spike, jank, heap, etc.) now run through a
+  cross-check gate. A ticket fires when its primary signal is corroborated by
+  an independent signal (coverage drift, OBS tier, region pressure, etc.)
+  **or** when the primary signal has been sustained for a preset-specific
+  debounce window (3 ticks on Junior/Mid, 2 on Senior/Staff, 1 on Principal).
+- Severity-3 signals (crash spike, ANR risk, security exposure) keep a direct
+  escape hatch — they fire immediately on the primary signal.
+- OBS tier ≥ 2 lowers the corroboration bar by one signal, so observability
+  investment keeps paying back into incident response.
+- Every gated ticket carries a human-readable `reason` string the UI can
+  surface on hover.
 
 Deterministic seeds (reproducible runs)
 - Set a **Seed** (number) and press **Reset** to start a deterministic run.
@@ -34,11 +49,20 @@ Capacity and pacing
 - Capacity recovers faster mid-run to avoid “stagnation valley” after the first incident waves.
 - Under heavy backlog pressure, recovery improves slightly to prevent runaway death spirals while still punishing neglect.
 - Tactical purchases exist to recover from spikes, but they are designed as utility (bounded, non-stacking, scaling cost) rather than permanent compounding power.
+- **Burnout**: if capacity is crushed to zero three or more times within 90 seconds, a **BURNOUT** ticket spawns and saps regen until it is fixed. Treat it like any other ticket — fixing clears the penalty and grants a short adrenaline burst. This creates a real triage decision in incident-heavy runs.
 
 Unlockable shop items (achievement-gated)
 Some shop items are unlocked via achievements and are tuned to avoid snowballing:
 - Energy drink: temporary regen boost, **non-stacking**, with **increasing cost** per use.
 - Incident shield: **single charge max**, expensive, mitigates the next incident spike rather than deleting risk entirely.
+
+Scenarios (Release Trains)
+- Release Trains are scripted shifts that pin seed + preset + an incident
+  timeline. Two players running the same scenario see the same incidents at
+  the same ticks.
+- Three launch scenarios ship with v0.3.0 — see [SCENARIOS.md](./SCENARIOS.md).
+- Completed scenario runs earn a bonus multiplier (1.35×–1.45×) and are saved
+  to `localStorage` under `asr:scenarios:v1`.
 
 Challenges (daily and weekly)
 - **Daily challenges** rotate by UTC date. Each has a fixed seed, preset, and constraint (e.g. "no refills", "zero debt at end", "rating >= 4.5"). Completing the constraint earns a bonus multiplier (1.15x-1.30x).

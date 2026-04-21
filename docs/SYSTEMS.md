@@ -30,9 +30,17 @@ These systems intentionally interact. There are no free lunches.
 
 - PolicyGates: Regional rollout freezes when compliance is critical. Frozen regions reduce effective traffic and earnings until you stabilize.
 
-- Cascading failures: OOM crashes now spike ANR points (process restart stalls the main thread). When 3+ incidents fire within 60 seconds, compound damage applies (extra rating penalty and support load per additional incident).
+- Cascading failures: OOM crashes now spike ANR points (process restart stalls the main thread). When 3+ incidents fire within 60 seconds, compound damage applies (extra rating penalty and support load per additional incident). Play Integrity (ABUSE + AUTH tier ≥ 2) dampens IAP_FRAUD and CRED_STUFFING by 40%.
 
-- CoverageGate: A simplified Android test coverage proxy. Coverage drifts down as complexity and churn rise. Below threshold increases regression risk and opens coverage debt tickets.
+- CoverageGate: A simplified Android test coverage proxy. Coverage drifts down as complexity and churn rise. Below threshold increases regression risk and opens coverage debt tickets. A flaky-test-rate layer can mask regressions into prod even when coverage % looks healthy.
+
+- CrossCheck (v0.3.0): Pure-function gate between signal detection and ticket creation. Requires corroborating signals (or preset-specific debounce) before firing severity ≤ 2 tickets. OBS tier ≥ 2 lowers the corroboration bar. Every gated ticket carries a human-readable reason string.
+
+- BaselineProfile / R8 / App Bundle split (v0.3.0): One-time purchases that represent Android build-system investments. Baseline Profile reduces jank by ~15%; R8 by another ~8%; App Bundle split delivery (unlocks later) mitigates apk-size pressure on device.
+
+- OnCall burnout (v0.3.0): When capacity is crushed to zero three or more times within 90s, a BURNOUT ticket spawns and saps regen until fixed. Forces a real triage decision in incident-heavy shifts.
+
+- Release Trains (v0.3.0): Scripted scenarios layered on top of everything above. See [SCENARIOS.md](./SCENARIOS.md).
 
 Presets adjust expectations:
 - **Junior & Mid preset** is forgiving

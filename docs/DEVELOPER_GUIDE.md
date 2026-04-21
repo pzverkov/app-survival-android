@@ -148,6 +148,27 @@ Subsystems are pure functions that model a slice of world state (platform drift,
 
 Subsystem extraction is the long-term direction for the KMP port. See [ARCHITECTURE_RULES.md](./ARCHITECTURE_RULES.md) for the layered model the game itself models.
 
+## How to add a new scenario
+
+Scenarios are scripted shifts defined as pure data in `src/scenarios.ts`. They
+pin a seed, preset, and an ordered list of incident markers; the sim's
+`maybeIncident` detects scripted ticks and fires the marker directly without
+consuming rand() for selection, so the same scenario always plays the same
+timeline.
+
+1. **Pick a seed.** Use a deterministic constant (e.g. `0xCAD0000 | 0`) rather
+   than a "random-looking" literal. The seed controls everything outside the
+   incident script — background pressure, region targets, review waves.
+2. **Write the incident script.** Each `{ atSec, kind }` marker fires at that
+   exact tick. Space markers at least 30–60 seconds apart so the player has
+   time to react.
+3. **Pick a goal type** from `ScenarioGoal` (`RATING`, `COMPLIANCE`,
+   `ZERO_DEBT`, `NO_CRASH_TICKETS`). Bonus multipliers should reflect
+   difficulty — 1.35× for Senior, 1.40× for Staff, 1.45× for Principal.
+4. **Add the entry to `SCENARIOS`**, update [SCENARIOS.md](./SCENARIOS.md),
+   and add a determinism test (two runs at the same scenario must produce
+   identical event streams — see `tests/unit/scenarios.test.ts`).
+
 ## How to add a new achievement
 
 1. **Add an entry to the array returned by `achievementCatalog()` in `src/achievements.ts`.**

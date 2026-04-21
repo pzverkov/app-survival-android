@@ -2,12 +2,22 @@
 
 ## Test suites
 
-**Unit tests (Vitest)**: 37 tests across 7 test files covering:
-- Simulation subsystems (PlatformPulse, CoverageGate, RegMatrix) as pure functions
+**Unit tests (Vitest)**: 129 tests covering:
+- Simulation subsystems (PlatformPulse, CoverageGate, RegMatrix, CrossCheck, BaselineProfile, PlayIntegrity, RolloutPhase, RegionCoupling) as pure functions
 - Scoring system (asymmetric bonuses, failure penalties)
+- Ticket cross-check gate (multi-signal corroboration, OBS discount, preset debounce)
+- Incident dispatcher determinism (seeded fingerprint after 600 ticks)
 - Achievement progression and unlock rules
 - Integrity module (HMAC sign/verify, tamper detection, score sanity)
 - Entropy pool (seed generation quality)
+- Scenario replay determinism (identical event streams across runs)
+- On-call burnout accrual + ticket mechanics
+- Postmortem grading (S→D bands, root-cause matching, callout rendering)
+- v0.3.0 release gate (bounded invariants across Junior/Senior/Staff/Principal)
+
+Run just the release gate with `npm run test:unit -- release-gate` — a ~1s
+cross-preset smoke check that is the recommended "is this branch shippable?"
+single command.
 
 **E2E tests (Playwright)**: 7 tests covering core game flows:
 - App loads and time advances

@@ -41,22 +41,22 @@ describe('incident dispatcher determinism', () => {
 
     expect(fp).toMatchInlineSnapshot(`
       {
-        "a11yScore": 65.9945,
-        "anrPoints": 21.6,
-        "budget": 2289.416666666666,
-        "heapMb": 209.85,
-        "incidentCount": 0,
-        "netBadness": 0.5274,
-        "privacyTrust": 61.1575,
+        "a11yScore": 32.8226,
+        "anrPoints": 130.5,
+        "budget": 0,
+        "heapMb": 204.79,
+        "incidentCount": 24,
+        "netBadness": 0.2082,
+        "privacyTrust": 25.0679,
         "rating": 1,
-        "regionCompliance": "43,45,45,47,45",
+        "regionCompliance": "35,35,31,34,34",
         "regionFrozen": "44,44,44,44,44",
-        "securityPosture": 37.3524,
-        "spawnMul": 0.6649,
+        "securityPosture": 0,
+        "spawnMul": 0.0177,
         "supportLoad": 100,
-        "ticketKinds": "A11Y_REGRESSION,ANR_RISK,ARCHITECTURE_DEBT,COMPAT_ANDROID,COMPLIANCE_EU,COMPLIANCE_UK,COMPLIANCE_US,JANK,PRIVACY_COMPLAINTS,SECURITY_EXPOSURE,TEST_COVERAGE",
+        "ticketKinds": "A11Y_REGRESSION,ANR_RISK,ARCHITECTURE_DEBT,COMPLIANCE_EU,COMPLIANCE_UK,COMPLIANCE_US,JANK,PRIVACY_COMPLAINTS,SECURITY_EXPOSURE,STORE_REJECTION,TEST_COVERAGE",
         "timeSec": 600,
-        "workRestriction": 1,
+        "workRestriction": 0.3165,
       }
     `);
   });
