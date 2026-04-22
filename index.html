@@ -98,10 +98,14 @@
           </div>
         </div>
         <div class="canvasHud canvasHud--backlog" role="region" aria-label="Backlog">
-          <section class="card" id="backlogCard">
-            <div class="k" data-i18n="nav.backlog">Backlog</div>
-            <div id="ticketList" class="ticketList" style="margin-top:10px;"></div>
-          </section>
+          <details class="card" id="backlogDetails">
+            <summary class="backlogSummary">
+              <span class="backlogSummary-k" data-i18n="nav.backlog">Backlog</span>
+              <span class="backlogSummary-chips" id="backlogSummaryChips" aria-hidden="true"></span>
+              <span class="backlogSummary-caret" aria-hidden="true">▸</span>
+            </summary>
+            <div id="ticketList" class="ticketList"></div>
+          </details>
         </div>
         <!-- Incident response: shown briefly when a new incident hits -->
         <div id="incidentOverlay" class="incidentOverlay" hidden aria-live="polite" aria-atomic="true">
@@ -125,26 +129,7 @@
         <div class="sideHeader">
           <h1><span data-i18n="app.title">App Survival: Android Release Night</span> <span class="badge" data-i18n="app.badge">M3 • TS + Vite</span></h1>
 
-          <div class="row">
-            <button id="btnStart" class="btn filled" data-i18n-title="btn.start" title="Start">
-              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-              <span class="btn-label" data-i18n="btn.start">Start</span>
-            </button>
-            <button id="btnPause" class="btn tonal" data-i18n-title="btn.pause" title="Pause">
-              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-              <span class="btn-label" data-i18n="btn.pause">Pause</span>
-            </button>
-            <button id="btnReset" class="btn outlined" data-i18n-title="btn.reset" title="Reset">
-              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
-              <span class="btn-label" data-i18n="btn.reset">Reset</span>
-            </button>
-            <button id="btnProfile" class="btn outlined" data-i18n-title="btn.profileTitle" title="Profile & achievements">
-              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-              <span class="btn-label" data-i18n="btn.profile">Profile</span>
-            </button>
-          </div>
-
-          <div class="row" style="margin-top:10px; align-items:center;">
+          <div class="row" style="align-items:center;">
             <span class="pill" id="modePill"><span data-i18n="mode.label">Mode:</span> <b data-i18n="mode.select">Select</b></span>
             <div class="row segmented" role="group" aria-label="Mode" style="margin-left:auto;">
               <button id="btnSelect" class="btn text is-selected" data-i18n-title="mode.select" title="Select">
@@ -189,6 +174,25 @@
               <span id="comboIndicator" class="pill pill-combo" hidden>COMBO x1</span>
             </div>
           </section>
+
+          <div class="row" style="margin-top:10px;">
+            <button id="btnStart" class="btn filled" data-i18n-title="btn.start" title="Start">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+              <span class="btn-label" data-i18n="btn.start">Start</span>
+            </button>
+            <button id="btnPause" class="btn tonal" data-i18n-title="btn.pause" title="Pause">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+              <span class="btn-label" data-i18n="btn.pause">Pause</span>
+            </button>
+            <button id="btnReset" class="btn outlined" data-i18n-title="btn.reset" title="Reset">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+              <span class="btn-label" data-i18n="btn.reset">Reset</span>
+            </button>
+            <button id="btnProfile" class="btn outlined" data-i18n-title="btn.profileTitle" title="Profile & achievements">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+              <span class="btn-label" data-i18n="btn.profile">Profile</span>
+            </button>
+          </div>
         </div>
 
         <div id="sideBody" class="sideBody">

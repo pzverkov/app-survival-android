@@ -218,6 +218,11 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'toast.noRoadmapTicket': 'No architecture debt ticket to refactor',
 
     'backlog.noTickets': 'No open tickets',
+    'backlog.summary.total': '{n} open',
+    'backlog.summary.deferred': '{n} deferred',
+    'backlog.open': 'Open backlog',
+    'backlog.close': 'Close backlog',
+    'ticket.more': 'More actions',
     'ticket.fix': 'Fix ({effort})',
     'ticket.need': 'Need {effort}',
     'ticket.defer': 'Defer',

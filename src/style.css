@@ -480,17 +480,143 @@ button, input, select, textarea {
   overflow: hidden;
 }
 
-.canvasHud--backlog #backlogCard {
+.canvasHud--backlog #backlogDetails {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .canvasHud--backlog .ticketList {
   overflow-y: auto;
   max-height: min(48vh, 420px);
-  padding-right: 4px;
+  padding: 10px 4px 2px 0;
   grid-template-columns: 1fr;
+}
+
+.backlogSummary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 2px;
+  outline: none;
+}
+.backlogSummary::-webkit-details-marker { display: none; }
+
+.backlogSummary-k {
+  font-size: var(--type-label-size);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.backlogSummary-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.backlogSummary-total {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface);
+}
+
+.backlogSummary-chip {
+  font-size: 11px;
+  padding: 0 8px;
+}
+
+.backlogSummary-chip--muted {
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.85;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  background: transparent;
+  padding: 0 8px;
+  border-radius: 999px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.backlogSummary-empty {
+  flex: 1 1 auto;
+}
+
+.backlogSummary-caret {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--md-sys-color-on-surface-variant);
+  transition: transform 160ms ease;
+}
+
+#backlogDetails[open] .backlogSummary-caret {
+  transform: rotate(90deg);
+}
+
+.backlogSummary:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--md-sys-color-primary) 50%, transparent);
+  border-radius: 10px;
+}
+
+/* Ticket meta chip strip + overflow menu */
+.ticketMetaChip {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1;
+  background: color-mix(in oklab, var(--md-sys-color-surface-container-highest) 70%, transparent);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  color: var(--md-sys-color-on-surface-variant);
+  white-space: nowrap;
+}
+
+.badge.ticketMetaChip {
+  padding: 0 8px;
+}
+
+.ticket {
+  position: relative;
+}
+
+.ticketOverflow {
+  min-width: 36px;
+  padding: 6px 10px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.ticketMenu {
+  flex: 1 0 100%;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 8px;
+  background: color-mix(in oklab, var(--md-sys-color-surface-container-highest) 80%, transparent);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px;
+}
+
+.ticketMenu[hidden] { display: none; }
+
+.ticketMenu .btn {
+  flex: 1 1 auto;
 }
 
 .btn.hud {
@@ -1252,6 +1378,7 @@ select:focus-visible {
 
 .ticket {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 10px;
   border-radius: 14px;
