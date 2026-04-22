@@ -532,8 +532,14 @@ let tickHandle: number | null = null;
 let uiPending = false;
 let lastTicketsSig = '';
 let lastRegionsSig = '';
+let lastBacklogSummarySig = '';
 let lastTicketsRenderMs = 0;
 let lastRegionsRenderMs = 0;
+
+// Which ticket has its overflow menu open, if any. Persisted across the 1Hz
+// re-renders so the menu doesn't flicker closed when renderTickets rewrites
+// the list via innerHTML.
+let openTicketMenuId: number | null = null;
 
 // Ticket title expand/collapse state (kept across re-renders).
 // Only used for non-architecture tickets (architecture debt titles are always fully visible).
@@ -642,14 +648,28 @@ function toast(msg: string) {
   }, 1100);
 }
 
-function closeAllTicketMenus(except?: HTMLElement) {
+function closeAllTicketMenus() {
+  openTicketMenuId = null;
   refs.ticketList.querySelectorAll<HTMLElement>('.ticketMenu').forEach((m) => {
-    if (m === except) return;
     if (!m.hidden) m.hidden = true;
   });
   refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-overflow]').forEach((b) => {
     b.setAttribute('aria-expanded', 'false');
   });
+}
+
+// Re-open the menu the user had open before the last innerHTML rewrite.
+function restoreOpenTicketMenu() {
+  if (openTicketMenuId === null) return;
+  const btn = refs.ticketList.querySelector<HTMLButtonElement>(`button[data-overflow="${openTicketMenuId}"]`);
+  const menu = btn?.closest('.ticket')?.querySelector<HTMLElement>('.ticketMenu');
+  if (!btn || !menu) {
+    // Ticket was resolved/removed; clear the memo.
+    openTicketMenuId = null;
+    return;
+  }
+  menu.hidden = false;
+  btn.setAttribute('aria-expanded', 'true');
 }
 
 document.addEventListener('click', (e) => {
@@ -891,7 +911,6 @@ function renderTickets() {
     else if (tk.severity === 1) totals.s1++;
     else totals.s0++;
   }
-  renderBacklogSummary(totals);
 
   // Auto-open the drawer when tickets appear (so tests & players see them),
   // auto-close when the backlog clears — respecting any manual toggle.
@@ -902,9 +921,20 @@ function renderTickets() {
   }
 
   const nowMs = performance.now();
-  // Include UI locale in the signature so a language switch re-renders ticket copy immediately.
   const langSig = getLanguage();
-  const ticketsSig = tickets.map(t => `${t.id}:${t.severity}:${t.impact}:${Math.floor(t.ageSec)}:${t.deferred ? 1 : 0}`).join('|') + `|lang:${langSig}`;
+
+  // Throttle the summary chips: only the counts (+locale) matter, and we do
+  // not want to repaint the canvas HUD every 1Hz tick.
+  const summarySig = `${totals.s3}:${totals.s2}:${totals.s1}:${totals.s0}:${totals.deferred}:${totals.total}|${langSig}`;
+  if (summarySig !== lastBacklogSummarySig) {
+    lastBacklogSummarySig = summarySig;
+    renderBacklogSummary(totals);
+  }
+
+  // Include UI locale in the signature so a language switch re-renders ticket copy immediately.
+  // Age is displayed in whole minutes, so bucket ageSec by minute — otherwise
+  // we'd trash the ticket DOM (and any open overflow menu) every second.
+  const ticketsSig = tickets.map(t => `${t.id}:${t.severity}:${t.impact}:${Math.floor(t.ageSec / 60)}:${t.deferred ? 1 : 0}`).join('|') + `|lang:${langSig}`;
   // Throttle list DOM work even if we tick at 1Hz
   const allow = (nowMs - lastTicketsRenderMs) > 450;
   if (!allow && ticketsSig === lastTicketsSig) return;
@@ -963,6 +993,7 @@ function renderTickets() {
   refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-defer]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       const id = Number((e.currentTarget as HTMLElement).getAttribute('data-defer'));
+      openTicketMenuId = null;
       sim.deferTicket(id);
       syncUI();
     });
@@ -970,6 +1001,7 @@ function renderTickets() {
   refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-open-refactor]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       const id = Number((e.currentTarget as HTMLElement).getAttribute('data-open-refactor'));
+      openTicketMenuId = null;
       openRefactor(id);
     });
   });
@@ -979,15 +1011,21 @@ function renderTickets() {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const b = e.currentTarget as HTMLButtonElement;
+      const id = Number(b.getAttribute('data-overflow'));
       const card = b.closest('.ticket') as HTMLElement | null;
       const menu = card?.querySelector<HTMLElement>('.ticketMenu');
       if (!menu) return;
       const willOpen = menu.hidden;
       closeAllTicketMenus();
-      menu.hidden = !willOpen;
-      b.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      if (willOpen) {
+        openTicketMenuId = id;
+        menu.hidden = false;
+        b.setAttribute('aria-expanded', 'true');
+      }
     });
   });
+
+  restoreOpenTicketMenu();
 
   // Title expand/collapse (only shown when the 2-line clamp actually truncates)
   refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-toggle-title]').forEach((btn) => {
