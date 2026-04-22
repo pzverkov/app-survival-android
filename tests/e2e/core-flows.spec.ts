@@ -66,3 +66,60 @@ test('score increases after running for a few ticks', async ({ page }) => {
   const score = parseInt(await page.locator('#score').innerText(), 10);
   expect(score).toBeGreaterThan(0);
 });
+
+test('end-run modal does not dismiss on backdrop click', async ({ page }) => {
+  await page.goto('/');
+
+  // Open the end-run modal directly — we're testing the backdrop-click
+  // guard, not the run-ended trigger logic. Setting .hidden = false mirrors
+  // what openModal() does for visibility purposes.
+  await page.evaluate(() => {
+    document.getElementById('endRunModal')!.hidden = false;
+  });
+  await expect(page.locator('#endRunModal')).toBeVisible();
+
+  // Click the backdrop in a corner — the center of the backdrop is covered
+  // by the modal panel. The modal must remain visible after the click.
+  await page.locator('#endRunBackdrop').click({ position: { x: 10, y: 10 } });
+  await expect(page.locator('#endRunModal')).toBeVisible();
+
+  // The explicit Close button still dismisses as expected.
+  await page.click('#endRunDismiss');
+  await expect(page.locator('#endRunModal')).toBeHidden();
+});
+
+test('dashboard scroll drives h1 parallax', async ({ page }) => {
+  await page.goto('/');
+
+  // The parallax writes to --side-scroll on .sideHeader h1 via a rAF-
+  // throttled scroll listener. At rest the ratio is 0 and opacity is 1.
+  const atRest = await page.evaluate(() => {
+    const h1 = document.querySelector('.sideHeader h1') as HTMLElement;
+    return {
+      ratio: h1.style.getPropertyValue('--side-scroll').trim(),
+      opacity: Number(getComputedStyle(h1).opacity),
+    };
+  });
+  expect(atRest.ratio).toBe('0.000');
+  expect(atRest.opacity).toBeCloseTo(1, 1);
+
+  // Scroll well past the 80px parallax saturation point.
+  await page.evaluate(() => {
+    document.getElementById('sideBody')!.scrollTop = 200;
+  });
+  // Allow the rAF callback to fire and the CSS transition to settle.
+  await page.waitForTimeout(300);
+
+  const afterScroll = await page.evaluate(() => {
+    const h1 = document.querySelector('.sideHeader h1') as HTMLElement;
+    return {
+      ratio: Number(h1.style.getPropertyValue('--side-scroll')),
+      opacity: Number(getComputedStyle(h1).opacity),
+    };
+  });
+  // Ratio saturates at 1 once scrollTop exceeds the 80px range.
+  expect(afterScroll.ratio).toBeGreaterThan(0.9);
+  // Opacity at saturation should be ~0.55 (1 - 0.45).
+  expect(afterScroll.opacity).toBeLessThan(0.7);
+  expect(afterScroll.opacity).toBeGreaterThan(0.4);
+});
