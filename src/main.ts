@@ -2378,7 +2378,7 @@ function draw() {
 
 let pulseRafId: number | null = null;
 function ensurePulseLoop() {
-  if (IS_E2E || pulseRafId !== null) return;
+  if (pulseRafId !== null) return;
   const step = () => {
     pulseRafId = null;
     const stillPulsing = sim.running && sim.components.some(n => n.tier === 3 && !n.down);
@@ -2387,6 +2387,16 @@ function ensurePulseLoop() {
     pulseRafId = requestAnimationFrame(step);
   };
   pulseRafId = requestAnimationFrame(step);
+}
+
+// E2E probe: lets the automated visual-smoke spec confirm the pulse loop
+// is active while a tier-3 component is on screen and the sim is running,
+// and that it self-terminates on pause. The sine phase is pinned to 0.5
+// in IS_E2E (see draw()) so the loop running doesn't make snapshots flaky.
+if (IS_E2E) {
+  (window as any).__PULSE__ = {
+    get active() { return pulseRafId !== null; },
+  };
 }
 
 
