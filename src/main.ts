@@ -2224,6 +2224,7 @@ function draw() {
   }
 
   // Components
+  let anyPulsingTier3 = false;
   for (const n of sim.components) {
     const sel = (sim.selectedId === n.id);
     const lf = (sim.linkFromId === n.id);
@@ -2231,12 +2232,27 @@ function draw() {
     const health = n.health / 100;
     const compColor = COMP_COLORS[n.type] ?? 'rgba(100,160,255,0.65)';
 
-    // Tier glow ring (T2 subtle, T3 bright)
+    // Tier glow ring. T2 is a static subtle ring; T3 breathes on a ~0.6Hz
+    // sine so mastered components stand out without strobing — the
+    // lineWidth and alpha modulate together, radius gets a small amount.
     if (n.tier >= 2 && !n.down) {
+      const isT3 = n.tier === 3;
+      let alpha = isT3 ? 0.28 : 0.12;
+      let extraR = isT3 ? 8 : 5;
+      if (isT3) {
+        anyPulsingTier3 = true;
+        const phase = IS_E2E
+          ? 0.5
+          : 0.5 + 0.5 * Math.sin(performance.now() / 1000 * Math.PI * 1.2);
+        alpha = 0.18 + phase * 0.22;
+        extraR = 7 + phase * 4;
+      }
       ctx.beginPath();
-      ctx.arc(n.x, n.y, n.r + (n.tier === 3 ? 8 : 5), 0, Math.PI * 2);
-      ctx.strokeStyle = n.tier === 3 ? 'rgba(255,220,100,.25)' : 'rgba(200,210,255,.12)';
-      ctx.lineWidth = (n.tier === 3 ? 2.5 : 1.5) / view.scale;
+      ctx.arc(n.x, n.y, n.r + extraR, 0, Math.PI * 2);
+      ctx.strokeStyle = isT3
+        ? `rgba(255,220,100,${alpha.toFixed(3)})`
+        : 'rgba(200,210,255,.12)';
+      ctx.lineWidth = (isT3 ? 2.5 : 1.5) / view.scale;
       ctx.stroke();
     }
 
@@ -2248,12 +2264,39 @@ function draw() {
       ctx.fill();
     }
 
-    // Component body
+    // Component body: base fill with a soft drop shadow (save/restore
+    // keeps shadow state from bleeding into the stroke / label / badge
+    // we draw on the same component next).
+    ctx.save();
+    if (!n.down) {
+      ctx.shadowColor = 'rgba(0,0,0,0.40)';
+      ctx.shadowBlur = 9 / view.scale;
+      ctx.shadowOffsetY = 2 / view.scale;
+    }
     ctx.beginPath();
     ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
     ctx.fillStyle = n.down ? 'rgba(120,60,80,.55)' : compColor;
     ctx.fill();
+    ctx.restore();
 
+    // Top-left highlight via a radial gradient overlay — gives the body
+    // a subtle "lit from above" feel without touching the base color.
+    if (!n.down) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      const hl = ctx.createRadialGradient(
+        n.x - n.r * 0.35, n.y - n.r * 0.45, n.r * 0.08,
+        n.x - n.r * 0.15, n.y - n.r * 0.20, n.r * 1.05
+      );
+      hl.addColorStop(0, 'rgba(255,255,255,0.26)');
+      hl.addColorStop(0.55, 'rgba(255,255,255,0.06)');
+      hl.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = hl;
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
     ctx.lineWidth = (sel ? 2.5 : 1.2) / view.scale;
     ctx.strokeStyle = n.down ? 'rgba(255,120,160,.60)' : 'rgba(255,255,255,.25)';
     ctx.stroke();
@@ -2326,6 +2369,24 @@ function draw() {
         ? t('hint.unlink')
         : t('hint.select');
   ctx.fillText(hint, 16, 12);
+
+  // Keep the tier-3 ring breathing as long as any mastered component is
+  // on screen and the sim is running. The loop self-terminates once
+  // neither is true, so idle / paused runs cost nothing.
+  if (anyPulsingTier3 && sim.running) ensurePulseLoop();
+}
+
+let pulseRafId: number | null = null;
+function ensurePulseLoop() {
+  if (IS_E2E || pulseRafId !== null) return;
+  const step = () => {
+    pulseRafId = null;
+    const stillPulsing = sim.running && sim.components.some(n => n.tier === 3 && !n.down);
+    if (!stillPulsing) return;
+    requestDraw();
+    pulseRafId = requestAnimationFrame(step);
+  };
+  pulseRafId = requestAnimationFrame(step);
 }
 
 
