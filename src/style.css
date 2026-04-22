@@ -651,6 +651,22 @@ canvas {
 
 .sideHeader h1 {
   padding-top: 10px;
+  /* Parallax: JS sets --side-scroll to a 0..1 ratio based on .sideBody
+     scrollTop, letting the title drift up and fade while the user scrolls
+     the dashboard. Default 0 means pristine rendering before JS runs. */
+  --side-scroll: 0;
+  transform: translateY(calc(var(--side-scroll) * -6px));
+  opacity: calc(1 - var(--side-scroll) * 0.45);
+  transition: transform 160ms ease-out, opacity 160ms ease-out;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sideHeader h1 {
+    transform: none;
+    opacity: 1;
+    transition: none;
+  }
 }
 
 .sideHeader .row:last-child {

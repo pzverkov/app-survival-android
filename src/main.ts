@@ -1046,6 +1046,28 @@ window.addEventListener('resize', () => {
   updateTicketTitleToggles();
 });
 
+// Parallax: tie the sticky dashboard header h1 to the scroll position of
+// .sideBody so the title subtly drifts up and fades as the user scrolls
+// the card list underneath. CSS reads --side-scroll as a 0..1 ratio.
+{
+  const h1 = document.querySelector<HTMLElement>('.sideHeader h1');
+  if (h1) {
+    const PARALLAX_RANGE = 80; // px of scroll over which the effect saturates
+    let scheduled = false;
+    const update = () => {
+      scheduled = false;
+      const ratio = Math.min(1, Math.max(0, refs.sideBody.scrollTop / PARALLAX_RANGE));
+      h1.style.setProperty('--side-scroll', ratio.toFixed(3));
+    };
+    refs.sideBody.addEventListener('scroll', () => {
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(update);
+    }, { passive: true });
+    update();
+  }
+}
+
 syncCanvasSize();
 
 // initialize game
@@ -1285,7 +1307,10 @@ function closeEndRun() {
 }
 
 refs.endRunDismiss.onclick = closeEndRun;
-refs.endRunBackdrop.onclick = closeEndRun;
+// Deliberately no backdrop-to-close for the end-run modal: the postmortem
+// is the only moment to read the run result, and a stray outside-tap was
+// silently dismissing it. Users close via the explicit Close button or by
+// starting the next run via Play Again / Replay Seed.
 
 refs.endRunPlayAgain.onclick = () => {
   closeEndRun();
