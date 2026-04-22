@@ -23,7 +23,7 @@
               <div class="capBarTrack"><div id="capBarFill" class="capBarFill"></div></div>
             </div>
             <div class="capBtns capBtns--primary">
-              <button id="btnCapRefill" class="btn tonal" data-i18n-title="btn.refill" title="Refill">
+              <button id="btnCapRefill" class="btn filled" data-i18n-title="btn.refill" title="Refill">
                 <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2"/><line x1="22" y1="11" x2="22" y2="13"/><polyline points="11 9 8 13 12 13 9 17"/></svg>
                 <span class="btn-label" data-i18n="btn.refill">Refill</span>
               </button>
@@ -121,24 +121,24 @@
             <button class="tabBtn" id="tabBtnHistory" role="tab" aria-selected="false" aria-controls="tabHistory" data-tab="history" data-i18n="nav.history">History</button>
           </div>
 
-          <!-- Primary metrics: always visible in the sticky status strip -->
-          <section class="metricsGrid metricsGrid--primary" aria-label="Primary metrics" aria-live="polite" aria-atomic="false">
-            <div class="card">
-              <div class="k" data-i18n="lbl.budget">Budget</div>
-              <div class="v v-lg mono" id="budget">$500</div>
+          <!-- Primary metrics: always visible as a compact chip strip. -->
+          <section class="statusStrip" aria-label="Primary metrics" aria-live="polite" aria-atomic="false">
+            <div class="statusChip">
+              <span class="statusChip-k" data-i18n="lbl.budget">Budget</span>
+              <span class="statusChip-v mono" id="budget">$500</span>
             </div>
-            <div class="card">
-              <div class="k" data-i18n="lbl.rating">Rating</div>
-              <div class="v v-lg mono" id="rating">5.0 ★</div>
-              <svg id="sparkRating" class="sparkline" aria-hidden="true"></svg>
+            <div class="statusChip">
+              <span class="statusChip-k" data-i18n="lbl.rating">Rating</span>
+              <span class="statusChip-v mono" id="rating">5.0 ★</span>
+              <svg id="sparkRating" class="sparkline statusChip-spark" aria-hidden="true"></svg>
             </div>
-            <div class="card">
-              <div class="k" data-i18n="lbl.shift">Shift</div>
-              <div class="v mono" id="shift">0:00 / 9:00</div>
+            <div class="statusChip">
+              <span class="statusChip-k" data-i18n="lbl.shift">Shift</span>
+              <span class="statusChip-v mono" id="shift">0:00 / 9:00</span>
             </div>
-            <div class="card">
-              <div class="k" data-i18n="lbl.score">Score</div>
-              <div class="v v-lg mono" id="score">0</div>
+            <div class="statusChip">
+              <span class="statusChip-k" data-i18n="lbl.score">Score</span>
+              <span class="statusChip-v mono" id="score">0</span>
               <span id="comboIndicator" class="pill pill-combo" hidden>COMBO x1</span>
             </div>
           </section>
