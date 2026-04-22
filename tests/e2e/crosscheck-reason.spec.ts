@@ -22,10 +22,7 @@ test('gated tickets expose a cross-check reason string on the card', async ({ pa
   });
 
   // The backlog list must show at least one ticket with a reason attr.
-  // Scroll the backlog tab into view so the list renders.
-  await page.click('#tabBtnBacklog');
-  await page.waitForTimeout(200);
-
+  // The backlog HUD is always visible on the canvas, so we can query directly.
   const reasonTicket = page.locator('#ticketList .ticket[data-reason]').first();
   await expect(reasonTicket).toBeVisible();
 

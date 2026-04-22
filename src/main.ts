@@ -135,11 +135,9 @@ type UIRefs = {
   btnZoomFit: HTMLButtonElement;
 
   tabBtnOverview: HTMLButtonElement;
-  tabBtnBacklog: HTMLButtonElement;
   tabBtnSignals: HTMLButtonElement;
   tabBtnHistory: HTMLButtonElement;
   tabOverview: HTMLElement;
-  tabBacklog: HTMLElement;
   tabSignals: HTMLElement;
   tabHistory: HTMLElement;
 
@@ -344,7 +342,6 @@ function latestIncidentLine(eventsText: string): string {
 }
 
 function openBacklog() {
-  scrollToTab('backlog', IS_E2E ? 'auto' : 'smooth');
   const el = document.getElementById('backlogCard') ?? refs.ticketList;
   el.scrollIntoView({ behavior: IS_E2E ? 'auto' : 'smooth', block: 'start' });
 }
@@ -419,18 +416,16 @@ refs.presetSelect.addEventListener('change', () => {
 });
 
 // Tabs --------------------------------------------------------------------
-type TabId = 'overview' | 'backlog' | 'signals' | 'history';
+type TabId = 'overview' | 'signals' | 'history';
 
 const tabSections: Record<TabId, HTMLElement> = {
   overview: refs.tabOverview,
-  backlog: refs.tabBacklog,
   signals: refs.tabSignals,
   history: refs.tabHistory,
 };
 
 const tabButtons: Record<TabId, HTMLButtonElement> = {
   overview: refs.tabBtnOverview,
-  backlog: refs.tabBtnBacklog,
   signals: refs.tabBtnSignals,
   history: refs.tabBtnHistory,
 };
@@ -461,12 +456,15 @@ function scrollToTab(id: TabId, _behavior: ScrollBehavior = 'smooth') {
   refs.sideBody.scrollTop = 0;
 }
 
-const initialTab = (() => {
-  try { return (localStorage.getItem(TAB_KEY) as TabId) || 'overview'; } catch { return 'overview'; }
+const initialTab: TabId = (() => {
+  try {
+    const stored = localStorage.getItem(TAB_KEY);
+    if (stored === 'overview' || stored === 'signals' || stored === 'history') return stored;
+    return 'overview';
+  } catch { return 'overview'; }
 })();
 
 refs.tabBtnOverview.addEventListener('click', () => scrollToTab('overview'));
-refs.tabBtnBacklog.addEventListener('click', () => scrollToTab('backlog'));
 refs.tabBtnSignals.addEventListener('click', () => scrollToTab('signals'));
 refs.tabBtnHistory.addEventListener('click', () => scrollToTab('history'));
 
@@ -2197,11 +2195,9 @@ function bindUI(): UIRefs {
     btnZoomFit: must('btnZoomFit') as HTMLButtonElement,
 
     tabBtnOverview: must('tabBtnOverview') as HTMLButtonElement,
-    tabBtnBacklog: must('tabBtnBacklog') as HTMLButtonElement,
     tabBtnSignals: must('tabBtnSignals') as HTMLButtonElement,
     tabBtnHistory: must('tabBtnHistory') as HTMLButtonElement,
     tabOverview: must('tabOverview'),
-    tabBacklog: must('tabBacklog'),
     tabSignals: must('tabSignals'),
     tabHistory: must('tabHistory'),
 

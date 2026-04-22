@@ -50,6 +50,12 @@
             </div>
           </div>
         </div>
+        <div class="canvasHud canvasHud--backlog" role="region" aria-label="Backlog">
+          <section class="card" id="backlogCard">
+            <div class="k" data-i18n="nav.backlog">Backlog</div>
+            <div id="ticketList" class="ticketList" style="margin-top:10px;"></div>
+          </section>
+        </div>
         <!-- Incident response: shown briefly when a new incident hits -->
         <div id="incidentOverlay" class="incidentOverlay" hidden aria-live="polite" aria-atomic="true">
           <div class="card incidentOverlayInner">
@@ -111,7 +117,6 @@
 
           <div class="tabBar" role="tablist" aria-label="Sections">
             <button class="tabBtn is-selected" id="tabBtnOverview" role="tab" aria-selected="true" aria-controls="tabOverview" data-tab="overview" data-i18n="nav.overview">Overview</button>
-            <button class="tabBtn" id="tabBtnBacklog" role="tab" aria-selected="false" aria-controls="tabBacklog" data-tab="backlog" data-i18n="nav.backlog">Backlog</button>
             <button class="tabBtn" id="tabBtnSignals" role="tab" aria-selected="false" aria-controls="tabSignals" data-tab="signals" data-i18n="nav.signals">Signals</button>
             <button class="tabBtn" id="tabBtnHistory" role="tab" aria-selected="false" aria-controls="tabHistory" data-tab="history" data-i18n="nav.history">History</button>
           </div>
@@ -163,6 +168,17 @@
             </button>
           </div>
           <div class="small" style="margin-top:8px;" data-i18n="sel.hint">Upgrades raise capacity & reliability. Repairs restore health. Both cost budget</div>
+        </section>
+
+        <section class="card">
+          <div class="row" style="align-items:center;">
+            <div class="k" data-i18n="card.roadmap">Refactor Roadmap</div>
+            <div style="margin-left:auto;">
+              <button id="btnApplyNextRoadmap" class="btn text" data-i18n="btn.applyNext">Apply next</button>
+            </div>
+          </div>
+          <div class="small muted" style="margin-top:6px;" data-i18n="history.roadmapHint">Suggested sequence to pay down architecture debt (Staff/Principal-style).</div>
+          <pre class="small" id="roadmap" style="margin-top:8px;" data-i18n="history.noRoadmap">No roadmap yet.</pre>
         </section>
 
         <!-- Tier 2: System health (collapsible) -->
@@ -330,33 +346,6 @@
         </div>
 
         </section> <!-- /tabOverview -->
-
-        <section id="tabBacklog" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnBacklog">
-        <section class="card" id="backlogCard">
-          <div class="k" data-i18n="nav.backlog">Backlog</div>
-          <div id="ticketList" class="ticketList" style="margin-top:10px;"></div>
-        </section>
-
-
-
-        
-        <section class="card">
-          <div class="row" style="align-items:center;">
-            <div class="k" data-i18n="card.roadmap">Refactor Roadmap</div>
-            <div style="margin-left:auto;">
-              <button id="btnApplyNextRoadmap" class="btn text" data-i18n="btn.applyNext">Apply next</button>
-            </div>
-          </div>
-          <div class="small muted" style="margin-top:6px;" data-i18n="history.roadmapHint">Suggested sequence to pay down architecture debt (Staff/Principal-style).</div>
-          <pre class="small" id="roadmap" style="margin-top:8px;" data-i18n="history.noRoadmap">No roadmap yet.</pre>
-        </section>
-
-
-        
-
-        
-
-        </section> <!-- /tabBacklog -->
 
         <section id="tabSignals" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnSignals">
 

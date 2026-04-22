@@ -38,15 +38,13 @@ test('budget decreases while game is running', async ({ page }) => {
 test('tab buttons toggle selection state', async ({ page }) => {
   await page.goto('/');
 
-  // Backlog tab should become selected
-  await page.click('#tabBtnBacklog');
-  await expect(page.locator('#tabBtnBacklog')).toHaveClass(/is-selected/);
+  await page.click('#tabBtnSignals');
+  await expect(page.locator('#tabBtnSignals')).toHaveClass(/is-selected/);
   await expect(page.locator('#tabBtnOverview')).not.toHaveClass(/is-selected/);
 
-  // History tab
   await page.click('#tabBtnHistory');
   await expect(page.locator('#tabBtnHistory')).toHaveClass(/is-selected/);
-  await expect(page.locator('#tabBtnBacklog')).not.toHaveClass(/is-selected/);
+  await expect(page.locator('#tabBtnSignals')).not.toHaveClass(/is-selected/);
 });
 
 test('daily seed button fills seed input', async ({ page }) => {
