@@ -378,6 +378,35 @@ button, input, select, textarea {
   padding: 8px 10px;
 }
 
+.canvasHud--platform {
+  /* Sits under the mode hint drawn onto the canvas at (16, 12) in main.ts —
+     a ~24px offset leaves the hint legible with breathing room. */
+  top: 36px;
+  right: auto;
+  left: 10px;
+  flex-direction: column;
+  gap: 4px;
+  width: clamp(220px, 24%, 320px);
+  background-color: color-mix(in oklab, var(--md-sys-color-surface-container-high) 82%, transparent);
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, white 5%, transparent) 0%,
+    transparent 40%
+  );
+  backdrop-filter: saturate(140%) blur(10px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-large);
+  padding: 10px;
+  box-shadow:
+    var(--md-elevation-2),
+    inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
+}
+
+.canvasHud--platform #advisoryText:empty {
+  display: none;
+}
+
 .canvasHud--backlog {
   top: auto;
   left: auto;
@@ -449,12 +478,16 @@ canvas {
 /* Right panel (like a persistent “details” sheet) */
 .side {
   border-left: 1px solid var(--md-sys-color-outline-variant);
-  padding: var(--md-pad-3) var(--md-pad-3) var(--md-pad-4);
+  /* Tight top padding (8px, M3 density step) pulls the sticky header flush
+     with the viewport edge; L/R/B keep the 16/20 breathing room. */
+  padding: var(--md-pad-1) var(--md-pad-3) var(--md-pad-4);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 12px;
   background: var(--md-sys-color-surface);
+  /* Anchor for the decorative ::before pseudo below. */
+  position: relative;
 }
 
 .sideBody {
@@ -539,6 +572,14 @@ canvas {
   }
   .canvasHud--actions > * { overflow: auto; }
   .canvasHud--backlog .ticketList { max-height: 24vh; overflow: auto; }
+
+  /* On narrow portrait canvases the platform chip risks overlapping the
+     zoom buttons (top-right) — cap its width and let it wrap below. */
+  .canvasHud--platform {
+    top: 34px;
+    left: 8px;
+    width: clamp(160px, 50%, 260px);
+  }
 }
 
 .sideHeader > * {
@@ -555,8 +596,13 @@ canvas {
 
 .side::before {
   content: "";
-  position: sticky;
+  /* Absolute positioning keeps this decorative shadow layer out of the
+     flex flow — otherwise the parent's 12px gap would push the sticky
+     header down by 12px even though this element is 0px tall. */
+  position: absolute;
   top: 0;
+  left: 0;
+  right: 0;
   display: block;
   height: 0;
   box-shadow:
