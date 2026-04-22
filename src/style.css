@@ -361,6 +361,37 @@ button, input, select, textarea {
   padding: 6px 10px;
 }
 
+.canvasHud--backlog {
+  top: auto;
+  left: auto;
+  right: 10px;
+  bottom: 10px;
+  flex-direction: column;
+  gap: 8px;
+  width: clamp(300px, 34%, 420px);
+  max-height: calc(100% - 20px);
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-large);
+  padding: 10px;
+  box-shadow: var(--md-elevation-1);
+  display: flex;
+  overflow: hidden;
+}
+
+.canvasHud--backlog #backlogCard {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.canvasHud--backlog .ticketList {
+  overflow-y: auto;
+  max-height: min(48vh, 420px);
+  padding-right: 4px;
+  grid-template-columns: 1fr;
+}
+
 .btn.hud {
   padding: 6px 10px;
   min-width: 34px;
@@ -461,6 +492,12 @@ canvas {
 @media (max-width: 900px) {
   .tabBar { padding-bottom: 10px; }
   .canvasHud { top: 8px; right: 8px; }
+  .canvasHud--actions,
+  .canvasHud--backlog {
+    width: calc(50% - 14px);
+    max-width: none;
+  }
+  .canvasHud--backlog .ticketList { max-height: 24vh; }
 }
 
 .sideHeader > * {
