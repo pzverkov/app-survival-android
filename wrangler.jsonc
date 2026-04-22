@@ -1,3 +1,7 @@
+// Cloudflare Workers Static Assets — used for per-PR preview deployments only.
+// Production is served from GitHub Pages (see .github/workflows/deploy.yml).
+// The Cloudflare project's "Production branch" is set to a non-existent branch
+// in the dashboard so main never auto-deploys here.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "app-survival-android",
