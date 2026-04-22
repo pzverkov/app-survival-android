@@ -349,16 +349,18 @@ button, input, select, textarea {
   bottom: 10px;
   flex-direction: column;
   gap: 8px;
-  max-width: min(360px, calc(100% - 20px));
+  width: clamp(260px, 34%, 520px);
   background: var(--md-sys-color-surface-container-high);
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: var(--md-sys-shape-corner-large);
   padding: 10px;
   box-shadow: var(--md-elevation-1);
+  container-type: inline-size;
+  container-name: caphud;
 }
 
 .canvasHud--actions .btn {
-  padding: 6px 10px;
+  padding: 8px 10px;
 }
 
 .canvasHud--backlog {
@@ -432,6 +434,8 @@ canvas {
   flex-direction: column;
   gap: 12px;
   padding-top: 12px;
+  scrollbar-gutter: stable;
+  scroll-padding-top: 120px;
 }
 
 .sideHeader {
@@ -575,10 +579,17 @@ h1 {
 }
 
 /* Backlog capacity controls */
-/* Capacity toolbar: progress bar stacked above an icon-button chip row,
-   with the "Fix tickets or defer" hint as a subtle caption below. */
-.capRow { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
-.capBar { display: flex; flex-direction: column; gap: 6px; }
+/* Capacity toolbar: capacity bar pinned on top, action buttons flow into
+   an auto-fit grid that uses all available horizontal space before wrapping.
+   Groups dissolve visually via display:contents so buttons are direct grid
+   items; semantic group divs stay in markup for future a11y labeling. */
+.capRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.capBar { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; }
 .capBarLabel { display: flex; align-items: baseline; gap: 8px; font-size: 13px; color: var(--md-sys-color-on-surface); }
 .capBarLabel #capVal { font-weight: 600; }
 .capBarLabel #capRegenHint { margin-left: auto; }
@@ -586,11 +597,25 @@ h1 {
 .capBarFill { height: 100%; background: var(--md-sys-color-primary); border-radius: 999px; transition: width 160ms ease, background 160ms ease; }
 .capBarFill.is-low { background: var(--color-danger, #e05a5a); }
 .capBarFill.is-med { background: var(--color-warn, #d69a1a); }
-.capRow .capBtns { display: flex; gap: 6px; flex-wrap: wrap; }
-.capRow .capBtns .btn { padding: 8px 10px; }
+.capRow > .capBtns { display: contents; }
+.capRow .btn { padding: 8px 10px; min-width: 0; }
 
-@media (max-width: 540px) {
-  .capRow .capBtns { margin-left:0; width:100%; }
+/* Give Refill (the primary action) more room when the HUD is wide enough. */
+@container caphud (width > 340px) {
+  .capRow .capBtns--primary .btn { grid-column: span 2; }
+}
+
+/* Narrow HUD: collapse button labels to icons so the row still fits. */
+@container caphud (width < 260px) {
+  .capRow .btn .btn-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .capRow .btn { padding: 8px; min-width: 40px; justify-content: center; }
 }
 
 /* High-signal metrics block: adapts from 2 cols to 3/4 based on available width */
@@ -600,26 +625,54 @@ h1 {
   gap: 10px;
 }
 
-.metricsGrid--primary {
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-3);
-}
-
-.metricsGrid--primary .card {
-  border-left: 3px solid var(--md-sys-color-primary);
-}
-
-/* Compact variant used inside the sticky status strip. Tighter spacing
-   keeps Budget / Rating / Shift / Score always on screen without
-   crowding the header. */
-.sideHeader .metricsGrid--primary {
+/* Status strip: compact chip row that keeps Budget / Rating / Shift / Score
+   always visible in the sticky header without eating vertical space. */
+.statusStrip {
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  padding-top: 4px;
-  padding-bottom: 10px;
+  padding: 6px 12px 10px;
 }
 
-.sideHeader .metricsGrid--primary .card {
-  padding: 8px 10px;
+.statusChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--md-sys-color-surface-container) 86%, transparent);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.statusChip-k {
+  color: var(--md-sys-color-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.statusChip-v {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.statusChip-spark {
+  width: 40px;
+  height: 14px;
+  margin-left: 2px;
+}
+
+.statusChip #comboIndicator {
+  margin-left: 2px;
+  padding: 2px 6px;
+  font-size: 10px;
 }
 
 .metricsPanel {
@@ -1057,10 +1110,10 @@ select:focus-visible {
     font-size: 18px;
   }
 
-  /* Compact metrics on small screens */
-  .metricsGrid--primary {
-    gap: var(--space-2);
-  }
+  /* Compact status strip chips on small screens */
+  .statusStrip { padding: 4px 10px 8px; gap: 4px; }
+  .statusChip { padding: 4px 8px; font-size: 11px; }
+  .statusChip-v { font-size: 12px; }
 }
 
 @media (max-width: 480px) {
@@ -1553,9 +1606,88 @@ html.incident-hot #backlogCard {
   }
 }
 
+/* --- Modern CSS polish (luxury pass) ----------------------------------- */
+
+/* Tighter typography: avoid orphans on headings and label strips. */
+h1, .k, .statusChip-k { text-wrap: balance; }
+
+/* Selected-card conic halo. Pure CSS: gated via :has() on the Upgrade
+   button's enabled state, which reflects "a node is selected". */
+@property --sel-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+#selCard {
+  position: relative;
+  isolation: isolate;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #selCard:has(#btnUpgrade:not(:disabled))::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: conic-gradient(
+      from var(--sel-angle),
+      transparent 0deg,
+      color-mix(in oklab, var(--md-sys-color-primary) 85%, transparent) 90deg,
+      transparent 180deg,
+      color-mix(in oklab, var(--md-sys-color-primary) 55%, transparent) 270deg,
+      transparent 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    animation: selHaloSpin 6s linear infinite;
+    pointer-events: none;
+    z-index: -1;
+  }
+}
+
+@keyframes selHaloSpin {
+  to { --sel-angle: 360deg; }
+}
+
+/* Scroll-driven reveal on sidebar cards. Uses view() timeline so each
+   card fades and rises as it enters the scroll viewport. Gated by
+   reduced-motion and feature support. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .sideBody .card {
+      animation: cardReveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+  }
+}
+
+@keyframes cardReveal {
+  from { opacity: 0.35; transform: translateY(8px); }
+  to   { opacity: 1;    transform: translateY(0); }
+}
+
+/* View-transition crossfade on tab change. Opt in via a class on <html>
+   set by main.ts only for the transition duration. */
+::view-transition-old(tab-panel),
+::view-transition-new(tab-panel) {
+  animation-duration: 180ms;
+  animation-timing-function: ease;
+}
+
+.tabPanel.is-active {
+  view-transition-name: tab-panel;
+}
+
 /* E2E: reduce motion to avoid flaky timing in headless browsers */
 html.e2e *, html.e2e *::before, html.e2e *::after {
   animation: none !important;
   transition: none !important;
   scroll-behavior: auto !important;
+  view-transition-name: none !important;
 }

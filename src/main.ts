@@ -443,17 +443,24 @@ function setActiveTab(id: TabId) {
 function scrollToTab(id: TabId, _behavior: ScrollBehavior = 'smooth') {
   const section = tabSections[id];
   if (!section) return;
-  setActiveTab(id);
 
-  for (const k of Object.keys(tabSections) as TabId[]) {
-    const panel = tabSections[k];
-    const on = k === id;
-    panel.classList.toggle('is-active', on);
-    panel.hidden = !on;
+  const apply = () => {
+    setActiveTab(id);
+    for (const k of Object.keys(tabSections) as TabId[]) {
+      const panel = tabSections[k];
+      const on = k === id;
+      panel.classList.toggle('is-active', on);
+      panel.hidden = !on;
+    }
+    refs.sideBody.scrollTop = 0;
+  };
+
+  const startVT = (document as any).startViewTransition;
+  if (!IS_E2E && typeof startVT === 'function') {
+    startVT.call(document, apply);
+  } else {
+    apply();
   }
-
-  // Each tab opens at the top.
-  refs.sideBody.scrollTop = 0;
 }
 
 const initialTab: TabId = (() => {
