@@ -91,18 +91,25 @@ test('end-run modal does not dismiss on backdrop click', async ({ page }) => {
 test('dashboard scroll drives sticky-header parallax', async ({ page }) => {
   await page.goto('/');
 
-  // The parallax writes to --side-scroll on the entire .sideHeader block
-  // via a rAF-throttled scroll listener. At rest the ratio is 0 and the
-  // header renders at full opacity.
+  // The parallax writes to --side-scroll on the .sideHeader block via a
+  // rAF-throttled scroll listener. The h1 hero collapses to zero height
+  // as the ratio saturates while the remaining controls (buttons, mode
+  // row, tabs, status chips) stay fully opaque so they don't look
+  // disabled.
   const atRest = await page.evaluate(() => {
     const header = document.querySelector('.sideHeader') as HTMLElement;
+    const h1 = header.querySelector('h1') as HTMLElement;
     return {
       ratio: header.style.getPropertyValue('--side-scroll').trim(),
-      opacity: Number(getComputedStyle(header).opacity),
+      headerOpacity: Number(getComputedStyle(header).opacity),
+      h1Height: h1.offsetHeight,
+      h1Opacity: Number(getComputedStyle(h1).opacity),
     };
   });
   expect(atRest.ratio).toBe('0.000');
-  expect(atRest.opacity).toBeCloseTo(1, 1);
+  expect(atRest.headerOpacity).toBeCloseTo(1, 1);
+  expect(atRest.h1Height).toBeGreaterThan(30);
+  expect(atRest.h1Opacity).toBeCloseTo(1, 1);
 
   // Scroll well past the 80px parallax saturation point.
   await page.evaluate(() => {
@@ -113,15 +120,20 @@ test('dashboard scroll drives sticky-header parallax', async ({ page }) => {
 
   const afterScroll = await page.evaluate(() => {
     const header = document.querySelector('.sideHeader') as HTMLElement;
+    const h1 = header.querySelector('h1') as HTMLElement;
     return {
       ratio: Number(header.style.getPropertyValue('--side-scroll')),
-      opacity: Number(getComputedStyle(header).opacity),
+      headerOpacity: Number(getComputedStyle(header).opacity),
+      h1Height: h1.offsetHeight,
+      h1Opacity: Number(getComputedStyle(h1).opacity),
     };
   });
   // Ratio saturates at 1 once scrollTop exceeds the 80px range.
   expect(afterScroll.ratio).toBeGreaterThan(0.9);
-  // Opacity at saturation should be ~0.88 (1 - 0.12) — subtle enough that
-  // interactive controls inside the header don't look disabled.
-  expect(afterScroll.opacity).toBeLessThan(0.95);
-  expect(afterScroll.opacity).toBeGreaterThan(0.8);
+  // The h1 hero collapses to zero: height clamped and opacity fades out.
+  expect(afterScroll.h1Height).toBeLessThanOrEqual(2);
+  expect(afterScroll.h1Opacity).toBeLessThan(0.1);
+  // Invariant: the header itself (buttons/tabs/chips) stays fully opaque
+  // so interactive controls never look disabled.
+  expect(afterScroll.headerOpacity).toBeGreaterThan(0.95);
 });
