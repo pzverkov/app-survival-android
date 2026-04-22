@@ -104,6 +104,8 @@ type UIRefs = {
   regPressure: HTMLElement;
   regionList: HTMLElement;
   ticketList: HTMLElement;
+  backlogDetails: HTMLDetailsElement;
+  backlogSummaryChips: HTMLElement;
   reviewLog: HTMLElement;
   eventLog: HTMLElement;
 
@@ -341,9 +343,24 @@ function latestIncidentLine(eventsText: string): string {
   return eventsText.split('\n')[0] ?? '';
 }
 
+// Tracks whether the player has explicitly opened or closed the Backlog
+// drawer. Once they have, we stop fighting them with auto-open/close.
+let backlogUserToggled = false;
+let backlogAutoToggling = false;
+refs.backlogDetails.addEventListener('toggle', () => {
+  if (!backlogAutoToggling) backlogUserToggled = true;
+});
+function setBacklogOpen(open: boolean) {
+  if (refs.backlogDetails.open === open) return;
+  backlogAutoToggling = true;
+  refs.backlogDetails.open = open;
+  backlogAutoToggling = false;
+}
+
 function openBacklog() {
-  const el = document.getElementById('backlogCard') ?? refs.ticketList;
-  el.scrollIntoView({ behavior: IS_E2E ? 'auto' : 'smooth', block: 'start' });
+  backlogUserToggled = true;
+  setBacklogOpen(true);
+  refs.backlogDetails.scrollIntoView({ behavior: IS_E2E ? 'auto' : 'smooth', block: 'start' });
 }
 
 function quickTriage() {
@@ -625,6 +642,42 @@ function toast(msg: string) {
   }, 1100);
 }
 
+function closeAllTicketMenus(except?: HTMLElement) {
+  refs.ticketList.querySelectorAll<HTMLElement>('.ticketMenu').forEach((m) => {
+    if (m === except) return;
+    if (!m.hidden) m.hidden = true;
+  });
+  refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-overflow]').forEach((b) => {
+    b.setAttribute('aria-expanded', 'false');
+  });
+}
+
+document.addEventListener('click', (e) => {
+  const t = e.target as HTMLElement | null;
+  if (!t) return;
+  if (t.closest('.ticketMenu') || t.closest('.ticketOverflow')) return;
+  closeAllTicketMenus();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeAllTicketMenus();
+});
+
+function renderBacklogSummary(totals: { s3: number; s2: number; s1: number; s0: number; deferred: number; total: number }) {
+  const chipsEl = refs.backlogSummaryChips;
+  if (totals.total === 0) {
+    setHTML(chipsEl, `<span class="backlogSummary-empty small muted">${escapeHtml(t('backlog.noTickets'))}</span>`);
+    return;
+  }
+  const parts: string[] = [];
+  parts.push(`<span class="backlogSummary-total mono">${escapeHtml(t('backlog.summary.total', { n: totals.total }))}</span>`);
+  if (totals.s3 > 0) parts.push(`<span class="badge s3 backlogSummary-chip">S3×${totals.s3}</span>`);
+  if (totals.s2 > 0) parts.push(`<span class="badge s2 backlogSummary-chip">S2×${totals.s2}</span>`);
+  if (totals.s1 > 0) parts.push(`<span class="badge s1 backlogSummary-chip">S1×${totals.s1}</span>`);
+  if (totals.s0 > 0) parts.push(`<span class="badge s0 backlogSummary-chip">S0×${totals.s0}</span>`);
+  if (totals.deferred > 0) parts.push(`<span class="backlogSummary-chip backlogSummary-chip--muted mono small">${escapeHtml(t('backlog.summary.deferred', { n: totals.deferred }))}</span>`);
+  setHTML(chipsEl, parts.join(''));
+}
+
 function renderTicketTitleHtml(ticket: Ticket): string {
   const raw = (ticket.title ?? '').toString();
   if (ticket.kind === 'ARCHITECTURE_DEBT') {
@@ -828,6 +881,26 @@ function renderTickets() {
     if (bar) bar.setAttribute('aria-valuenow', String(Math.round(pct)));
   }
 
+  // Summary chips reflect the full ticket population, not the top-7 slice.
+  const allTickets = sim.getTickets();
+  const totals = { s3: 0, s2: 0, s1: 0, s0: 0, deferred: 0, total: allTickets.length };
+  for (const tk of allTickets) {
+    if (tk.deferred) totals.deferred++;
+    if (tk.severity === 3) totals.s3++;
+    else if (tk.severity === 2) totals.s2++;
+    else if (tk.severity === 1) totals.s1++;
+    else totals.s0++;
+  }
+  renderBacklogSummary(totals);
+
+  // Auto-open the drawer when tickets appear (so tests & players see them),
+  // auto-close when the backlog clears — respecting any manual toggle.
+  const incidentHot = document.documentElement.classList.contains('incident-hot');
+  if (!backlogUserToggled) {
+    if (totals.total > 0 || incidentHot) setBacklogOpen(true);
+    else setBacklogOpen(false);
+  }
+
   const nowMs = performance.now();
   // Include UI locale in the signature so a language switch re-renders ticket copy immediately.
   const langSig = getLanguage();
@@ -860,17 +933,21 @@ function renderTickets() {
     const sevClass = ticket.severity === 3 ? 'sev-critical' : ticket.severity === 2 ? 'sev-medium' : 'sev-low';
     const deferredClass = ticket.deferred ? 'is-deferred' : '';
     const reasonAttr = ticket.reason ? ` title="${escapeHtml(ticket.reason)}" data-reason="${escapeHtml(ticket.reason)}"` : '';
+    const sevBadgeClass = ticket.severity === 3 ? 's3' : ticket.severity === 2 ? 's2' : ticket.severity === 1 ? 's1' : 's0';
     return `
       <div class="ticket ${isArch ? 'is-arch' : ''} ${isExpanded ? 'is-expanded' : ''} ${sevClass} ${deferredClass}"${reasonAttr}>
         <div class="ticketMain">
-          <div class="ticketTitle"><span class="badge ${ticket.severity === 3 ? 's3' : ticket.severity === 2 ? 's2' : ticket.severity === 1 ? 's1' : 's0'}">${sev}</span> <span class="ticketTitleText" dir="auto">${titleHtml}</span></div>
+          <div class="ticketTitle"><span class="badge ${sevBadgeClass}">${sev}</span> <span class="ticketTitleText" dir="auto">${titleHtml}</span></div>
           ${!isArch ? `<button class="ticketTitleToggle" data-toggle-title="${ticket.id}" ${isExpanded ? '' : 'hidden'} aria-expanded="${isExpanded ? 'true' : 'false'}">${isExpanded ? t('ticket.collapseTitle') : t('ticket.expandTitle')}</button>` : ''}
-          <div class="ticketMeta"><span>${ticket.category}</span><span>${t('ticket.impact', { impact: ticket.impact })}</span><span>${t('ticket.age', { minutes: age })}</span>${ticket.deferred ? `<span class="badge">${t('ticket.deferred')}</span>` : ''}${ticket.reason ? `<span class="badge ticketReason" aria-label="Why it fired">ⓘ</span>` : ''}</div>
+          <div class="ticketMeta"><span class="ticketMetaChip">${ticket.category}</span><span class="ticketMetaChip">${t('ticket.impact', { impact: ticket.impact })}</span><span class="ticketMetaChip">${t('ticket.age', { minutes: age })}</span>${ticket.deferred ? `<span class="badge ticketMetaChip">${t('ticket.deferred')}</span>` : ''}${ticket.reason ? `<span class="badge ticketReason ticketMetaChip" aria-label="Why it fired">ⓘ</span>` : ''}</div>
         </div>
         <div class="ticketBtns">
           <button class="btn filled ${canFix ? '' : 'is-disabled'}" data-fix="${ticket.id}" ${canFix ? '' : 'disabled'}>${fixLabel}</button>
-          <button class="btn outlined" data-defer="${ticket.id}">${deferLabel}</button>
-          ${isArch ? `<button class="btn tonal" data-open-refactor="${ticket.id}">${t('ticket.refactorOptions')}</button>` : ''}
+          <button class="btn text ticketOverflow" data-overflow="${ticket.id}" aria-haspopup="menu" aria-expanded="false" aria-label="${t('ticket.more')}">⋯</button>
+        </div>
+        <div class="ticketMenu" role="menu" hidden>
+          <button class="btn outlined" role="menuitem" data-defer="${ticket.id}">${deferLabel}</button>
+          ${isArch ? `<button class="btn tonal" role="menuitem" data-open-refactor="${ticket.id}">${t('ticket.refactorOptions')}</button>` : ''}
         </div>
       </div>
     `;
@@ -894,6 +971,21 @@ function renderTickets() {
     btn.addEventListener('click', (e) => {
       const id = Number((e.currentTarget as HTMLElement).getAttribute('data-open-refactor'));
       openRefactor(id);
+    });
+  });
+
+  // Overflow (…) popover per ticket — holds Defer and (for arch) Refactor options.
+  refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-overflow]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const b = e.currentTarget as HTMLButtonElement;
+      const card = b.closest('.ticket') as HTMLElement | null;
+      const menu = card?.querySelector<HTMLElement>('.ticketMenu');
+      if (!menu) return;
+      const willOpen = menu.hidden;
+      closeAllTicketMenus();
+      menu.hidden = !willOpen;
+      b.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
     });
   });
 
@@ -2343,6 +2435,8 @@ function bindUI(): UIRefs {
     btnCapDrink: must<HTMLButtonElement>('btnCapDrink'),
     btnCapShield: must<HTMLButtonElement>('btnCapShield'),
     ticketList: must('ticketList'),
+    backlogDetails: must<HTMLDetailsElement>('backlogDetails'),
+    backlogSummaryChips: must('backlogSummaryChips'),
     apiLatest: must('apiLatest'),
     apiMin: must('apiMin'),
     oldShare: must('oldShare'),
