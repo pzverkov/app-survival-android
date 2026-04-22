@@ -267,8 +267,36 @@ function afterFirstPaint(): Promise<void> {
       if (ric) ric(() => resolve(), { timeout: 500 });
       else setTimeout(() => resolve(), 200);
     };
-    // Two rAFs: first paints current frame, second confirms it's on the wire.
-    requestAnimationFrame(() => requestAnimationFrame(schedule));
+    // Prefer the real first-contentful-paint signal via PerformanceObserver
+    // (buffered:true replays entries that fired before we subscribed).
+    // Falls back to a double-rAF + idle schedule when the paint entry type
+    // isn't supported, and hard-caps with a setTimeout so a browser that
+    // never fires the paint entry (or a canvas-only flow that never paints
+    // "contentful" content) still eventually drops its lazy chunks.
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      schedule();
+    };
+    try {
+      const po = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.name === 'first-contentful-paint') {
+            po.disconnect();
+            done();
+            return;
+          }
+        }
+      });
+      po.observe({ type: 'paint', buffered: true });
+    } catch {
+      requestAnimationFrame(() => requestAnimationFrame(done));
+    }
+    // Safety net for environments with no paint entry (e.g. canvas-only,
+    // headless browsers with content-blindness). One second is past every
+    // normal cold-start on a desktop and won't impact real first paint.
+    setTimeout(done, 1000);
   });
 }
 
