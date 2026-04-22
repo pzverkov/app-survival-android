@@ -1,14 +1,25 @@
 import './style.css';
 import { GameSim } from './sim';
-import { AchievementsTracker, LocalStorageAchStorage, AchEvent, AchievementUnlock } from './achievements';
-import { addScoreEntry, clearScoreboard, loadScoreboard, sealScoreboard, verifyScoreboard } from './scoreboard';
 import { MODE, Mode, ComponentType, Ticket, EvalPreset, EVAL_PRESET, RefactorAction } from './types';
-import { deriveKey, sealStorageKey, verifyStorageKey, markTampered, getTamperState, clearTamperIf, isScoreSane, needsMigration, setMigrationDone } from './integrity';
 import './entropy';
 import { Sparkline } from './sparkline';
-import { getDailyChallenge, getWeeklyChallenge, evaluateChallenge, saveChallengeResult, loadChallengeResults, type ChallengeDef } from './challenges';
-import { listScenarios, saveScenarioResult, loadScenarioResults, type ScenarioDef } from './scenarios';
-import { applyTranslations, getLanguage, loadLanguage, populateLanguageSelect, setLanguage, t, type Lang } from './i18n';
+import {
+  applyTranslations,
+  ensureLanguageReady,
+  getLanguage,
+  loadLanguage,
+  populateLanguageSelect,
+  setLanguage,
+  t,
+  type Lang,
+} from './i18n';
+
+import type { AchEvent, AchievementUnlock } from './achievements';
+import type * as ScoreboardModule from './scoreboard';
+import type * as IntegrityModule from './integrity';
+import type { ChallengeDef } from './challenges';
+import type { ScenarioDef } from './scenarios';
+import { AchStub } from './achievements_lazy';
 
 type ThemeMode = 'system' | 'light' | 'dark';
 const THEME_KEY = 'theme';
@@ -241,6 +252,89 @@ type UIRefs = {
 };
 
 
+// --- Lazy module loaders ---------------------------------------------------
+// These chunks are deferred until the browser is idle after first paint, so
+// the initial module graph parses only what the opening canvas + dashboard
+// actually need. See vite.config.ts build.rollupOptions.output.manualChunks
+// for the Rollup-level split.
+
+function afterFirstPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    const schedule = () => {
+      const ric = (window as any).requestIdleCallback as
+        | ((cb: () => void, opts?: { timeout: number }) => number)
+        | undefined;
+      if (ric) ric(() => resolve(), { timeout: 500 });
+      else setTimeout(() => resolve(), 200);
+    };
+    // Two rAFs: first paints current frame, second confirms it's on the wire.
+    requestAnimationFrame(() => requestAnimationFrame(schedule));
+  });
+}
+
+let integrityMod: typeof IntegrityModule | null = null;
+const integrityModPromise: Promise<typeof IntegrityModule> = afterFirstPaint()
+  .then(() => import('./integrity'))
+  .then((m) => { integrityMod = m; return m; });
+
+let scoreboardMod: typeof ScoreboardModule | null = null;
+const scoreboardModPromise: Promise<typeof ScoreboardModule> = afterFirstPaint()
+  .then(() => import('./scoreboard'))
+  .then((m) => { scoreboardMod = m; return m; });
+
+let challengesModPromise: Promise<typeof import('./challenges')> | null = null;
+function loadChallengesModule(): Promise<typeof import('./challenges')> {
+  if (!challengesModPromise) challengesModPromise = import('./challenges');
+  return challengesModPromise;
+}
+
+let scenariosModPromise: Promise<typeof import('./scenarios')> | null = null;
+function loadScenariosModule(): Promise<typeof import('./scenarios')> {
+  if (!scenariosModPromise) scenariosModPromise = import('./scenarios');
+  return scenariosModPromise;
+}
+
+let achievementsModPromise: Promise<typeof import('./achievements')> | null = null;
+function loadAchievementsModule(): Promise<typeof import('./achievements')> {
+  if (!achievementsModPromise) {
+    achievementsModPromise = afterFirstPaint().then(() => import('./achievements'));
+  }
+  return achievementsModPromise;
+}
+
+// Integrity helpers that degrade safely before the chunk lands.
+// getTamperState returns a no-tamper state, markTampered queues until ready.
+const pendingTamperReasons: string[] = [];
+function integrityGetTamperState(): { tampered: boolean; reason: string | null } {
+  if (integrityMod) return integrityMod.getTamperState();
+  return { tampered: false, reason: null };
+}
+function integrityMarkTampered(reason: string): void {
+  if (integrityMod) integrityMod.markTampered(reason as any);
+  else pendingTamperReasons.push(reason);
+}
+function integrityClearTamperIf(reasons: string[]): void {
+  if (integrityMod) integrityMod.clearTamperIf(reasons as any);
+}
+function integrityIsScoreSane(score: number, durationSec: number, multiplier: number): boolean {
+  if (integrityMod) return integrityMod.isScoreSane(score, durationSec, multiplier);
+  return true;
+}
+
+// Convenience helpers that lazy-chain the integrity + scoreboard modules
+// together with the derived key. Callers stay terse without committing
+// these chunks to the initial load.
+function sealAchievementStorage(preset: EvalPreset): void {
+  Promise.all([integrityModPromise, integrityKeyPromise]).then(
+    ([m, key]) => m.sealStorageKey(ACH_PREFIX + preset, key)
+  );
+}
+function sealScoreboardNow(): void {
+  Promise.all([scoreboardModPromise, integrityKeyPromise]).then(
+    ([m, key]) => m.sealScoreboard(key)
+  );
+}
+
 const sim = new GameSim();
 
 
@@ -256,6 +350,10 @@ if (IS_E2E) (window as any).__SIM__ = sim;
 const refs = bindUI();
 if (IS_E2E) refs.seedInput.value = '12345';
 
+// One delegated click listener on the ticket list — replaces the per-row
+// listeners that were being re-attached on every renderTickets() pass.
+setupTicketDelegation();
+
 // --- Sparklines -----------------------------------------------------------
 const sparkRating = new Sparkline();
 const sparkFail = new Sparkline();
@@ -267,7 +365,11 @@ sparkJank.bind(refs.sparkJank);
 sparkHeap.bind(refs.sparkHeap);
 
 // --- Localization ---------------------------------------------------------
-const initLang = loadLanguage();
+// Top-level await (es2022) lets the first paint use the correct locale's
+// dict. For English this resolves synchronously (inline dict); for other
+// locales it pays one extra <lang>.js round-trip, acceptable in exchange
+// for a much smaller core chunk.
+const initLang = await loadLanguage();
 populateLanguageSelect(refs.langSelect, initLang);
 refs.langSelect.value = initLang;
 document.documentElement.lang = initLang;
@@ -283,7 +385,9 @@ let lastSavedRunId: string | null = null;
 
 // --- Integrity (tamper protection v1) -------------------------------------
 const ACH_PREFIX = 'survival.achievements.';
-const integrityKeyPromise = deriveKey(sha);
+// deriveKey itself is async + uses WebCrypto; chaining it off the lazy-
+// loaded integrity chunk keeps it out of the initial module graph.
+const integrityKeyPromise: Promise<CryptoKey> = integrityModPromise.then((m) => m.deriveKey(sha));
 
 // Per-run action log archive. Keyed by runId, capped at RUNS_MAX entries so
 // the scoreboard card stays small and future Phase 2 submissions have a
@@ -302,31 +406,49 @@ function persistRunActionLog(runId: string, seed: number, preset: string, log: R
   }
 }
 
-integrityKeyPromise.then(async (key) => {
-  if (needsMigration()) {
+Promise.all([integrityModPromise, scoreboardModPromise, integrityKeyPromise]).then(async ([iMod, sbMod, key]) => {
+  // Drain any markTampered calls that fired before the integrity chunk
+  // landed so the badge state matches the real runtime.
+  for (const r of pendingTamperReasons) iMod.markTampered(r as any);
+  pendingTamperReasons.length = 0;
+
+  if (iMod.needsMigration()) {
     // First load with integrity — seal existing data silently.
-    await sealScoreboard(key);
+    await sbMod.sealScoreboard(key);
     for (const p of Object.values(EVAL_PRESET)) {
-      await sealStorageKey(ACH_PREFIX + p, key);
+      await iMod.sealStorageKey(ACH_PREFIX + p, key);
     }
-    setMigrationDone();
+    iMod.setMigrationDone();
   } else {
-    const sbOk = await verifyScoreboard(key);
-    if (sbOk === false) markTampered('scoreboard');
+    const sbOk = await sbMod.verifyScoreboard(key);
+    if (sbOk === false) iMod.markTampered('scoreboard');
     for (const p of Object.values(EVAL_PRESET)) {
-      const achOk = await verifyStorageKey(ACH_PREFIX + p, key);
-      if (achOk === false) markTampered('achievements');
+      const achOk = await iMod.verifyStorageKey(ACH_PREFIX + p, key);
+      if (achOk === false) iMod.markTampered('achievements');
     }
   }
+  // Tamper badge may have flipped; re-sync UI to reflect it.
+  scheduleSync();
 });
 
 // Paused-state snapshot for runtime tamper detection.
 let pausedSnapshot: { budget: number; score: number; rating: number } | null = null;
 
-// Achievements are stored per preset.
-const ach = new AchievementsTracker(EVAL_PRESET.SENIOR, new LocalStorageAchStorage());
+// Achievements are stored per preset. The stub queues events until the
+// real AchievementsTracker chunk loads after first paint, then flushes
+// them so no unlocks are lost during the warm-up window.
+const ach = new AchStub();
 let achLastTickSec = -1;
 let achPrevRunning = false;
+
+// Kick off achievements chunk load, attach when ready, flush queued events.
+loadAchievementsModule().then((mod) => {
+  const real = new mod.AchievementsTracker(ach.getPreset(), new mod.LocalStorageAchStorage());
+  const replayed = ach.attachReal(real);
+  applyAchievementRewards(replayed);
+  renderAchievementSummary(ach.getPreset());
+  scheduleSync();
+});
 
 // Incident UX: brief highlight + action overlay when a new incident line appears.
 let lastEventsText = '';
@@ -512,10 +634,13 @@ refs.themeSelect.addEventListener('change', () => {
 });
 
 // Language (stored in localStorage via i18n.ts)
-refs.langSelect.addEventListener('change', () => {
+refs.langSelect.addEventListener('change', async () => {
   const l = refs.langSelect.value as Lang;
   setLanguage(l);
   document.documentElement.lang = getLanguage();
+  // Wait for the lazy locale chunk before repainting translated labels so
+  // users don't see English text flash before the target language lands.
+  await ensureLanguageReady(l);
   applyTranslations(document);
   document.title = t('app.title');
   scheduleSync();
@@ -983,36 +1108,52 @@ function renderTickets() {
     `;
   }).join('');
 
-  refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-fix]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      const id = Number((e.currentTarget as HTMLElement).getAttribute('data-fix'));
+  // Click handlers for fix / defer / overflow / refactor / title-toggle are
+  // bound once via delegation in setupTicketDelegation() so the per-ticket
+  // innerHTML rewrite in this function doesn't spray fresh listeners on
+  // every frame.
+  restoreOpenTicketMenu();
+  updateTicketTitleToggles();
+}
+
+function setupTicketDelegation() {
+  refs.ticketList.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+    const btn = target.closest<HTMLButtonElement>(
+      'button[data-fix],button[data-defer],button[data-overflow],button[data-open-refactor],button[data-toggle-title]'
+    );
+    if (!btn || !refs.ticketList.contains(btn)) return;
+
+    if (btn.hasAttribute('data-fix')) {
+      if (btn.disabled) return;
+      const id = Number(btn.getAttribute('data-fix'));
       sim.fixTicket(id);
       syncUI();
-    });
-  });
-  refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-defer]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      const id = Number((e.currentTarget as HTMLElement).getAttribute('data-defer'));
+      return;
+    }
+
+    if (btn.hasAttribute('data-defer')) {
+      const id = Number(btn.getAttribute('data-defer'));
       openTicketMenuId = null;
       sim.deferTicket(id);
       syncUI();
-    });
-  });
-  refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-open-refactor]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      const id = Number((e.currentTarget as HTMLElement).getAttribute('data-open-refactor'));
+      return;
+    }
+
+    if (btn.hasAttribute('data-open-refactor')) {
+      const id = Number(btn.getAttribute('data-open-refactor'));
       openTicketMenuId = null;
       openRefactor(id);
-    });
-  });
+      return;
+    }
 
-  // Overflow (…) popover per ticket — holds Defer and (for arch) Refactor options.
-  refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-overflow]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
+    if (btn.hasAttribute('data-overflow')) {
+      // Stop the document-level click listener from immediately closing the
+      // menu we are about to open.
       e.stopPropagation();
-      const b = e.currentTarget as HTMLButtonElement;
-      const id = Number(b.getAttribute('data-overflow'));
-      const card = b.closest('.ticket') as HTMLElement | null;
+      const id = Number(btn.getAttribute('data-overflow'));
+      const card = btn.closest('.ticket') as HTMLElement | null;
       const menu = card?.querySelector<HTMLElement>('.ticketMenu');
       if (!menu) return;
       const willOpen = menu.hidden;
@@ -1020,36 +1161,24 @@ function renderTickets() {
       if (willOpen) {
         openTicketMenuId = id;
         menu.hidden = false;
-        b.setAttribute('aria-expanded', 'true');
+        btn.setAttribute('aria-expanded', 'true');
       }
-    });
-  });
+      return;
+    }
 
-  restoreOpenTicketMenu();
-
-  // Title expand/collapse (only shown when the 2-line clamp actually truncates)
-  refs.ticketList.querySelectorAll<HTMLButtonElement>('button[data-toggle-title]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      const b = e.currentTarget as HTMLButtonElement;
-      const id = Number(b.getAttribute('data-toggle-title'));
-      const card = b.closest('.ticket') as HTMLElement | null;
+    if (btn.hasAttribute('data-toggle-title')) {
+      const id = Number(btn.getAttribute('data-toggle-title'));
+      const card = btn.closest('.ticket') as HTMLElement | null;
       if (!card) return;
-
       const nowExpanded = !card.classList.contains('is-expanded');
       card.classList.toggle('is-expanded', nowExpanded);
       if (nowExpanded) expandedTicketTitles.add(id);
       else expandedTicketTitles.delete(id);
-
-      b.textContent = nowExpanded ? t('ticket.collapseTitle') : t('ticket.expandTitle');
-      b.setAttribute('aria-expanded', nowExpanded ? 'true' : 'false');
-
-      // Re-evaluate truncation for other cards too (optional but keeps the UI tidy)
+      btn.textContent = nowExpanded ? t('ticket.collapseTitle') : t('ticket.expandTitle');
+      btn.setAttribute('aria-expanded', nowExpanded ? 'true' : 'false');
       updateTicketTitleToggles();
-    });
+    }
   });
-
-  updateTicketTitleToggles();
-
 }
 
 function updateTicketTitleToggles() {
@@ -1214,7 +1343,7 @@ refs.btnStart.onclick = () => {
   if (ach.getPreset() !== preset) ach.setPreset(preset);
   achLastTickSec = -1;
   applyAchievementRewards(ach.onEvents([{ type: 'RUN_START', atSec: sim.timeSec, budget: sim.budget, architectureDebt: sim.architectureDebt }]));
-  integrityKeyPromise.then(key => sealStorageKey(ACH_PREFIX + preset, key));
+  sealAchievementStorage(preset);
   sim.setRunning(true);
   startTickLoop();
   syncUI();
@@ -1226,7 +1355,7 @@ refs.btnPause.onclick = () => {
 refs.btnReset.onclick = () => {
   // Treat reset as run end for achievements tracking.
   applyAchievementRewards(ach.onEvents([{ type: 'RUN_END', atSec: sim.timeSec, reason: 'RESET' }]));
-  integrityKeyPromise.then(key => sealStorageKey(ACH_PREFIX + (refs.presetSelect.value as EvalPreset), key));
+  sealAchievementStorage(refs.presetSelect.value as EvalPreset);
   sim.setRunning(false);
   achLastTickSec = -1;
   const seedStr = (refs.seedInput.value ?? '').trim();
@@ -1255,14 +1384,21 @@ refs.btnDailySeed.onclick = () => {
 
 // --- Challenges -------------------------------------------------------------
 let activeChallenge: ChallengeDef | null = null;
+let challengesMod: typeof import('./challenges') | null = null;
 
 function renderChallenges() {
-  const daily = getDailyChallenge();
-  const weekly = getWeeklyChallenge();
+  if (!challengesMod) {
+    refs.challengeDaily.textContent = '…';
+    refs.challengeWeekly.textContent = '…';
+    refs.challengeResults.textContent = '';
+    return;
+  }
+  const daily = challengesMod.getDailyChallenge();
+  const weekly = challengesMod.getWeeklyChallenge();
   refs.challengeDaily.textContent = `${daily.title} (${daily.preset}, seed ${daily.seed})`;
   refs.challengeWeekly.textContent = `${weekly.title} (${weekly.preset}, seed ${weekly.seed})`;
 
-  const results = loadChallengeResults().slice(0, 5);
+  const results = challengesMod.loadChallengeResults().slice(0, 5);
   if (results.length) {
     refs.challengeResults.textContent = results.map(r =>
       `${r.challengeId}: ${r.completed ? 'COMPLETED' : 'FAILED'} (${r.finalScore} pts)`
@@ -1290,17 +1426,33 @@ function startChallenge(challenge: ChallengeDef) {
   syncUI();
 }
 
-refs.btnStartDaily.onclick = () => startChallenge(getDailyChallenge());
-refs.btnStartWeekly.onclick = () => startChallenge(getWeeklyChallenge());
+refs.btnStartDaily.onclick = async () => {
+  const mod = await loadChallengesModule();
+  startChallenge(mod.getDailyChallenge());
+};
+refs.btnStartWeekly.onclick = async () => {
+  const mod = await loadChallengesModule();
+  startChallenge(mod.getWeeklyChallenge());
+};
 
 renderChallenges();
+// Fetch the challenges chunk after first paint; render fills in once ready.
+afterFirstPaint().then(() => loadChallengesModule()).then((mod) => {
+  challengesMod = mod;
+  renderChallenges();
+});
 
 // --- Scenarios (Release Trains) --------------------------------------------
 let activeScenario: ScenarioDef | null = null;
+let scenariosMod: typeof import('./scenarios') | null = null;
 
 function renderScenarios() {
-  const scenarios = listScenarios();
-  const results = loadScenarioResults();
+  if (!scenariosMod) {
+    setHTML(refs.scenarioList, `<div class="small muted">…</div>`);
+    return;
+  }
+  const scenarios = scenariosMod.listScenarios();
+  const results = scenariosMod.loadScenarioResults();
   const html = scenarios.map(s => {
     const completed = results.some(r => r.scenarioId === s.id && r.completed);
     const badge = completed ? ' ✓' : '';
@@ -1345,6 +1497,10 @@ function startScenario(scenario: ScenarioDef) {
 }
 
 renderScenarios();
+afterFirstPaint().then(() => loadScenariosModule()).then((mod) => {
+  scenariosMod = mod;
+  renderScenarios();
+});
 
 // --- Welcome modal (first visit only) -------------------------------------
 const WELCOME_KEY = 'asr:welcomed:v1';
@@ -1571,13 +1727,14 @@ refs.btnCopyRun.onclick = async () => {
   }
 };
 
-refs.btnClearScoreboard.onclick = () => {
-  clearScoreboard();
-  integrityKeyPromise.then(key => sealScoreboard(key));
+refs.btnClearScoreboard.onclick = async () => {
+  const sb = await scoreboardModPromise;
+  sb.clearScoreboard();
+  sealScoreboardNow();
   // Clearing the scoreboard resolves scoreboard-origin tamper reasons. Other
   // reasons (achievements, runtime) stay sticky since their data is untouched.
-  clearTamperIf(['scoreboard', 'score']);
-  refs.integrityBadge.hidden = !getTamperState().tampered;
+  integrityClearTamperIf(['scoreboard', 'score']);
+  refs.integrityBadge.hidden = !integrityGetTamperState().tampered;
   renderScoreboard();
   toast(t('toast.scoreboardCleared'));
 };
@@ -2145,7 +2302,14 @@ function draw() {
 
 
 function renderScoreboard() {
-  const entries = loadScoreboard();
+  // Before the scoreboard chunk lands there is nothing to read; the empty-
+  // state message is also what localStorage would resolve to, so users see
+  // no flicker when the module finally attaches.
+  if (!scoreboardMod) {
+    refs.scoreboardList.textContent = t('history.noScores');
+    return;
+  }
+  const entries = scoreboardMod.loadScoreboard();
   if (!entries.length) {
     refs.scoreboardList.textContent = t('history.noScores');
     return;
@@ -2196,7 +2360,7 @@ function syncUI() {
   if (achEvents.length) {
     const unlocked = ach.onEvents(achEvents);
     applyAchievementRewards(unlocked);
-    integrityKeyPromise.then(key => sealStorageKey(ACH_PREFIX + currentPreset, key));
+    if (ach.isReady()) sealAchievementStorage(currentPreset);
   }
 
   renderAchievementSummary(currentPreset);
@@ -2236,12 +2400,17 @@ function syncUI() {
   setText(refs.gc, `${Math.round(s.gcPauseMs)}`);
   setText(refs.oom, `${s.oomCount}`);
 
-  // Sparklines: push samples each tick while running.
+  // Sparklines: sparkRating lives in the always-visible sticky header, so
+  // keep pushing it. The other three live inside the Overview tab panels;
+  // skip their push() calls when Overview isn't the active tab so hidden
+  // SVG point-lists aren't rewritten four times per tick.
   if (sim.running) {
     sparkRating.push(s.rating);
-    sparkFail.push(s.failureRate * 100);
-    sparkJank.push(s.jankPct);
-    sparkHeap.push(s.heapMb);
+    if (refs.tabOverview.classList.contains('is-active')) {
+      sparkFail.push(s.failureRate * 100);
+      sparkJank.push(s.jankPct);
+      sparkHeap.push(s.heapMb);
+    }
   }
 
   setText(refs.a11yScore, `${Math.round(s.a11yScore)}`);
@@ -2287,43 +2456,49 @@ function syncUI() {
     refs.postmortem.textContent = s.lastRun.summaryLines.join('\n');
 
     if (s.lastRun.runId && s.lastRun.runId !== lastSavedRunId) {
-      lastSavedRunId = s.lastRun.runId;
+      const lastRun = s.lastRun;
+      lastSavedRunId = lastRun.runId;
       showEndRunModal();
-      if (!isScoreSane(s.lastRun.finalScore, s.lastRun.durationSec, s.lastRun.multiplier)) {
-        markTampered('score');
+      if (!integrityIsScoreSane(lastRun.finalScore, lastRun.durationSec, lastRun.multiplier)) {
+        integrityMarkTampered('score');
       }
-      addScoreEntry({
-        runId: s.lastRun.runId,
-        seed: s.lastRun.seed,
-        preset: s.lastRun.preset,
-        endReason: s.lastRun.endReason,
-        endedAtTs: s.lastRun.endedAtTs,
-        durationSec: s.lastRun.durationSec,
-        finalScore: s.lastRun.finalScore,
-        multiplier: s.lastRun.multiplier,
-        architectureDebt: s.lastRun.architectureDebt,
-        rating: s.lastRun.rating,
+      scoreboardModPromise.then((sb) => {
+        sb.addScoreEntry({
+          runId: lastRun.runId,
+          seed: lastRun.seed,
+          preset: lastRun.preset,
+          endReason: lastRun.endReason,
+          endedAtTs: lastRun.endedAtTs,
+          durationSec: lastRun.durationSec,
+          finalScore: lastRun.finalScore,
+          multiplier: lastRun.multiplier,
+          architectureDebt: lastRun.architectureDebt,
+          rating: lastRun.rating,
+        });
+        sealScoreboardNow();
+        renderScoreboard();
       });
-      integrityKeyPromise.then(key => sealScoreboard(key));
-      renderScoreboard();
-      persistRunActionLog(s.lastRun.runId, s.lastRun.seed, s.lastRun.preset, sim.getActionLog());
+      persistRunActionLog(lastRun.runId, lastRun.seed, lastRun.preset, sim.getActionLog());
 
       // Evaluate active challenge
-      if (activeChallenge && s.lastRun.seed === activeChallenge.seed) {
+      if (activeChallenge && lastRun.seed === activeChallenge.seed) {
         const maxTier = sim.components.reduce((mx, c) => Math.max(mx, c.tier), 0);
-        const result = evaluateChallenge(activeChallenge, s.lastRun, sim.engRefillsUsed, maxTier > 1 ? 1 : 0);
-        saveChallengeResult(result);
+        const challenge = activeChallenge;
+        loadChallengesModule().then((mod) => {
+          const result = mod.evaluateChallenge(challenge, lastRun, sim.engRefillsUsed, maxTier > 1 ? 1 : 0);
+          mod.saveChallengeResult(result);
+          renderChallenges();
+        });
         activeChallenge = null;
-        renderChallenges();
       }
 
       // Evaluate active scenario
-      if (activeScenario && s.lastRun.seed === activeScenario.seed) {
+      if (activeScenario && lastRun.seed === activeScenario.seed) {
         const goal = activeScenario.goal;
-        let completed = s.lastRun.endReason === 'SHIFT_COMPLETE';
+        let completed = lastRun.endReason === 'SHIFT_COMPLETE';
         if (completed) {
-          if (goal.kind === 'RATING') completed = s.lastRun.rating >= goal.threshold;
-          else if (goal.kind === 'ZERO_DEBT') completed = Math.round(s.lastRun.architectureDebt) === 0;
+          if (goal.kind === 'RATING') completed = lastRun.rating >= goal.threshold;
+          else if (goal.kind === 'ZERO_DEBT') completed = Math.round(lastRun.architectureDebt) === 0;
           else if (goal.kind === 'NO_CRASH_TICKETS') {
             completed = !sim.tickets.some(t => t.kind === 'CRASH_SPIKE');
           } else if (goal.kind === 'COMPLIANCE') {
@@ -2331,14 +2506,17 @@ function syncUI() {
             completed = (r?.compliance ?? 0) >= goal.threshold;
           }
         }
-        saveScenarioResult({
-          scenarioId: activeScenario.id,
-          completed,
-          finalScore: Math.round(s.lastRun.finalScore * (completed ? activeScenario.bonusMultiplier : 1)),
-          endedAtTs: s.lastRun.endedAtTs,
+        const scenario = activeScenario;
+        loadScenariosModule().then((mod) => {
+          mod.saveScenarioResult({
+            scenarioId: scenario.id,
+            completed,
+            finalScore: Math.round(lastRun.finalScore * (completed ? scenario.bonusMultiplier : 1)),
+            endedAtTs: lastRun.endedAtTs,
+          });
+          renderScenarios();
         });
         activeScenario = null;
-        renderScenarios();
       }
     }
   } else {
@@ -2381,14 +2559,14 @@ function syncUI() {
       if (sim.budget !== pausedSnapshot.budget ||
           sim.score !== pausedSnapshot.score ||
           sim.rating !== pausedSnapshot.rating) {
-        markTampered('runtime');
+        integrityMarkTampered('runtime');
       }
     }
     pausedSnapshot = { budget: sim.budget, score: sim.score, rating: sim.rating };
   } else {
     pausedSnapshot = null;
   }
-  refs.integrityBadge.hidden = !getTamperState().tampered;
+  refs.integrityBadge.hidden = !integrityGetTamperState().tampered;
 
   renderTickets();
   renderRegions();

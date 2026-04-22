@@ -362,8 +362,6 @@ button, input, select, textarea {
     color-mix(in oklab, white 5%, transparent) 0%,
     transparent 40%
   );
-  backdrop-filter: saturate(140%) blur(10px);
-  -webkit-backdrop-filter: saturate(140%) blur(10px);
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: var(--md-sys-shape-corner-large);
   padding: 10px;
@@ -372,6 +370,17 @@ button, input, select, textarea {
     inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
   container-type: inline-size;
   container-name: caphud;
+}
+
+/* Only the capacity HUD actually benefits from see-through (it sits over
+   the component graph and the user watches the graph move underneath it).
+   The blur is the single most expensive compositor effect in the app, so
+   gate it to high-DPR, no-reduced-motion environments where it pays off. */
+@media (prefers-reduced-motion: no-preference) and (min-resolution: 2dppx) {
+  .canvasHud--actions {
+    backdrop-filter: saturate(140%) blur(10px);
+    -webkit-backdrop-filter: saturate(140%) blur(10px);
+  }
 }
 
 .canvasHud--actions .btn {
@@ -417,14 +426,16 @@ button, input, select, textarea {
      HUD can still be selected / dragged); re-enable pointer events on
      just the form controls. */
   pointer-events: none;
-  background-color: color-mix(in oklab, var(--md-sys-color-surface-container-high) 82%, transparent);
+  /* Previously this card used a backdrop-filter blur; the cost of stacking
+     three blurs over the live canvas wasn't worth the visual delta. Lean on
+     a slightly more opaque surface-container-high mix so the card still
+     reads as elevated without forcing an extra composited layer. */
+  background-color: color-mix(in oklab, var(--md-sys-color-surface-container-high) 90%, transparent);
   background-image: linear-gradient(
     180deg,
     color-mix(in oklab, white 5%, transparent) 0%,
     transparent 40%
   );
-  backdrop-filter: saturate(140%) blur(10px);
-  -webkit-backdrop-filter: saturate(140%) blur(10px);
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: var(--md-sys-shape-corner-large);
   padding: 10px;
@@ -462,14 +473,15 @@ button, input, select, textarea {
   gap: 8px;
   width: clamp(300px, 34%, 420px);
   max-height: calc(100% - 20px);
-  background-color: color-mix(in oklab, var(--md-sys-color-surface-container-high) 82%, transparent);
+  /* Same trade as the place/platform HUDs: bump opacity instead of relying
+     on a live blur so the ticket list's 1Hz DOM rewrites don't force an
+     expensive recomposite of the whole canvas underneath. */
+  background-color: color-mix(in oklab, var(--md-sys-color-surface-container-high) 90%, transparent);
   background-image: linear-gradient(
     180deg,
     color-mix(in oklab, white 5%, transparent) 0%,
     transparent 40%
   );
-  backdrop-filter: saturate(140%) blur(10px);
-  -webkit-backdrop-filter: saturate(140%) blur(10px);
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: var(--md-sys-shape-corner-large);
   padding: 10px;
@@ -672,8 +684,27 @@ canvas {
   padding-top: 12px;
   scrollbar-gutter: stable;
   scroll-padding-top: 120px;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 14px);
-          mask-image: linear-gradient(to bottom, transparent 0, black 14px);
+  /* mask-image was previously used for the 14px top fade, but it forces
+     the whole scroller to composite on every frame of a scroll. The
+     ::before overlay below paints the same fade once at the viewport
+     edge and sits outside the scrolling flow. */
+  position: relative;
+}
+
+.sideBody::before {
+  content: "";
+  position: sticky;
+  top: 0;
+  display: block;
+  height: 14px;
+  margin-bottom: -14px;
+  background: linear-gradient(
+    to bottom,
+    var(--md-sys-color-surface) 0%,
+    color-mix(in oklab, var(--md-sys-color-surface) 0%, transparent) 100%
+  );
+  pointer-events: none;
+  z-index: 6;
 }
 
 .sideHeader {
@@ -697,10 +728,10 @@ canvas {
     transition: none;
   }
   .sideHeader h1 {
-    max-height: none;
     margin-bottom: 12px;
     opacity: 1;
     padding-top: 10px;
+    transform: none;
     transition: none;
   }
 }
@@ -796,21 +827,30 @@ canvas {
 }
 
 .sideHeader h1 {
-  padding-top: calc(10px - var(--side-scroll) * 10px);
-  /* 64px ceiling covers the ~44px intrinsic height (title + badge + top
-     padding) with slack; multiplying by (1 - ratio) guarantees an exact
-     0 at saturation, which max-height can't reach from content-height.
-     overflow:hidden clips text cleanly during the collapse. */
-  max-height: calc(64px - var(--side-scroll) * 64px);
-  margin-bottom: calc(12px - var(--side-scroll) * 12px);
+  /* Compositor-only collapse: transform + opacity on every scroll frame —
+     no layout passes on .sideHeader. Keep a static padding-top so the box
+     model doesn't shift as the scroll ratio climbs. The translate/scale
+     anchors to top-left so the title pulls up into the chrome instead of
+     sliding sideways as it shrinks. */
+  transform-origin: top left;
+  padding-top: 10px;
+  margin-bottom: 12px;
+  transform:
+    translateY(calc(var(--side-scroll) * -8px))
+    scale(calc(1 - var(--side-scroll) * 0.08));
   opacity: calc(1 - var(--side-scroll));
-  overflow: hidden;
+  /* Once the title is ~fully collapsed, stop swallowing clicks destined
+     for the chips/controls below. */
+  pointer-events: auto;
   transition:
-    max-height 180ms ease-out,
-    margin-bottom 180ms ease-out,
-    padding-top 180ms ease-out,
+    transform 180ms ease-out,
     opacity 180ms ease-out;
-  will-change: max-height, opacity;
+  will-change: transform, opacity;
+}
+
+.sideHeader[style*="--side-scroll: 1"] h1,
+.sideHeader[style*="--side-scroll:1"] h1 {
+  pointer-events: none;
 }
 
 .sideHeader .row:last-child {
@@ -2081,4 +2121,16 @@ html.e2e *, html.e2e *::before, html.e2e *::after {
   transition: none !important;
   scroll-behavior: auto !important;
   view-transition-name: none !important;
+}
+
+/* Containment: each repeating list row becomes its own layout + paint
+   boundary, so updating one ticket/card/region/achievement only invalidates
+   that row rather than its siblings. Pairs with the 1Hz sim-driven DOM
+   rewrites that otherwise smear invalidation across the whole list. */
+.ticket,
+.card,
+.regionRow,
+.scenarioRow,
+.achItem {
+  contain: content;
 }
