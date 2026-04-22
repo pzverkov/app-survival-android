@@ -378,15 +378,45 @@ button, input, select, textarea {
   padding: 8px 10px;
 }
 
-.canvasHud--platform {
-  /* Sits under the mode hint drawn onto the canvas at (16, 12) in main.ts —
-     a ~24px offset leaves the hint legible with breathing room. */
+/* Setup stack: a flex row wrapper that holds the place-component and
+   platform HUDs side by side under the canvas mode hint at (16, 12).
+   Flex-gap + flex-wrap mean neither HUD needs to know the other's size,
+   and narrow canvases get an automatic column layout. */
+.canvasHudStack {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.canvasHudStack--tl {
   top: 36px;
-  right: auto;
   left: 10px;
+  /* Leave clearance for the zoom HUD in the top-right. */
+  right: 10px;
+  max-width: calc(100% - 20px);
+}
+
+/* Children inside a stack opt out of .canvasHud's default absolute layout
+   so flex can place them. */
+.canvasHudStack > .canvasHud {
+  position: static;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+}
+
+.canvasHud--place,
+.canvasHud--platform {
   flex-direction: column;
   gap: 4px;
-  width: clamp(220px, 24%, 320px);
+  /* The HUD sits over the canvas. Let taps on the card's empty/text
+     regions pass through to the canvas (so a component placed behind the
+     HUD can still be selected / dragged); re-enable pointer events on
+     just the form controls. */
+  pointer-events: none;
   background-color: color-mix(in oklab, var(--md-sys-color-surface-container-high) 82%, transparent);
   background-image: linear-gradient(
     180deg,
@@ -401,6 +431,22 @@ button, input, select, textarea {
   box-shadow:
     var(--md-elevation-2),
     inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
+}
+
+.canvasHud--place {
+  /* Slightly wider to fit the component-type select + Add button comfortably. */
+  width: clamp(260px, 28%, 360px);
+}
+
+.canvasHud--platform {
+  width: clamp(220px, 24%, 320px);
+}
+
+/* Re-enable taps on the things the user actually interacts with. */
+.canvasHud--place select,
+.canvasHud--place button,
+.canvasHud--place label {
+  pointer-events: auto;
 }
 
 .canvasHud--platform #advisoryText:empty {
@@ -573,12 +619,29 @@ canvas {
   .canvasHud--actions > * { overflow: auto; }
   .canvasHud--backlog .ticketList { max-height: 24vh; overflow: auto; }
 
-  /* On narrow portrait canvases the platform chip risks overlapping the
-     zoom buttons (top-right) — cap its width and let it wrap below. */
-  .canvasHud--platform {
+  /* On narrow portrait canvases both HUDs compact to single-line chips —
+     the full layout would stretch into the bottom backlog territory at
+     mobile canvas heights (~38vh). Place keeps select + Add; Platform
+     drops to just the API numbers line. */
+  .canvasHudStack--tl {
     top: 34px;
     left: 8px;
-    width: clamp(160px, 50%, 260px);
+    right: 8px;
+    max-width: calc(100% - 16px);
+    gap: 6px;
+  }
+  .canvasHud--place,
+  .canvasHud--platform {
+    width: 100%;
+    padding: 6px 8px;
+  }
+  .canvasHud--place > .k,
+  .canvasHud--platform > .small.muted,
+  .canvasHud--platform > #advisoryText {
+    display: none;
+  }
+  .canvasHud--place > .row {
+    margin-top: 0 !important;
   }
 }
 
