@@ -974,6 +974,9 @@ function startTickLoop() {
 // --- Canvas viewport (pan/zoom) + sizing ---------------------------------
 // World coordinates are the same units as the original "px" layout; the view transform maps them into screen px.
 const view = { scale: 1, tx: 0, ty: 0 };
+// Expose the live view transform under E2E so touch tests can convert a
+// component's world position to a viewport tap coordinate.
+if (IS_E2E) (window as any).__VIEW__ = view;
 let canvasCssW = 1;
 let canvasCssH = 1;
 let canvasDpr = 1;
@@ -1488,6 +1491,18 @@ let panStartTy = 0;
 type LinkPreviewState = { mx: number; my: number; hoverId: number | null };
 let linkPreview: LinkPreviewState | null = null;
 
+// Multi-pointer tracking. Each entry is the latest client-space coords for
+// one pointerId. Gesture (pinch / two-finger pan) activates at size >= 2.
+const pointers = new Map<number, { x: number; y: number }>();
+type PinchState = {
+  startDist: number;
+  startScale: number;
+  // World point under the pinch midpoint when the gesture began. Keeping
+  // this point under the live midpoint yields zoom + two-finger pan in one.
+  startMidWorld: { x: number; y: number };
+};
+let pinchState: PinchState | null = null;
+
 function clearLinkPreview() {
   if (linkPreview) {
     linkPreview = null;
@@ -1500,9 +1515,69 @@ function canvasCursorForMode(): string {
   return '';
 }
 
-refs.canvas.addEventListener('mousedown', (e) => {
-  // Alt/right/middle mouse => pan
-  if (e.button === 1 || e.button === 2 || e.altKey) {
+function firstTwoPointers() {
+  const it = pointers.values();
+  const a = it.next().value as { x: number; y: number };
+  const b = it.next().value as { x: number; y: number };
+  return { a, b };
+}
+
+function beginPinch() {
+  const { a, b } = firstTwoPointers();
+  const mxClient = (a.x + b.x) / 2;
+  const myClient = (a.y + b.y) / 2;
+  const r = refs.canvas.getBoundingClientRect();
+  const midX = mxClient - r.left;
+  const midY = myClient - r.top;
+  pinchState = {
+    startDist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+    startScale: view.scale,
+    startMidWorld: {
+      x: (midX - view.tx) / view.scale,
+      y: (midY - view.ty) / view.scale,
+    },
+  };
+  // Entering gesture mode cancels any in-flight single-pointer interaction
+  // so lifting a finger doesn't drop a component or stamp a link.
+  draggingId = null;
+  panning = false;
+  clearLinkPreview();
+  refs.canvas.style.cursor = canvasCursorForMode();
+}
+
+function updatePinch() {
+  if (!pinchState) return;
+  const { a, b } = firstTwoPointers();
+  const mxClient = (a.x + b.x) / 2;
+  const myClient = (a.y + b.y) / 2;
+  const r = refs.canvas.getBoundingClientRect();
+  const midX = mxClient - r.left;
+  const midY = myClient - r.top;
+  const dist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+  const ratio = dist / pinchState.startDist;
+  const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, pinchState.startScale * ratio));
+  view.scale = next;
+  // Keep the world point that was under the initial midpoint pinned under
+  // the current midpoint — translation and zoom fall out of the same math.
+  view.tx = midX - pinchState.startMidWorld.x * next;
+  view.ty = midY - pinchState.startMidWorld.y * next;
+  requestDraw();
+}
+
+refs.canvas.addEventListener('pointerdown', (e) => {
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  // Pointer capture keeps events coming to the canvas even when the finger
+  // leaves its rect, and makes pointerup/pointercancel reliable on touch.
+  try { refs.canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+
+  if (pointers.size >= 2) {
+    beginPinch();
+    e.preventDefault();
+    return;
+  }
+
+  // Mouse-only: alt/middle/right-button drag pans the view.
+  if (e.pointerType === 'mouse' && (e.button === 1 || e.button === 2 || e.altKey)) {
     panning = true;
     panStartX = e.clientX;
     panStartY = e.clientY;
@@ -1555,7 +1630,16 @@ refs.canvas.addEventListener('mousedown', (e) => {
   syncUI();
 });
 
-window.addEventListener('mousemove', (e) => {
+refs.canvas.addEventListener('pointermove', (e) => {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (pinchState && pointers.size >= 2) {
+    updatePinch();
+    e.preventDefault();
+    return;
+  }
+
   if (panning) {
     const dx = e.clientX - panStartX;
     const dy = e.clientY - panStartY;
@@ -1571,7 +1655,7 @@ window.addEventListener('mousemove', (e) => {
     return;
   }
   // Live link-preview: once the user has picked a source in LINK / UNLINK mode,
-  // the mouse drives a dashed line so the target is obvious before committing.
+  // the pointer drives a dashed line so the target is obvious before committing.
   if (sim.linkFromId != null && (sim.mode === MODE.LINK || sim.mode === MODE.UNLINK)) {
     const pt = screenToWorld(e);
     const hover = hitComponent(pt.x, pt.y);
@@ -1583,11 +1667,24 @@ window.addEventListener('mousemove', (e) => {
   }
 });
 
-window.addEventListener('mouseup', () => {
-  draggingId = null;
-  panning = false;
-  refs.canvas.style.cursor = canvasCursorForMode();
-});
+function endPointer(e: PointerEvent) {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  try { refs.canvas.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+
+  // Exiting gesture mode: the surviving pointer (if any) becomes a fresh
+  // anchor on its next interaction — we deliberately do not resume drag.
+  if (pointers.size < 2) pinchState = null;
+
+  if (pointers.size === 0) {
+    draggingId = null;
+    panning = false;
+    refs.canvas.style.cursor = canvasCursorForMode();
+  }
+}
+
+refs.canvas.addEventListener('pointerup', endPointer);
+refs.canvas.addEventListener('pointercancel', endPointer);
 
 // Escape bails out of an in-progress link-pick, matching convention.
 window.addEventListener('keydown', (e) => {
@@ -1637,7 +1734,7 @@ refs.canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
 }, { passive: false });
 
-function screenToWorld(e: MouseEvent | WheelEvent) {
+function screenToWorld(e: { clientX: number; clientY: number }) {
   const r = refs.canvas.getBoundingClientRect();
   const sx = e.clientX - r.left;
   const sy = e.clientY - r.top;
