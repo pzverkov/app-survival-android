@@ -21,6 +21,17 @@ Inspired by Server Survival by pshenok at https://pshenok.github.io/server-survi
 Live demo
 https://pzverkov.github.io/app-survival-android/
 
+## Hosting
+
+Production is served from GitHub Pages at the live demo URL above, deployed by
+`.github/workflows/deploy.yml` on every push to `main`.
+
+Per-PR previews are served from Cloudflare Workers Static Assets (configured in
+`wrangler.jsonc`). The Cloudflare project's "Production branch" is intentionally
+set to a non-existent branch so only PR builds publish; production deploys are
+owned by GitHub Pages. Each PR gets a unique preview URL posted as a status
+check on the PR by the Cloudflare GitHub App.
+
 ## Table of contents
 - Purpose
 - Quick start
