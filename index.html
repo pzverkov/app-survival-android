@@ -50,6 +50,20 @@
             </div>
           </div>
         </div>
+        <!-- Platform chip: surface Latest API / Min API / device-share mix on
+             the canvas under the mode hint (drawn at 16,12 in main.ts) so the
+             right-hand dashboard doesn't have to scroll to reveal the only
+             signal that drives min-API and device-mix decisions. -->
+        <div class="canvasHud canvasHud--platform" role="region" aria-label="Platform">
+          <div class="k" data-i18n="card.platform">Platform</div>
+          <div class="small" style="margin-top:6px;">
+            <span data-i18n="platform.latestApi">Latest API</span> <span id="apiLatest" class="mono">0</span> • <span data-i18n="platform.minApi">Min API</span> <span id="apiMin" class="mono">0</span>
+          </div>
+          <div class="small muted" style="margin-top:4px;">
+            <span data-i18n="platform.oldDevices">Old devices</span> <span id="oldShare" class="mono">0</span>% • <span data-i18n="platform.lowRam">Low RAM</span> <span id="lowRamShare" class="mono">0</span>%
+          </div>
+          <div id="advisoryText" class="small" style="margin-top:6px;"></div>
+        </div>
         <div class="canvasHud canvasHud--backlog" role="region" aria-label="Backlog">
           <section class="card" id="backlogCard">
             <div class="k" data-i18n="nav.backlog">Backlog</div>
@@ -350,17 +364,6 @@
         <section id="tabSignals" class="tabPanel" role="tabpanel" aria-labelledby="tabBtnSignals">
 
         <div class="sideGroup">
-          <section class="card">
-            <div class="k" data-i18n="card.platform">Platform</div>
-            <div class="small" style="margin-top:8px;">
-              <span data-i18n="platform.latestApi">Latest API</span> <span id="apiLatest" class="mono">0</span> • <span data-i18n="platform.minApi">Min API</span> <span id="apiMin" class="mono">0</span>
-            </div>
-            <div class="small muted" style="margin-top:4px;">
-              <span data-i18n="platform.oldDevices">Old devices</span> <span id="oldShare" class="mono">0</span>% • <span data-i18n="platform.lowRam">Low RAM</span> <span id="lowRamShare" class="mono">0</span>%
-            </div>
-            <div id="advisoryText" class="small" style="margin-top:8px;"></div>
-          </section>
-
           <section class="card">
             <div class="k" data-i18n="card.regions">Regions</div>
             <div class="row" style="margin-top:8px; align-items:center;">
