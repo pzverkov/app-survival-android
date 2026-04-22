@@ -88,16 +88,17 @@ test('end-run modal does not dismiss on backdrop click', async ({ page }) => {
   await expect(page.locator('#endRunModal')).toBeHidden();
 });
 
-test('dashboard scroll drives h1 parallax', async ({ page }) => {
+test('dashboard scroll drives sticky-header parallax', async ({ page }) => {
   await page.goto('/');
 
-  // The parallax writes to --side-scroll on .sideHeader h1 via a rAF-
-  // throttled scroll listener. At rest the ratio is 0 and opacity is 1.
+  // The parallax writes to --side-scroll on the entire .sideHeader block
+  // via a rAF-throttled scroll listener. At rest the ratio is 0 and the
+  // header renders at full opacity.
   const atRest = await page.evaluate(() => {
-    const h1 = document.querySelector('.sideHeader h1') as HTMLElement;
+    const header = document.querySelector('.sideHeader') as HTMLElement;
     return {
-      ratio: h1.style.getPropertyValue('--side-scroll').trim(),
-      opacity: Number(getComputedStyle(h1).opacity),
+      ratio: header.style.getPropertyValue('--side-scroll').trim(),
+      opacity: Number(getComputedStyle(header).opacity),
     };
   });
   expect(atRest.ratio).toBe('0.000');
@@ -111,15 +112,16 @@ test('dashboard scroll drives h1 parallax', async ({ page }) => {
   await page.waitForTimeout(300);
 
   const afterScroll = await page.evaluate(() => {
-    const h1 = document.querySelector('.sideHeader h1') as HTMLElement;
+    const header = document.querySelector('.sideHeader') as HTMLElement;
     return {
-      ratio: Number(h1.style.getPropertyValue('--side-scroll')),
-      opacity: Number(getComputedStyle(h1).opacity),
+      ratio: Number(header.style.getPropertyValue('--side-scroll')),
+      opacity: Number(getComputedStyle(header).opacity),
     };
   });
   // Ratio saturates at 1 once scrollTop exceeds the 80px range.
   expect(afterScroll.ratio).toBeGreaterThan(0.9);
-  // Opacity at saturation should be ~0.55 (1 - 0.45).
-  expect(afterScroll.opacity).toBeLessThan(0.7);
-  expect(afterScroll.opacity).toBeGreaterThan(0.4);
+  // Opacity at saturation should be ~0.88 (1 - 0.12) — subtle enough that
+  // interactive controls inside the header don't look disabled.
+  expect(afterScroll.opacity).toBeLessThan(0.95);
+  expect(afterScroll.opacity).toBeGreaterThan(0.8);
 });

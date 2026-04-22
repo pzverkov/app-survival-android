@@ -1046,18 +1046,19 @@ window.addEventListener('resize', () => {
   updateTicketTitleToggles();
 });
 
-// Parallax: tie the sticky dashboard header h1 to the scroll position of
-// .sideBody so the title subtly drifts up and fades as the user scrolls
-// the card list underneath. CSS reads --side-scroll as a 0..1 ratio.
+// Parallax: tie the entire sticky dashboard header block to the scroll
+// position of .sideBody so the header (title + controls + tabs + status
+// strip) subtly drifts up and fades as the user scrolls the card list
+// underneath. CSS reads --side-scroll as a 0..1 ratio.
 {
-  const h1 = document.querySelector<HTMLElement>('.sideHeader h1');
-  if (h1) {
+  const header = document.querySelector<HTMLElement>('.sideHeader');
+  if (header) {
     const PARALLAX_RANGE = 80; // px of scroll over which the effect saturates
     let scheduled = false;
     const update = () => {
       scheduled = false;
       const ratio = Math.min(1, Math.max(0, refs.sideBody.scrollTop / PARALLAX_RANGE));
-      h1.style.setProperty('--side-scroll', ratio.toFixed(3));
+      header.style.setProperty('--side-scroll', ratio.toFixed(3));
     };
     refs.sideBody.addEventListener('scroll', () => {
       if (scheduled) return;
