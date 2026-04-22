@@ -92,24 +92,31 @@ test('dashboard scroll drives sticky-header parallax', async ({ page }) => {
   await page.goto('/');
 
   // The parallax writes to --side-scroll on the .sideHeader block via a
-  // rAF-throttled scroll listener. The h1 hero collapses to zero height
-  // as the ratio saturates while the remaining controls (buttons, mode
-  // row, tabs, status chips) stay fully opaque so they don't look
-  // disabled.
+  // rAF-throttled scroll listener. The h1 hero collapses visually (transform
+  // + opacity) as the ratio saturates, while the remaining controls
+  // (buttons, mode row, tabs, status chips) stay fully opaque so they
+  // don't look disabled. The collapse is intentionally layout-free —
+  // h1.offsetHeight stays constant so scroll frames never trigger layout.
   const atRest = await page.evaluate(() => {
     const header = document.querySelector('.sideHeader') as HTMLElement;
     const h1 = header.querySelector('h1') as HTMLElement;
+    const cs = getComputedStyle(h1);
     return {
       ratio: header.style.getPropertyValue('--side-scroll').trim(),
       headerOpacity: Number(getComputedStyle(header).opacity),
       h1Height: h1.offsetHeight,
-      h1Opacity: Number(getComputedStyle(h1).opacity),
+      h1Opacity: Number(cs.opacity),
+      h1Transform: cs.transform,
+      h1WillChange: cs.willChange,
     };
   });
   expect(atRest.ratio).toBe('0.000');
   expect(atRest.headerOpacity).toBeCloseTo(1, 1);
   expect(atRest.h1Height).toBeGreaterThan(30);
   expect(atRest.h1Opacity).toBeCloseTo(1, 1);
+  // Compositor-only contract: the browser is hinted that transform and
+  // opacity are the animated properties — not layout-triggering ones.
+  expect(atRest.h1WillChange).toMatch(/transform/);
 
   // Scroll well past the 80px parallax saturation point.
   await page.evaluate(() => {
@@ -121,18 +128,25 @@ test('dashboard scroll drives sticky-header parallax', async ({ page }) => {
   const afterScroll = await page.evaluate(() => {
     const header = document.querySelector('.sideHeader') as HTMLElement;
     const h1 = header.querySelector('h1') as HTMLElement;
+    const cs = getComputedStyle(h1);
     return {
       ratio: Number(header.style.getPropertyValue('--side-scroll')),
       headerOpacity: Number(getComputedStyle(header).opacity),
       h1Height: h1.offsetHeight,
-      h1Opacity: Number(getComputedStyle(h1).opacity),
+      h1Opacity: Number(cs.opacity),
+      h1Transform: cs.transform,
     };
   });
   // Ratio saturates at 1 once scrollTop exceeds the 80px range.
   expect(afterScroll.ratio).toBeGreaterThan(0.9);
-  // The h1 hero collapses to zero: height clamped and opacity fades out.
-  expect(afterScroll.h1Height).toBeLessThanOrEqual(2);
+  // h1 fades out visually via opacity — but its layout box stays sized
+  // the same as at rest (compositor-only collapse, no layout on scroll).
   expect(afterScroll.h1Opacity).toBeLessThan(0.1);
+  expect(afterScroll.h1Height).toBe(atRest.h1Height);
+  // Transform has changed from the at-rest state — the scale+translate
+  // driven by --side-scroll is what visually shrinks the title.
+  expect(afterScroll.h1Transform).not.toBe(atRest.h1Transform);
+  expect(afterScroll.h1Transform).not.toBe('none');
   // Invariant: the header itself (buttons/tabs/chips) stays fully opaque
   // so interactive controls never look disabled.
   expect(afterScroll.headerOpacity).toBeGreaterThan(0.95);

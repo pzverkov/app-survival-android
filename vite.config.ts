@@ -42,13 +42,22 @@ export default defineConfig(() => {
             // Each locale stays in its own chunk so language switches
             // fetch a single ~1-5KB file instead of the full set.
             if (id.includes('/src/locales/')) return undefined;
-            if (id.endsWith('/src/achievements.ts')) return 'ach';
+            // scenarios + challenges share the "meta" lazy load, and
+            // both are only reached via dynamic import from main.ts.
             if (id.endsWith('/src/scenarios.ts') || id.endsWith('/src/challenges.ts')) return 'meta';
+            // integrity + scoreboard are both lazy and share CryptoKey
+            // helpers, so grouping them saves a round-trip. postmortem
+            // is intentionally NOT here — sim.ts imports it statically,
+            // so co-locating it with integrity would drag the integrity
+            // chunk onto the critical path.
             if (
               id.endsWith('/src/integrity.ts') ||
-              id.endsWith('/src/scoreboard.ts') ||
-              id.endsWith('/src/postmortem.ts')
+              id.endsWith('/src/scoreboard.ts')
             ) return 'integrity';
+            // achievements.ts is only dynamically imported; let Rollup
+            // auto-chunk it. Assigning it manually caused Rollup to
+            // co-pack shared constants (MODE, EVAL_PRESET) into the
+            // chunk, which forced the entry to statically import it.
             return undefined;
           },
         },
