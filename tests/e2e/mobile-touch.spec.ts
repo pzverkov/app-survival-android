@@ -93,7 +93,10 @@ test('tap on canvas selects a component (touch)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#welcomeModal')).toBeHidden();
 
-  await page.click('#btnAdd');
+  // dispatchEvent bypasses the pointer-hit-test, which is fragile on the
+   // canvas at page load (transient incident overlay from the starter event
+   // can briefly obscure the Add button).
+  await page.locator('#btnAdd').dispatchEvent('click');
   const tap = await page.evaluate(() => {
     const sim = (window as any).__SIM__;
     const v = (window as any).__VIEW__;

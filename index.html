@@ -50,19 +50,52 @@
             </div>
           </div>
         </div>
-        <!-- Platform chip: surface Latest API / Min API / device-share mix on
-             the canvas under the mode hint (drawn at 16,12 in main.ts) so the
-             right-hand dashboard doesn't have to scroll to reveal the only
-             signal that drives min-API and device-mix decisions. -->
-        <div class="canvasHud canvasHud--platform" role="region" aria-label="Platform">
-          <div class="k" data-i18n="card.platform">Platform</div>
-          <div class="small" style="margin-top:6px;">
-            <span data-i18n="platform.latestApi">Latest API</span> <span id="apiLatest" class="mono">0</span> • <span data-i18n="platform.minApi">Min API</span> <span id="apiMin" class="mono">0</span>
+        <!-- Setup stack: the primary place-component control sits next to the
+             Platform chip directly under the mode hint so the "what am I
+             building, what platform am I building for" decisions live side
+             by side on the canvas, reclaiming vertical space on the
+             right-hand dashboard. -->
+        <div class="canvasHudStack canvasHudStack--tl" role="group" aria-label="Setup">
+          <div class="canvasHud canvasHud--place" role="region" aria-label="Place component">
+            <label for="componentType" class="k" data-i18n="setup.placeComponent">Place component</label>
+            <div class="row" style="margin-top:6px; flex-wrap:nowrap; gap:6px;">
+              <select id="componentType" style="flex:1; min-width:0;">
+                <option value="UI" data-i18n="component.UI">UI</option>
+                <option value="VM" data-i18n="component.VM">ViewModel</option>
+                <option value="DOMAIN" data-i18n="component.DOMAIN">Domain</option>
+                <option value="REPO" data-i18n="component.REPO">Repository</option>
+                <option value="CACHE" data-i18n="component.CACHE">Cache</option>
+                <option value="DB" data-i18n="component.DB">Room DB</option>
+                <option value="NET" data-i18n="component.NET">Network</option>
+                <option value="WORK" data-i18n="component.WORK">WorkManager</option>
+                <option value="OBS" data-i18n="component.OBS">Observability</option>
+                <option value="FLAGS" data-i18n="component.FLAGS">Feature Flags</option>
+                <option value="AUTH" data-i18n="component.AUTH">Auth / Sessions</option>
+                <option value="PINNING" data-i18n="component.PINNING">TLS Pinning</option>
+                <option value="KEYSTORE" data-i18n="component.KEYSTORE">Keystore / Crypto</option>
+                <option value="SANITIZER" data-i18n="component.SANITIZER">Input Sanitizer</option>
+                <option value="ABUSE" data-i18n="component.ABUSE">Abuse Protection</option>
+                <option value="A11Y" data-i18n="component.A11Y">Accessibility Layer</option>
+                <option value="BILLING" data-i18n="component.BILLING">Billing / IAP</option>
+                <option value="PUSH" data-i18n="component.PUSH">Push / FCM</option>
+                <option value="DEEPLINK" data-i18n="component.DEEPLINK">Deep Links</option>
+              </select>
+              <button id="btnAdd" class="btn tonal" data-i18n-title="btn.add" title="Add">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span class="btn-label" data-i18n="btn.add">Add</span>
+              </button>
+            </div>
           </div>
-          <div class="small muted" style="margin-top:4px;">
-            <span data-i18n="platform.oldDevices">Old devices</span> <span id="oldShare" class="mono">0</span>% • <span data-i18n="platform.lowRam">Low RAM</span> <span id="lowRamShare" class="mono">0</span>%
+          <div class="canvasHud canvasHud--platform" role="region" aria-label="Platform">
+            <div class="k" data-i18n="card.platform">Platform</div>
+            <div class="small" style="margin-top:6px;">
+              <span data-i18n="platform.latestApi">Latest API</span> <span id="apiLatest" class="mono">0</span> • <span data-i18n="platform.minApi">Min API</span> <span id="apiMin" class="mono">0</span>
+            </div>
+            <div class="small muted" style="margin-top:4px;">
+              <span data-i18n="platform.oldDevices">Old devices</span> <span id="oldShare" class="mono">0</span>% • <span data-i18n="platform.lowRam">Low RAM</span> <span id="lowRamShare" class="mono">0</span>%
+            </div>
+            <div id="advisoryText" class="small" style="margin-top:6px;"></div>
           </div>
-          <div id="advisoryText" class="small" style="margin-top:6px;"></div>
         </div>
         <div class="canvasHud canvasHud--backlog" role="region" aria-label="Backlog">
           <section class="card" id="backlogCard">
@@ -324,39 +357,6 @@
             <div class="small muted" style="margin-top:8px;" data-i18n="setup.evalPresetHint">CoverageGate and enforcement weight</div>
           </section>
 
-          <section class="card">
-            <label for="componentType" class="k" data-i18n="setup.placeComponent">Place component</label>
-            <div class="row" style="margin-top:8px;">
-              <select id="componentType">
-                <option value="UI" data-i18n="component.UI">UI</option>
-                <option value="VM" data-i18n="component.VM">ViewModel</option>
-                <option value="DOMAIN" data-i18n="component.DOMAIN">Domain</option>
-                <option value="REPO" data-i18n="component.REPO">Repository</option>
-                <option value="CACHE" data-i18n="component.CACHE">Cache</option>
-                <option value="DB" data-i18n="component.DB">Room DB</option>
-                <option value="NET" data-i18n="component.NET">Network</option>
-                <option value="WORK" data-i18n="component.WORK">WorkManager</option>
-                <option value="OBS" data-i18n="component.OBS">Observability</option>
-                <option value="FLAGS" data-i18n="component.FLAGS">Feature Flags</option>
-                <option value="AUTH" data-i18n="component.AUTH">Auth / Sessions</option>
-                <option value="PINNING" data-i18n="component.PINNING">TLS Pinning</option>
-                <option value="KEYSTORE" data-i18n="component.KEYSTORE">Keystore / Crypto</option>
-                <option value="SANITIZER" data-i18n="component.SANITIZER">Input Sanitizer</option>
-                <option value="ABUSE" data-i18n="component.ABUSE">Abuse Protection</option>
-                <option value="A11Y" data-i18n="component.A11Y">Accessibility Layer</option>
-                <option value="BILLING" data-i18n="component.BILLING">Billing / IAP</option>
-                <option value="PUSH" data-i18n="component.PUSH">Push / FCM</option>
-                <option value="DEEPLINK" data-i18n="component.DEEPLINK">Deep Links</option>
-              </select>
-              <button id="btnAdd" class="btn tonal" data-i18n-title="btn.add" title="Add">
-                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                <span class="btn-label" data-i18n="btn.add">Add</span>
-              </button>
-            </div>
-            <div class="small" style="margin-top:8px;">
-              <span data-i18n="setup.dragHintPrefix">Drag components to rearrange. Link mode: click</span> <span class="mono" data-i18n="setup.dragHintSource">source</span> → <span data-i18n="setup.dragHintThen">click</span> <span class="mono" data-i18n="setup.dragHintDest">destination</span>
-            </div>
-          </section>
         </div>
 
         </section> <!-- /tabOverview -->
