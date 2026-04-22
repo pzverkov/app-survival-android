@@ -138,7 +138,7 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'preset.staff': 'Staff',
     'preset.principal': 'Principal',
     'setup.placeComponent': 'Place component',
-    'btn.add': '+ Add',
+    'btn.add': 'Add',
     'component.UI': 'UI',
     'component.VM': 'ViewModel',
     'component.DOMAIN': 'Domain',

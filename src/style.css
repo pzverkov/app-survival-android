@@ -557,6 +557,23 @@ canvas {
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: var(--md-sys-shape-corner-large);
   box-shadow: var(--md-elevation-1);
+  /* Parallax: JS sets --side-scroll to a 0..1 ratio based on .sideBody
+     scrollTop, drifting the entire sticky header block up and fading it
+     slightly as the user scrolls the card list underneath. Opacity delta
+     stays small (0.12) so the buttons/tabs don't look disabled. */
+  --side-scroll: 0;
+  transform: translateY(calc(var(--side-scroll) * -8px));
+  opacity: calc(1 - var(--side-scroll) * 0.12);
+  transition: transform 160ms ease-out, opacity 160ms ease-out;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sideHeader {
+    transform: none;
+    opacity: 1;
+    transition: none;
+  }
 }
 
 .tabBar {
@@ -651,22 +668,6 @@ canvas {
 
 .sideHeader h1 {
   padding-top: 10px;
-  /* Parallax: JS sets --side-scroll to a 0..1 ratio based on .sideBody
-     scrollTop, letting the title drift up and fade while the user scrolls
-     the dashboard. Default 0 means pristine rendering before JS runs. */
-  --side-scroll: 0;
-  transform: translateY(calc(var(--side-scroll) * -6px));
-  opacity: calc(1 - var(--side-scroll) * 0.45);
-  transition: transform 160ms ease-out, opacity 160ms ease-out;
-  will-change: transform, opacity;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sideHeader h1 {
-    transform: none;
-    opacity: 1;
-    transition: none;
-  }
 }
 
 .sideHeader .row:last-child {
