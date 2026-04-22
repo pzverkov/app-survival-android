@@ -167,7 +167,6 @@ const DICTS: Partial<Record<Lang, Dict>> = {
     'btn.incidentShield': 'Incident shield',
     'btn.incidentShieldTitle': 'Blocks the next incident penalty once (unlocks via achievements)',
     'btn.hire': 'Hire',
-    'backlog.fixOrDefer': 'Fix tickets or defer',
     'platform.latestApi': 'Latest API',
     'platform.minApi': 'Min API',
     'platform.oldDevices': 'Old devices',

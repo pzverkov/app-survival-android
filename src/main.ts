@@ -445,50 +445,32 @@ function setActiveTab(id: TabId) {
   }
 }
 
-function scrollToTab(id: TabId, behavior: ScrollBehavior = 'smooth') {
+function scrollToTab(id: TabId, _behavior: ScrollBehavior = 'smooth') {
   const section = tabSections[id];
   if (!section) return;
   setActiveTab(id);
 
-  // `offsetTop` can be misleading inside flex/scroll containers; compute the
-  // target position relative to the scroll container instead.
-  const parent = refs.sideBody;
-  const parentRect = parent.getBoundingClientRect();
-  const rect = section.getBoundingClientRect();
-  const top = Math.max(0, parent.scrollTop + (rect.top - parentRect.top) - 8);
-  parent.scrollTo({ top, behavior });
+  for (const k of Object.keys(tabSections) as TabId[]) {
+    const panel = tabSections[k];
+    const on = k === id;
+    panel.classList.toggle('is-active', on);
+    panel.hidden = !on;
+  }
+
+  // Each tab opens at the top.
+  refs.sideBody.scrollTop = 0;
 }
 
 const initialTab = (() => {
   try { return (localStorage.getItem(TAB_KEY) as TabId) || 'overview'; } catch { return 'overview'; }
 })();
 
-// highlight based on scroll position
-let tabRAF = 0;
-refs.sideBody.addEventListener('scroll', () => {
-  if (tabRAF) return;
-  tabRAF = window.requestAnimationFrame(() => {
-    tabRAF = 0;
-    const st = refs.sideBody.scrollTop;
-    let best: TabId = 'overview';
-    let bestDist = Number.POSITIVE_INFINITY;
-    const parentRect = refs.sideBody.getBoundingClientRect();
-    for (const id of Object.keys(tabSections) as TabId[]) {
-      const rect = tabSections[id].getBoundingClientRect();
-      const top = refs.sideBody.scrollTop + (rect.top - parentRect.top);
-      const dist = Math.abs(top - st);
-      if (dist < bestDist) { bestDist = dist; best = id; }
-    }
-    setActiveTab(best);
-  });
-}, { passive: true });
-
 refs.tabBtnOverview.addEventListener('click', () => scrollToTab('overview'));
 refs.tabBtnBacklog.addEventListener('click', () => scrollToTab('backlog'));
 refs.tabBtnSignals.addEventListener('click', () => scrollToTab('signals'));
 refs.tabBtnHistory.addEventListener('click', () => scrollToTab('history'));
 
-// Initial jump (no smooth) once layout is ready
+// Initial activation once layout is ready
 requestAnimationFrame(() => scrollToTab(initialTab, 'auto'));
 
 // Theme (System / Light / Dark)
