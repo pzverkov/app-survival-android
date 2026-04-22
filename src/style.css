@@ -546,32 +546,35 @@ canvas {
   padding-top: 12px;
   scrollbar-gutter: stable;
   scroll-padding-top: 120px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 14px);
+          mask-image: linear-gradient(to bottom, transparent 0, black 14px);
 }
 
 .sideHeader {
   position: sticky;
   top: 0;
   z-index: 5;
-  padding-bottom: 10px;
   background: var(--md-sys-color-surface-container-high);
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: var(--md-sys-shape-corner-large);
   box-shadow: var(--md-elevation-1);
-  /* Parallax: JS sets --side-scroll to a 0..1 ratio based on .sideBody
-     scrollTop, drifting the entire sticky header block up and fading it
-     slightly as the user scrolls the card list underneath. Opacity delta
-     stays small (0.12) so the buttons/tabs don't look disabled. */
+  /* --side-scroll (0..1) is written by the scroll listener in main.ts.
+     Shaves a few px of bottom padding on top of the h1 collapse below. */
   --side-scroll: 0;
-  transform: translateY(calc(var(--side-scroll) * -8px));
-  opacity: calc(1 - var(--side-scroll) * 0.12);
-  transition: transform 160ms ease-out, opacity 160ms ease-out;
-  will-change: transform, opacity;
+  padding-bottom: calc(10px - var(--side-scroll) * 4px);
+  transition: padding-bottom 160ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .sideHeader {
-    transform: none;
+    padding-bottom: 10px;
+    transition: none;
+  }
+  .sideHeader h1 {
+    max-height: none;
+    margin-bottom: 12px;
     opacity: 1;
+    padding-top: 10px;
     transition: none;
   }
 }
@@ -667,7 +670,21 @@ canvas {
 }
 
 .sideHeader h1 {
-  padding-top: 10px;
+  padding-top: calc(10px - var(--side-scroll) * 10px);
+  /* 64px ceiling covers the ~44px intrinsic height (title + badge + top
+     padding) with slack; multiplying by (1 - ratio) guarantees an exact
+     0 at saturation, which max-height can't reach from content-height.
+     overflow:hidden clips text cleanly during the collapse. */
+  max-height: calc(64px - var(--side-scroll) * 64px);
+  margin-bottom: calc(12px - var(--side-scroll) * 12px);
+  opacity: calc(1 - var(--side-scroll));
+  overflow: hidden;
+  transition:
+    max-height 180ms ease-out,
+    margin-bottom 180ms ease-out,
+    padding-top 180ms ease-out,
+    opacity 180ms ease-out;
+  will-change: max-height, opacity;
 }
 
 .sideHeader .row:last-child {
@@ -802,7 +819,7 @@ h1 {
 
 .statusChip {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   flex: 1 1 auto;
   min-width: 0;
