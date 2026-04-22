@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -6,9 +6,28 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: 'http://127.0.0.1:4173',
-    viewport: { width: 1440, height: 900 },
     trace: 'retain-on-failure',
   },
+  projects: [
+    {
+      name: 'desktop',
+      testIgnore: /mobile-.*\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 900 },
+      },
+    },
+    {
+      // Mobile touch project: only picks up specs under tests/e2e/mobile-*.
+      // Keeps the desktop suite untouched while letting the touch spec
+      // run with real `hasTouch: true` + Pixel 7 viewport.
+      name: 'mobile',
+      testMatch: /mobile-.*\.spec\.ts/,
+      use: {
+        ...devices['Pixel 7'],
+      },
+    },
+  ],
   webServer: {
         // CI often sets VITE_BASE for GitHub Pages (e.g. "/<repo>/").
     // For E2E we always want a root-served app so assets resolve.

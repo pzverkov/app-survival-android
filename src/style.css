@@ -135,6 +135,10 @@
 html, body {
   height: 100%;
   background: var(--md-sys-color-background);
+  /* Block Chrome/Android pull-to-refresh and iOS rubber-band while dragging
+     on the canvas — the canvas itself uses `touch-action: none` but the
+     browser-level overscroll gesture can still reach in. */
+  overscroll-behavior: none;
 }
 
 /* Canvas background tokens (so theme switching is obvious) */
@@ -302,7 +306,9 @@ button, input, select, textarea {
      and become a real dashboard on wide monitors without crushing the canvas. */
   /* Cap the dashboard width on ultrawide monitors so the canvas doesn't get starved. */
   grid-template-columns: minmax(420px, 1fr) minmax(360px, clamp(380px, 30vw, 600px));
-  height: 100vh;
+  /* `100dvh` tracks the live viewport so the layout doesn't jitter as the
+     iOS Safari URL bar collapses/expands. */
+  height: 100dvh;
 }
 
 /* Wide laptops/desktops: give the dashboard a bit more breathing room to reduce vertical scroll. */
@@ -431,6 +437,13 @@ canvas {
   cursor: crosshair;
   background:
     radial-gradient(1200px 700px at 30% 20%, var(--canvas-bg-1), var(--canvas-bg-2));
+  /* Pair with Pointer Events + pointer capture in src/main.ts: disable every
+     browser-built-in touch gesture (pan, pinch-zoom, double-tap-zoom) on the
+     canvas so drags don't get swallowed as a native scroll. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* Right panel (like a persistent “details” sheet) */
@@ -518,8 +531,14 @@ canvas {
   .canvasHud--backlog {
     width: calc(50% - 14px);
     max-width: none;
+    /* Prevent the two HUD islands from stacking past each other on narrow
+       portrait canvases (e.g. phones in ≤38vh mode). The inner list owns
+       the overflow so the capacity bar + backlog card both stay visible. */
+    max-height: 45%;
+    overflow: hidden;
   }
-  .canvasHud--backlog .ticketList { max-height: 24vh; }
+  .canvasHud--actions > * { overflow: auto; }
+  .canvasHud--backlog .ticketList { max-height: 24vh; overflow: auto; }
 }
 
 .sideHeader > * {
@@ -854,6 +873,9 @@ select:hover {
   overflow: clip;
   isolation: isolate;
   transition: transform 120ms ease, filter 120ms ease, background 120ms ease, border-color 120ms ease, box-shadow 160ms ease;
+  /* Kill the mobile 300ms double-tap-to-zoom delay while still allowing
+     pinch-zoom elsewhere on the page. */
+  touch-action: manipulation;
 
   /* Icon + label layout. Every .btn may contain a .btn-icon followed by a
      .btn-label span. Bare-text buttons still work because the flex box is
@@ -1220,6 +1242,21 @@ select:focus-visible {
   }
 }
 
+/* Touch / coarse-pointer devices (phones, tablets) regardless of width.
+   Catches tablets in landscape where width > 520px but input is still touch. */
+@media (pointer: coarse) {
+  /* iOS Safari auto-zooms the viewport when focusing an input whose
+     font-size is below 16px. Bump touch-facing inputs to 16px so focusing
+     the seed/number fields never triggers that zoom. */
+  .input, select, input[type="number"], input[type="text"], input[type="search"] {
+    font-size: 16px;
+  }
+
+  /* Material 3 recommends a 48dp touch target; 44px is the iOS floor. */
+  .btn { min-height: 44px; }
+  .tabBtn { min-height: 40px; }
+}
+
 
 /* RegMatrix UI */
 .regionList { display: flex; flex-direction: column; gap: 8px; }
@@ -1534,7 +1571,9 @@ html.incident-hot #backlogCard {
 .modalPanel {
   position: relative;
   width: min(720px, calc(100vw - 24px));
-  max-height: min(80vh, 720px);
+  /* `dvh` avoids Safari URL-bar clipping — the modal stays fully on-screen
+     when the bar transitions. */
+  max-height: min(80dvh, 720px);
   overflow: auto;
   padding: 14px;
   border-radius: 18px;

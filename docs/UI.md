@@ -53,6 +53,19 @@
 ## Responsive design
 
 - Mobile layout: Canvas takes 38% of viewport height (dashboard gets 62%) on screens under 900px.
-- Touch targets: Canvas HUD buttons enlarged to 44x44px on screens under 520px.
-- Safe areas: `viewport-fit=cover` with `env(safe-area-inset-bottom)` padding for iOS home indicator and Android gesture navigation.
+- Touch targets: Canvas HUD buttons enlarged to 44x44px on screens under 520px. At `@media (pointer: coarse)` all `.btn` get `min-height: 44px` and `.tabBtn` gets `min-height: 40px` so tablets in landscape (width > 520) still get touch-sized targets.
+- Safe areas: `viewport-fit=cover` with `env(safe-area-inset-bottom)` padding for iOS home indicator and Android gesture navigation. `interactive-widget=resizes-content` keeps the fixed HUD in place when the Android keyboard rises.
 - Compact typography: Font sizes scale down at 480px breakpoint. Modals constrain width to `calc(100vw - 16px)`.
+- Dynamic viewport: `.wrap` and `.modalPanel` use `100dvh` / `80dvh` so the layout tracks the live iOS Safari URL-bar chrome instead of jittering.
+- Input zoom lock: On coarse-pointer devices, text/number inputs render at 16px to defeat iOS Safari's focus auto-zoom.
+
+## Canvas input (Pointer Events)
+
+- One event path for mouse, touch, and pen. `pointerdown` on the canvas captures the pointer so drags keep firing even when the finger leaves the canvas rect; `pointerup` / `pointercancel` release capture.
+- Touch gestures:
+  - Tap → select component (or cancel link-pick on empty canvas).
+  - Drag (one finger, Select mode) → move the selected component.
+  - Tap source then tap target (Link / Unlink mode) → commit / remove an edge.
+  - Two-finger pinch → zoom centered on the pinch midpoint. Moving the midpoint while pinching pans the view in the same gesture.
+- Mouse parity: Middle- or right-click drag, or alt+drag, pans the view (suppressed for touch pointers). Wheel zooms about the cursor.
+- Browser gesture suppression: The canvas has `touch-action: none` and `-webkit-touch-callout: none`, and `html,body` have `overscroll-behavior: none` so pull-to-refresh can't trigger during a drag.
