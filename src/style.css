@@ -342,6 +342,25 @@ button, input, select, textarea {
   z-index: 2;
 }
 
+.canvasHud--actions {
+  top: auto;
+  right: auto;
+  left: 10px;
+  bottom: 10px;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(360px, calc(100% - 20px));
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-large);
+  padding: 10px;
+  box-shadow: var(--md-elevation-1);
+}
+
+.canvasHud--actions .btn {
+  padding: 6px 10px;
+}
+
 .btn.hud {
   padding: 6px 10px;
   min-width: 34px;
@@ -435,7 +454,8 @@ canvas {
   color: var(--md-sys-color-on-primary-container);
 }
 
-.tabPanel { display: flex; flex-direction: column; gap: 12px; }
+.tabPanel { display: none; }
+.tabPanel.is-active { display: flex; flex-direction: column; gap: 12px; }
 
 /* Mobile polish: tabs remain usable even when the panel is narrow. */
 @media (max-width: 900px) {
@@ -531,11 +551,9 @@ h1 {
 .capBarFill.is-med { background: var(--color-warn, #d69a1a); }
 .capRow .capBtns { display: flex; gap: 6px; flex-wrap: wrap; }
 .capRow .capBtns .btn { padding: 8px 10px; }
-.capHint { color: var(--md-sys-color-on-surface-variant); }
 
 @media (max-width: 540px) {
   .capRow .capBtns { margin-left:0; width:100%; }
-  .capRow .capRight { margin-left:0; width:100%; white-space:normal; }
 }
 
 /* High-signal metrics block: adapts from 2 cols to 3/4 based on available width */
@@ -552,6 +570,19 @@ h1 {
 
 .metricsGrid--primary .card {
   border-left: 3px solid var(--md-sys-color-primary);
+}
+
+/* Compact variant used inside the sticky status strip. Tighter spacing
+   keeps Budget / Rating / Shift / Score always on screen without
+   crowding the header. */
+.sideHeader .metricsGrid--primary {
+  gap: 6px;
+  padding-top: 4px;
+  padding-bottom: 10px;
+}
+
+.sideHeader .metricsGrid--primary .card {
+  padding: 8px 10px;
 }
 
 .metricsPanel {
@@ -1292,12 +1323,12 @@ html.incident-hot #backlogCard {
 }
 
 .incidentOverlay {
-  position: fixed;
+  position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 16px;
-  z-index: 9999;
-  width: min(440px, calc(100vw - 32px));
+  top: 10px;
+  z-index: 3;
+  width: min(440px, calc(100% - 32px));
   pointer-events: none;
 }
 
@@ -1451,6 +1482,7 @@ html.incident-hot #backlogCard {
 
 @media (max-width: 980px) {
   .incidentOverlay {
+    position: absolute;
     left: 12px;
     right: 12px;
     top: 12px;
