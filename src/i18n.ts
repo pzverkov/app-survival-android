@@ -363,7 +363,7 @@ export const LOCALES: ReadonlyArray<LocaleMeta> = [
   { id: 'hi', label: 'Hindi', nativeLabel: 'हिन्दी', group: 'more', beta: true },
 ];
 
-const META: Record<Lang, LocaleMeta> = Object.fromEntries(LOCALES.map((l) => [l.id, l])) as any;
+const META: Record<Lang, LocaleMeta> = Object.fromEntries(LOCALES.map((l) => [l.id, l])) as Record<Lang, LocaleMeta>;
 const CANONICAL: Record<string, Lang> = Object.fromEntries(LOCALES.map((l) => [l.id.toLowerCase(), l.id]));
 
 // Vite glob: each per-locale module exports a default Dict. The import() is
@@ -388,8 +388,9 @@ function normalizeLocale(input: string): Lang | null {
   if (lower === 'no' || lower.startsWith('no-')) return 'nb';
 
   // Base language match
-  const base = lower.split('-')[0];
-  if (CANONICAL[base]) return CANONICAL[base];
+  const base = lower.split('-')[0]!;
+  const hit = CANONICAL[base];
+  if (hit) return hit;
 
   // Ukrainian: some environments report 'ua'
   if (base === 'ua') return 'uk';
@@ -534,7 +535,7 @@ export function t(key: string, vars?: Record<string, string | number>): string {
   const enHit = templateFor(key, 'en');
   const tmpl = enHit ?? key;
 
-  const isDev = (import.meta as any)?.env?.DEV === true;
+  const isDev = import.meta.env?.DEV === true;
   if (isDev && tmpl === key) warnMissing(key);
 
   if (!vars) return tmpl;
@@ -543,11 +544,11 @@ export function t(key: string, vars?: Record<string, string | number>): string {
 
 // Dev-only missing key warnings (non-fatal)
 function warnMissing(key: string) {
-  const isDev = (import.meta as any)?.env?.DEV === true;
+  const isDev = import.meta.env?.DEV === true;
   if (!isDev) return;
 
-  (window as any).__i18nMissing = (window as any).__i18nMissing || new Set();
-  const s: Set<string> = (window as any).__i18nMissing;
+  window.__i18nMissing = window.__i18nMissing ?? new Set();
+  const s = window.__i18nMissing;
   if (s.has(key)) return;
   s.add(key);
   // eslint-disable-next-line no-console

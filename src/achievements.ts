@@ -1,4 +1,5 @@
-import { EVAL_PRESET, EvalPreset, TicketKind } from './types';
+import { EVAL_PRESET } from './types';
+import type { EvalPreset, TicketKind } from './types';
 import { t } from './i18n';
 
 export type AchievementId = string;
@@ -162,17 +163,18 @@ export function loadPersisted(preset: EvalPreset, storage: AchStorage): AchPersi
   const raw = storage.load(storageKey(preset));
   if (!raw) return defaultPersisted();
   try {
-    const parsed = JSON.parse(raw) as any;
+    const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return defaultPersisted();
+    const obj = parsed as { tiers?: unknown; bestSurvivalSec?: unknown; unlocked?: unknown };
     // New format
-    if (parsed.tiers && typeof parsed.tiers === 'object') {
+    if (obj.tiers && typeof obj.tiers === 'object') {
       return {
-        tiers: { ...(parsed.tiers as Record<string, AchievementTier>) },
-        bestSurvivalSec: Number.isFinite(parsed.bestSurvivalSec) ? parsed.bestSurvivalSec : 0,
+        tiers: { ...(obj.tiers as Record<string, AchievementTier>) },
+        bestSurvivalSec: Number.isFinite(obj.bestSurvivalSec) ? Number(obj.bestSurvivalSec) : 0,
       };
     }
     // Legacy format
-    if (parsed.unlocked && typeof parsed.unlocked === 'object') {
+    if (obj.unlocked && typeof obj.unlocked === 'object') {
       return migrateLegacy(preset, parsed as LegacyPersisted);
     }
     return defaultPersisted();
@@ -524,7 +526,7 @@ export class AchievementsTracker {
         while (next >= 1 && next <= 3) {
           if (!this.shouldUnlockTier(def.id, next as 1 | 2 | 3, ev)) break;
 
-          const tierDef = def.tiers.find(t => t.tier === next) ?? def.tiers[0];
+          const tierDef = def.tiers.find(t => t.tier === next) ?? def.tiers[0]!;
           this.persisted.tiers[def.id] = next;
           unlockedNow.push({
             id: def.id,

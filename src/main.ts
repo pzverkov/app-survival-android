@@ -1,6 +1,7 @@
 import './style.css';
 import { GameSim } from './sim';
-import { MODE, Mode, ComponentType, Ticket, EvalPreset, EVAL_PRESET, RefactorAction } from './types';
+import { MODE, EVAL_PRESET } from './types';
+import type { Mode, ComponentType, Ticket, EvalPreset, RefactorAction } from './types';
 import './entropy';
 import { Sparkline } from './sparkline';
 import {
@@ -11,8 +12,8 @@ import {
   populateLanguageSelect,
   setLanguage,
   t,
-  type Lang,
 } from './i18n';
+import type { Lang } from './i18n';
 
 import type { AchEvent, AchievementUnlock } from './achievements';
 import type * as ScoreboardModule from './scoreboard';
@@ -261,9 +262,7 @@ type UIRefs = {
 function afterFirstPaint(): Promise<void> {
   return new Promise((resolve) => {
     const schedule = () => {
-      const ric = (window as any).requestIdleCallback as
-        | ((cb: () => void, opts?: { timeout: number }) => number)
-        | undefined;
+      const ric = window.requestIdleCallback;
       if (ric) ric(() => resolve(), { timeout: 500 });
       else setTimeout(() => resolve(), 200);
     };
@@ -338,11 +337,11 @@ function integrityGetTamperState(): { tampered: boolean; reason: string | null }
   return { tampered: false, reason: null };
 }
 function integrityMarkTampered(reason: string): void {
-  if (integrityMod) integrityMod.markTampered(reason as any);
+  if (integrityMod) integrityMod.markTampered(reason);
   else pendingTamperReasons.push(reason);
 }
 function integrityClearTamperIf(reasons: string[]): void {
-  if (integrityMod) integrityMod.clearTamperIf(reasons as any);
+  if (integrityMod) integrityMod.clearTamperIf(reasons);
 }
 function integrityIsScoreSane(score: number, durationSec: number, multiplier: number): boolean {
   if (integrityMod) return integrityMod.isScoreSane(score, durationSec, multiplier);
@@ -367,13 +366,13 @@ const sim = new GameSim();
 
 
 // E2E / CI marker (used by Playwright). Keeps tests deterministic and reduces motion flake.
-const IS_E2E = (import.meta as any).env?.VITE_E2E === '1';
-(window as any).__E2E__ = IS_E2E;
+const IS_E2E = import.meta.env.VITE_E2E === '1';
+window.__E2E__ = IS_E2E;
 if (IS_E2E) document.documentElement.classList.add('e2e');
 
 // E2E test hook: expose the sim so scripted tests can fast-forward deterministically
 // without waiting on the 1 Hz wall-clock tick loop. Never exposed in production.
-if (IS_E2E) (window as any).__SIM__ = sim;
+if (IS_E2E) window.__SIM__ = sim;
 
 const refs = bindUI();
 if (IS_E2E) refs.seedInput.value = '12345';
@@ -437,7 +436,7 @@ function persistRunActionLog(runId: string, seed: number, preset: string, log: R
 Promise.all([integrityModPromise, scoreboardModPromise, integrityKeyPromise]).then(async ([iMod, sbMod, key]) => {
   // Drain any markTampered calls that fired before the integrity chunk
   // landed so the badge state matches the real runtime.
-  for (const r of pendingTamperReasons) iMod.markTampered(r as any);
+  for (const r of pendingTamperReasons) iMod.markTampered(r);
   pendingTamperReasons.length = 0;
 
   if (iMod.needsMigration()) {
@@ -622,7 +621,7 @@ function scrollToTab(id: TabId, _behavior: ScrollBehavior = 'smooth') {
     refs.sideBody.scrollTop = 0;
   };
 
-  const startVT = (document as any).startViewTransition;
+  const startVT = document.startViewTransition;
   if (!IS_E2E && typeof startVT === 'function') {
     startVT.call(document, apply);
   } else {
@@ -699,7 +698,11 @@ let openTicketMenuId: number | null = null;
 const expandedTicketTitles = new Set<number>();
 
 function setText(el: HTMLElement, v: string) { if (el.textContent !== v) el.textContent = v; }
-function setHTML(el: HTMLElement, v: string) { if (el.innerHTML !== v) el.innerHTML = v; } // only called with trusted game-generated strings
+// INVARIANT: setHTML is sim-trusted only. Only ever pass values that are
+// (a) primitive sim state interpolated into a hard-coded template literal, or
+// (b) strings already passed through escapeHtml(). Never thread localStorage,
+// URL params, user input, or untyped values directly into here.
+function setHTML(el: HTMLElement, v: string) { if (el.innerHTML !== v) el.innerHTML = v; }
 
 // Buttons now have an SVG <i class="btn-icon"/> + <span class="btn-label"/>
 // structure. Setting textContent on the button directly would obliterate the
@@ -737,8 +740,8 @@ function trapFocus(e: KeyboardEvent): void {
   const modal = e.currentTarget as HTMLElement;
   const focusable = modal.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
   if (!focusable.length) return;
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
+  const first = focusable[0]!;
+  const last = focusable[focusable.length - 1]!;
   if (e.shiftKey && document.activeElement === first) {
     e.preventDefault();
     last.focus();
@@ -1039,9 +1042,9 @@ function renderTickets() {
   }
 
   // Keep overlay action in sync (incident response quick button)
-  if ((refs as any).incidentOverlayRefill) {
-    (refs as any).incidentOverlayRefill.disabled = !canRefill;
-    setBtnLabel((refs as any).incidentOverlayRefill, t('shop.refillCost', { cost: fmtMoneyUSD(shop.refillCost) }));
+  if (refs.incidentOverlayRefill) {
+    refs.incidentOverlayRefill.disabled = !canRefill;
+    setBtnLabel(refs.incidentOverlayRefill, t('shop.refillCost', { cost: fmtMoneyUSD(shop.refillCost) }));
   }
 
   // Capacity progress bar: live fill width + low/med/high color band.
@@ -1263,7 +1266,7 @@ function startTickLoop() {
 const view = { scale: 1, tx: 0, ty: 0 };
 // Expose the live view transform under E2E so touch tests can convert a
 // component's world position to a viewport tap coordinate.
-if (IS_E2E) (window as any).__VIEW__ = view;
+if (IS_E2E) window.__VIEW__ = view;
 let canvasCssW = 1;
 let canvasCssH = 1;
 let canvasDpr = 1;
@@ -1777,6 +1780,10 @@ refs.btnApplyNextRoadmap.onclick = () => {  const steps = sim.getRefactorRoadmap
     return;
   }
   const next = steps[0];
+  if (!next) {
+    toast(t('toast.noRoadmapTicket'));
+    return;
+  }
   sim.applyRefactor(ticketId, next.action);
   syncUI();
 };
@@ -2084,7 +2091,7 @@ function screenToWorld(e: { clientX: number; clientY: number }) {
 
 function hitComponent(x: number, y: number) {
   for (let i = sim.components.length - 1; i >= 0; i--) {
-    const n = sim.components[i];
+    const n = sim.components[i]!;
     const dx = x - n.x;
     const dy = y - n.y;
     if (dx * dx + dy * dy <= n.r * n.r) return n;
@@ -2394,7 +2401,7 @@ function ensurePulseLoop() {
 // and that it self-terminates on pause. The sine phase is pinned to 0.5
 // in IS_E2E (see draw()) so the loop running doesn't make snapshots flaky.
 if (IS_E2E) {
-  (window as any).__PULSE__ = {
+  window.__PULSE__ = {
     get active() { return pulseRafId !== null; },
   };
 }
@@ -2650,7 +2657,7 @@ function syncUI() {
 
   // ZeroDayPulse
   const adv = sim.getAdvisories().filter(a => !a.mitigated).slice(0, 1);
-  setText(refs.advisoryText, adv.length ? t('advisory.active', { title: adv[0].title }) : '');
+  setText(refs.advisoryText, adv.length ? t('advisory.active', { title: adv[0]!.title }) : '');
 
   // --- Integrity: paused-state tamper check --------------------------------
   if (!sim.running && sim.timeSec > 0) {

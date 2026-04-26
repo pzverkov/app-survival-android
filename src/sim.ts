@@ -21,12 +21,15 @@ const COMPONENT_DEPS: Record<string, Array<'net' | 'image' | 'json' | 'auth' | '
   DEEPLINK: ['json'],
 };
 
-import { ACTION_KEYS, ActionDef, ActionKey, Link, MODE, Mode, Component, ComponentDef, ComponentType, Request, Ticket, TicketKind, TicketSeverity, Advisory, PlatformState, RegionState, RegionCode, EvalPreset, EVAL_PRESET, RunResult, EndReason, ScoreBonus, RefactorOption, RefactorAction, ArchViolation, RefactorRoadmapStep } from './types';
+import { ACTION_KEYS, MODE, EVAL_PRESET } from './types';
+import type { ActionDef, ActionKey, Link, Mode, Component, ComponentDef, ComponentType, Request, Ticket, TicketKind, TicketSeverity, Advisory, PlatformState, RegionState, RegionCode, EvalPreset, RunResult, EndReason, ScoreBonus, RefactorOption, RefactorAction, ArchViolation, RefactorRoadmapStep } from './types';
 import { Rng } from './rng';
 import { entropyPool } from './entropy';
-import { tickPlatformPulse as platformPulseTick, tickCoverageGate as coverageGateTick, computeRegionTarget, evaluateCrossCheck, tickRolloutPhase, applyRegionCoupling, tickBaselineProfile, tickPlayIntegrity, type CoverageGateInput, type CrossCheckInput, type RolloutPhase } from './subsystems';
+import { tickPlatformPulse as platformPulseTick, tickCoverageGate as coverageGateTick, computeRegionTarget, evaluateCrossCheck, tickRolloutPhase, applyRegionCoupling, tickBaselineProfile, tickPlayIntegrity } from './subsystems';
+import type { CoverageGateInput, CrossCheckInput, RolloutPhase } from './subsystems';
 import { tickBurnout } from './oncall';
-import { gradePostmortem, type PostmortemGrade } from './postmortem';
+import { gradePostmortem } from './postmortem';
+import type { PostmortemGrade } from './postmortem';
 import { replayActionLog } from './actionlog';
 
 export const ComponentDefs: Record<ComponentType, ComponentDef> = {
@@ -1032,7 +1035,7 @@ export class GameSim {
   private unlinkViolation(key: string): boolean {
     const [a, b] = key.split('->').map(n => Number(n));
     if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
-    return this.unlink(a, b);
+    return this.unlink(a!, b!);
   }
 
   getRefactorOptions(ticketId: number): RefactorOption[] {
@@ -1421,7 +1424,7 @@ export class GameSim {
     if (this.timeSec > 30 && this.timeSec % 210 === 0) {
       if (this.rand() < 0.28) {
         const deps: Advisory['dep'][] = ['net', 'image', 'json', 'auth', 'analytics'];
-        const dep = deps[this.rng.int(0, deps.length - 1)];
+        const dep = deps[this.rng.int(0, deps.length - 1)]!;
         const sev: TicketSeverity = (this.rand() < 0.35 ? 3 : (this.rand() < 0.65 ? 2 : 1)) as TicketSeverity;
 
         // Determine exposure: if any placed component carries this dep, and we lack mitigations
@@ -2177,7 +2180,7 @@ private tickCoverageGate() {
 
   private computeComponentStats(n: Component) {
     const def = ComponentDefs[n.type];
-    const tierMul = [0, 1.0, 1.35, 1.85][n.tier];
+    const tierMul = [0, 1.0, 1.35, 1.85][n.tier]!;
 
     // Throughput scales strongly with tier, but health/down can crush it.
     n.cap = def.baseCap * tierMul * (n.down ? 0 : (0.35 + (n.health / 100) * 0.65));
@@ -2271,7 +2274,7 @@ private tickCoverageGate() {
     if (outs.length === 0) return [];
 
     if (component.type !== 'REPO') {
-      return [outs[0].id];
+      return [outs[0]!.id];
     }
 
     const cache = outs.find(n => n.type === 'CACHE');
@@ -2309,7 +2312,7 @@ private tickCoverageGate() {
     if (reqType === 'SCROLL' && net && this.rand() < 0.55) targets.push(net.id);
     if (reqType === 'SEARCH' && net && this.rand() < 0.20) targets.push(net.id);
 
-    return targets.length ? targets : [outs[0].id];
+    return targets.length ? targets : [outs[0]!.id];
   }
 
 
@@ -2335,7 +2338,7 @@ private tickCoverageGate() {
     ];
 
     penalties.sort((a, b) => b[1] - a[1]);
-    const top = penalties[0];
+    const top = penalties[0]!;
 
     // If everything is fine, you still get the occasional "love it" review.
     if (top[1] < 0.12) {
@@ -2345,7 +2348,7 @@ private tickCoverageGate() {
         'Works great on my device. Finally.',
         'No crashes, no battery drain - chef’s kiss.'
       ];
-      const snippet = positives[this.rng.int(0, positives.length - 1)];
+      const snippet = positives[this.rng.int(0, positives.length - 1)]!;
       this.recentReviews.unshift(snippet);
       this.recentReviews = this.recentReviews.slice(0, 6);
       this.rating = clamp(this.rating + 0.03, 1.0, 5.0);
@@ -2356,7 +2359,7 @@ private tickCoverageGate() {
 
     const sample = Math.round(30 + (this.timeSec / 30) + this.spawnMul * 15);
     const votes = Math.max(1, Math.round(sample * topVal * 0.6));
-    this.votes[topKey] += votes;
+    this.votes[topKey as keyof typeof this.votes] += votes;
 
     // rating nudge (reviews are noisy, so keep it small per wave)
     this.rating = clamp(this.rating - (0.10 * topVal), 1.0, 5.0);
@@ -2545,7 +2548,7 @@ private tickCoverageGate() {
 
     REGION_OUTAGE: () => {
       const regionIdx = this.rng.int(0, this.regions.length - 1);
-      const region = this.regions[regionIdx];
+      const region = this.regions[regionIdx]!;
       region.frozenSec = Math.max(region.frozenSec, 60);
       region.compliance = clamp(region.compliance - 8, 0, 100);
       this.bumpSupport(6);

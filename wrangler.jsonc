@@ -2,6 +2,9 @@
 // Production is served from GitHub Pages (see .github/workflows/deploy.yml).
 // The Cloudflare project's "Production branch" is set to a non-existent branch
 // in the dashboard so main never auto-deploys here.
+//
+// This worker only serves static assets (no Node API surface), so we do not
+// enable nodejs_compat — it would broaden runtime API exposure for no gain.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "app-survival-android",
@@ -12,6 +15,5 @@
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application"
-  },
-  "compatibility_flags": ["nodejs_compat"]
+  }
 }

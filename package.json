@@ -7,6 +7,9 @@
     "dev": "node ./node_modules/vite/bin/vite.js",
     "build": "node ./node_modules/typescript/lib/tsc.js -b && node ./node_modules/vite/bin/vite.js build",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
+    "typecheck": "node ./node_modules/typescript/lib/tsc.js -b --noEmit",
+    "lint": "biome lint ./src ./tests ./scripts",
+    "format": "biome format --write ./src ./tests ./scripts",
     "test": "npm run test:unit && npm run build",
     "test:unit": "node ./node_modules/vitest/dist/cli.js run",
     "test:watch": "node ./node_modules/vitest/dist/cli.js",
@@ -16,9 +19,10 @@
     "test:clean": "pkill -f 'app-survival-android/node_modules/vitest' || true"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2",
-    "typescript": "^6.0.2",
-    "vite": "^8.0.9",
-    "vitest": "^4.1.2"
+    "@biomejs/biome": "^2.0.0",
+    "@playwright/test": "^1.59.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10",
+    "vitest": "^4.1.5"
   }
 }

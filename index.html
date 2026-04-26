@@ -4,6 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta id="themeColor" name="theme-color" content="#0f131c" />
+    <!--
+      Static SPA, so the Content-Security-Policy is shipped as a meta tag.
+      Pass 1 keeps `'unsafe-inline'` for both script-src (Vite injects a
+      build-time locale-preload <script>) and style-src (index.html still
+      uses inline style attributes). Pass 2 will replace the inline preload
+      with an external module and migrate inline styles to CSS classes so
+      both `'unsafe-inline'` allowances can be dropped.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>App Survival: Android Release Night</title>
   </head>
   <body>
