@@ -8,8 +8,10 @@ export class Rng {
 
   /** Returns a float in [0, 1). Deterministic for a given seed + call order. */
   next(): number {
-    // mulberry32
-    let t = (this.state += 0x6D2B79F5);
+    // mulberry32 — keep the state advance and `t` initialisation on separate
+    // lines so the assignment is not embedded inside an expression.
+    this.state = (this.state + 0x6D2B79F5) | 0;
+    let t = this.state;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     const out = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
@@ -26,7 +28,7 @@ export class Rng {
 
   pick<T>(arr: readonly T[]): T {
     if (!arr.length) throw new Error('Rng.pick: empty array');
-    return arr[this.int(0, arr.length - 1)];
+    return arr[this.int(0, arr.length - 1)]!;
   }
 
   chance(p: number): boolean {

@@ -1,4 +1,5 @@
-import { defineConfig, type Plugin, type HtmlTagDescriptor } from 'vite';
+import { defineConfig } from 'vite';
+import type { Plugin, HtmlTagDescriptor } from 'vite';
 
 export default defineConfig(() => {
   // For GitHub Pages under a repo path, set VITE_BASE to "/<repo>/" in CI.
@@ -8,7 +9,10 @@ export default defineConfig(() => {
 
   // GH Actions sets VITE_COMMIT_SHA explicitly; Cloudflare Workers Builds
   // exposes WORKERS_CI_COMMIT_SHA; legacy Cloudflare Pages set CF_PAGES_COMMIT_SHA.
-  const commitSha =
+  // We re-export to VITE_COMMIT_SHA via process.env so Vite's built-in
+  // VITE_-prefix substitution handles the replacement (no manual `define`
+  // needed in Vite 8+).
+  process.env.VITE_COMMIT_SHA =
     process.env.VITE_COMMIT_SHA
     ?? process.env.WORKERS_CI_COMMIT_SHA
     ?? process.env.CF_PAGES_COMMIT_SHA
@@ -20,16 +24,17 @@ export default defineConfig(() => {
       prefetchSmallLazyChunks(['integrity', 'meta'], base),
       preloadUserLocale(base),
     ],
-    define: {
-      'import.meta.env.VITE_COMMIT_SHA': JSON.stringify(commitSha),
-    },
     server: {
       port: 5173,
       strictPort: true
     },
+    css: {
+      transformer: 'lightningcss',
+    },
     build: {
       target: 'es2022',
       cssCodeSplit: true,
+      cssMinify: 'lightningcss',
       // Vite's default modulepreload eagerly prefetches every chunk
       // reachable from the entry, which would re-bundle our lazy chunks
       // back onto the first-paint critical path. We hand-pick what to

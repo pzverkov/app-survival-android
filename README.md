@@ -5,7 +5,7 @@
 [![CodeQL](https://github.com/pzverkov/app-survival-android/actions/workflows/codeql.yml/badge.svg)](https://github.com/pzverkov/app-survival-android/actions/workflows/codeql.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-8.0-646cff?logo=vite&logoColor=white)](https://vite.dev/)
-[![Node.js](https://img.shields.io/badge/Node.js-22_LTS-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-24_LTS-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![Tests](https://img.shields.io/badge/Tests-138_passing-6e9f18?logo=vitest&logoColor=white)](./tests)
 [![Zero Dependencies](https://img.shields.io/badge/Runtime_Deps-0-brightgreen)](./package.json)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue)](./LICENSE)
@@ -48,7 +48,7 @@ The simulation core is written in TypeScript and intentionally kept separate fro
 ## Quick start
 
 Prerequisites
-Node.js 22 LTS or newer is recommended
+Node.js 24 LTS or newer is recommended
 
 Install
 `npm install`

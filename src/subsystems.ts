@@ -68,11 +68,11 @@ export function tickRolloutPhase(input: RolloutInput): { phase: RolloutPhase; pr
   // Promote one step every 60s once qualityProcess clears the bar for that step.
   if (input.timeSec > 0 && input.timeSec % 60 === 0 && phase < 3) {
     const bars = [0.0, 0.25, 0.50];
-    if (input.qualityProcess >= bars[phase]) phase = (phase + 1) as RolloutPhase;
+    if (input.qualityProcess >= bars[phase]!) phase = (phase + 1) as RolloutPhase;
   }
   // Pressure amplifier: closed beta (0) shields the population; 100% (3) fully
   // exposes it. Mid-phases attenuate platform pressure proportionally.
-  const pressureAmplifier = [0.25, 0.5, 0.8, 1.0][phase];
+  const pressureAmplifier = [0.25, 0.5, 0.8, 1.0][phase]!;
   return { phase, pressureAmplifier };
 }
 
@@ -170,7 +170,7 @@ export function tickCoverageGate(input: CoverageGateInput): CoverageGateResult {
     STAFF:      { addTax: 0.70, baseDecay: 0.022, severityW: 1.20 },
     PRINCIPAL:  { addTax: 0.85, baseDecay: 0.026, severityW: 1.35 },
   };
-  const p = PRESETS[input.preset] ?? PRESETS.SENIOR;
+  const p = PRESETS[input.preset] ?? PRESETS.SENIOR!;
 
   if (added > 0) coveragePct = clamp(coveragePct - added * p.addTax, 0, 100);
 

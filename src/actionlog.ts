@@ -64,8 +64,8 @@ export function replayActionLog(input: ReplayInput): ReplayResult {
   let ticks = 0;
   while (ticks < MAX_TICKS) {
     // Apply every action scheduled for this exact tick (in seq order).
-    while (cursor < ordered.length && ordered[cursor].t === sim.timeSec) {
-      applyAction(sim, ordered[cursor]);
+    while (cursor < ordered.length && ordered[cursor]!.t === sim.timeSec) {
+      applyAction(sim, ordered[cursor]!);
       cursor++;
     }
 

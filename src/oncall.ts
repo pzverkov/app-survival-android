@@ -30,7 +30,7 @@ const WINDOW_SEC = 90;
 
 export function tickBurnout(input: BurnoutInput): BurnoutResult {
   const zeroHits = input.zeroHitTimesSec.filter(t => input.timeSec - t < WINDOW_SEC);
-  if (input.capacityCur <= 0 && (zeroHits.length === 0 || input.timeSec - zeroHits[zeroHits.length - 1] >= 5)) {
+  if (input.capacityCur <= 0 && (zeroHits.length === 0 || input.timeSec - zeroHits[zeroHits.length - 1]! >= 5)) {
     zeroHits.push(input.timeSec);
   }
 

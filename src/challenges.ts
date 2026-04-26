@@ -67,7 +67,7 @@ export function getDailyChallenge(): ChallengeDef {
   const m = d.getUTCMonth() + 1;
   const day = d.getUTCDate();
   const idx = (y * 366 + m * 31 + day) % DAILY_TEMPLATES.length;
-  const tmpl = DAILY_TEMPLATES[idx];
+  const tmpl = DAILY_TEMPLATES[idx]!;
   const seed = dateSeed(y, m, day);
 
   return {
@@ -88,7 +88,7 @@ export function getWeeklyChallenge(): ChallengeDef {
   const y = d.getUTCFullYear();
   const wk = weekNumber(d);
   const idx = (y * 53 + wk) % WEEKLY_TEMPLATES.length;
-  const tmpl = WEEKLY_TEMPLATES[idx];
+  const tmpl = WEEKLY_TEMPLATES[idx]!;
   const seed = dateSeed(y, wk, 0);
 
   return {
