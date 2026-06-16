@@ -882,7 +882,7 @@ export class GameSim {
 
     // Higher layers should depend on lower layers: UI(0)->VM(1)->DOMAIN(2)->REPO(3)->DATA(4)
     const upward = a > b;
-    const skip = (b - a) > 1;
+    const skip = Math.abs(b - a) > 1;
 
     if (!upward && !skip) return { ok: true, debtAdd: 0, reason: 'ok', blocksInPrincipal: false };
 
@@ -964,7 +964,7 @@ export class GameSim {
       const la = layer(a.type);
       const lb = layer(b.type);
       const upward = la > lb;
-      const skip = (lb - la) > 1;
+      const skip = Math.abs(lb - la) > 1;
       if (!upward && !skip) continue;
 
       const kind: 'UPWARD' | 'SKIP' | 'UPWARD_SKIP' = upward && skip ? 'UPWARD_SKIP' : upward ? 'UPWARD' : 'SKIP';
@@ -973,7 +973,7 @@ export class GameSim {
         upward ? `${a.type} → ${b.type} (upward dependency)` :
         `${a.type} → ${b.type} (layer skip)`;
 
-      const severityScore = (upward ? 100 : 0) + (skip ? (lb - la) * 10 : 0);
+      const severityScore = (upward ? 100 : 0) + (skip ? Math.abs(lb - la) * 10 : 0);
       out.push({
         key: `${l.from}->${l.to}`,
         fromId: l.from,
