@@ -32,7 +32,7 @@ CI runs a layered scan stack. Findings surface as GitHub alerts or failing check
 
 - Dependabot (.github/dependabot.yml): weekly grouped npm bumps (dev-toolchain, npm-security) and monthly grouped GitHub Actions bumps. Actions stay SHA-pinned; Dependabot rewrites the SHA and version comment.
 - CodeQL (codeql.yml): static analysis of JavaScript/TypeScript and Actions on every push and PR, plus a weekly run.
-- Dependency Review (dependency-review.yml): blocks any PR that introduces a vulnerable or disallowed dependency.
+- Dependency Review (dependency-review.yml): fails any PR that introduces a dependency with a known high or critical vulnerability.
 - Nightly scan (security-nightly.yml): OSV scanner plus npm audit (prod deps, high and above) nightly at 02:17 UTC and on PRs; opens or updates a PR when findings appear.
 - Hardened runners: every workflow pins actions by SHA and runs step-security/harden-runner.
 
